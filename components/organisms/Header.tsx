@@ -1,4 +1,3 @@
-// components/organisms/Header.tsx
 import Link from "next/link";
 import Image from "next/image";
 
@@ -9,15 +8,14 @@ const Header = () => {
         {/* Logo */}
         <Link href="/">
           <Image
-            src="/presteza-logo.svg" // Asegúrate de tener tu logo en la carpeta public/
+            src="https://thumbs.dreamstime.com/b/s%C3%ADmbolo-del-logotipo-restaurante-de-la-comida-con-gorra-chef-cuchillo-cocina-cruzado-e-icono-vector-horquilla-263741713.jpg"
             alt="Presteza Logo"
-            width={200}
-            height={50}
+            width={75}
+            height={75}
             priority
           />
         </Link>
 
-        {/* Menú de navegación */}
         <nav>
           <ul className="flex space-x-8 text-lg">
             <li>

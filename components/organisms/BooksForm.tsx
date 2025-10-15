@@ -1,4 +1,3 @@
-// /components/organisms/ReservasForm.tsx
 import React, { useState } from 'react';
 import FormField from '../molecules/FormField';
 import Button from '../atoms/Button';

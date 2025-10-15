@@ -1,10 +1,10 @@
-// components/templates/HomeTemplate.tsx
 import Image from "next/image";
+import Header from "../organisms/Header";
 
 const HomeTemplate = () => {
   return (
-    <div>
-      {/* Sección con fondo claro y platos */}
+    <div className="bg-red-500">
+      <Header />
       <section className="bg-[#f7f7f7] py-16">
         <div className="max-w-7xl mx-auto px-8 text-center">
           <h2 className="text-4xl font-bold mb-8">Disfruta de Nuestros Platos</h2>

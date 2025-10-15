@@ -1,7 +1,5 @@
-// /components/molecules/FormField.tsx
 import React from 'react';
 import Label from '../atoms/Label';
-import Input from '../atoms/Input';
 
 interface FormFieldProps {
   label: string;
@@ -16,7 +14,7 @@ const FormField: React.FC<FormFieldProps> = ({ label, type, name, value, onChang
   return (
     <div className="mb-4">
       <Label text={label} />
-      <Input type={type} name={name} value={value} onChange={onChange} placeholder={placeholder} />
+      <input type={type} name={name} value={value} onChange={onChange} placeholder={placeholder} className="border border-gray-300 rounded-md p-2 w-full" />
     </div>
   );
 };
