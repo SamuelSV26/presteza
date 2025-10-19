@@ -1,0 +1,59 @@
+@import url('../../styles.css');
+
+/* NAVBAR TRANSPARENTE CON BLUR */
+.glass-navbar {
+  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.15); /* leve transparencia */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  padding: 10px 0;
+  transition: background 0.3s ease;
+}
+
+/* cuando haces scroll, se oscurece un poco */
+.glass-navbar.scrolled {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* LINKS */
+.nav-link {
+  color: #fff;
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  transition: color 0.3s ease, border-bottom 0.3s ease;
+  border-bottom: 2px solid transparent;
+  letter-spacing: 0.5px;
+}
+
+.nav-link:hover {
+  color: #b699ff;
+  border-bottom: 2px solid #b699ff;
+}
+
+/* DROPDOWN */
+.dropdown-menu .dropdown-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* BOTÓN HAMBURGUESA */
+.navbar-toggler:focus {
+  outline: none;
+  box-shadow: none;
+}
+.navbar-toggler i {
+  color: white;
+}
+
+/* RESPONSIVE */
+@media (max-width: 992px) {
+  .navbar-nav {
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+  }
+
+  .nav-link {
+    border: none;
+    margin-bottom: 8px;
+  }
+}
