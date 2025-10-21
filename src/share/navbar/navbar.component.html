@@ -1,0 +1,57 @@
+<nav class="navbar navbar-expand-lg glass-navbar fixed-top">
+  <div class="container">
+    <!-- LOGO -->
+    <a class="navbar-brand fw-bold text-white" (click)="navigateTo('/')">
+      PRESTEZA
+    </a>
+
+    <!-- Botón hamburguesa -->
+    <button
+      class="navbar-toggler border-0 text-white"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#navbarNav"
+      aria-controls="navbarNav"
+      aria-expanded="false"
+      aria-label="Toggle navigation"
+    >
+      <i class="bi bi-list fs-1"></i>
+    </button>
+
+    <!-- Contenido colapsable -->
+    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+      <ul class="navbar-nav align-items-center gap-4">
+        <li class="nav-item">
+          <a class="nav-link" (click)="navigateTo('/')">INICIO</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" (click)="navigateTo('/menu')">MENÚ</a>
+        </li>
+        <li class="nav-item dropdown">
+          <a
+            class="nav-link dropdown-toggle"
+            role="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+          >
+            NUESTRAS SEDES
+          </a>
+          <ul class="dropdown-menu bg-dark bg-opacity-75 border-0 shadow">
+            <li>
+              <a class="dropdown-item text-white" (click)="navigateTo('/sede1')">Bogotá</a>
+            </li>
+            <li>
+              <a class="dropdown-item text-white" (click)="navigateTo('/sede2')">Medellín</a>
+            </li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" (click)="navigateTo('/nosotros')">NOSOTROS</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" (click)="navigateTo('/contacto')">CONTACTO</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
