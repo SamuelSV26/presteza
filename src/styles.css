@@ -1,0 +1,17 @@
+.btn{
+  background-color: #b99afc;
+  color : black;
+  border: none;
+}
+.btn:hover{
+  background-color: #834df9;
+  color: black;
+}
+
+.text-primary-e{
+  color: #4300D2;
+}
+
+
+
+
