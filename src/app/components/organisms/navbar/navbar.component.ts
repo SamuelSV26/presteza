@@ -24,6 +24,22 @@ export class NavbarComponent {
   }
 
   navigateTo(path: string) {
-    this.router.navigate([path]);
+    console.log('Navigating to:', path);
+    this.router.navigate([path]).then((success) => {
+      console.log('Navigation success:', success);
+      // Cerrar el menú móvil si está abierto
+      const navbarNav = document.getElementById('navbarNav');
+      if (navbarNav && navbarNav.classList.contains('show')) {
+        const bsCollapse = (window as any).bootstrap?.Collapse?.getInstance(navbarNav);
+        if (bsCollapse) {
+          bsCollapse.hide();
+        } else {
+          // Fallback: cerrar manualmente
+          navbarNav.classList.remove('show');
+        }
+      }
+    }).catch((error) => {
+      console.error('Navigation error:', error);
+    });
   }
 }

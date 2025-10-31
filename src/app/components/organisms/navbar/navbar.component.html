@@ -27,23 +27,8 @@
         <li class="nav-item">
           <a class="nav-link" [routerLink]="'/menu'" routerLinkActive="active">MENÚ</a>
         </li>
-        <li class="nav-item dropdown">
-          <a
-            class="nav-link dropdown-toggle"
-            role="button"
-            data-bs-toggle="dropdown"
-            aria-expanded="false"
-          >
-            NUESTRAS SEDES
-          </a>
-          <ul class="dropdown-menu bg-dark bg-opacity-75 border-0 shadow">
-            <li>
-              <a class="dropdown-item text-white" (click)="navigateTo('/sede1')">Bogotá</a>
-            </li>
-            <li>
-              <a class="dropdown-item text-white" (click)="navigateTo('/sede2')">Medellín</a>
-            </li>
-          </ul>
+        <li class="nav-item">
+          <a class="nav-link" [routerLink]="'/sede'" routerLinkActive="active" style="cursor: pointer;">NUESTRA SEDE</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" [routerLink]="'/nosotros'" routerLinkActive="active">NOSOTROS</a>
