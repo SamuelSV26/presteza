@@ -1,0 +1,107 @@
+<section class="nosotros-page">
+  <!-- Hero Section -->
+  <div class="hero-section">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <h1 class="hero-title">Sobre Nosotros</h1>
+      <p class="hero-subtitle">Conoce nuestra historia, valores y pasión por la gastronomía</p>
+    </div>
+  </div>
+
+  <!-- Historia Section -->
+  <div class="container py-5">
+    <div class="history-section">
+      <div class="row align-items-center g-5">
+        <div class="col-lg-6">
+          <div class="history-card">
+            <div class="history-icon-wrapper">
+              <i class="bi bi-calendar-check history-icon"></i>
+            </div>
+            <div class="history-year">{{ history.year }}</div>
+            <h2 class="history-title">{{ history.title }}</h2>
+            <p class="history-content">{{ history.content }}</p>
+            <div class="history-milestone">
+              <i class="bi bi-star-fill milestone-icon"></i>
+              <span>{{ history.milestone }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="history-image-card">
+            <div class="history-image-wrapper">
+              <img src="https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=800&q=80" alt="Nuestra Historia" class="history-image">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Valores Section -->
+    <div class="values-section mt-5">
+      <h2 class="section-title text-center mb-5">Nuestros Valores</h2>
+      <div class="row g-4">
+        <div class="col-md-6 col-lg-3" *ngFor="let value of values">
+          <div class="value-card">
+            <div class="value-icon-wrapper">
+              <i [class]="'bi ' + value.icon + ' value-icon'"></i>
+            </div>
+            <h3 class="value-title">{{ value.title }}</h3>
+            <p class="value-description">{{ value.description }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fundadores Section -->
+    <div class="team-section mt-5">
+      <h2 class="section-title text-center mb-5">Fundadores</h2>
+      <div class="row g-4 justify-content-center">
+        <div class="col-md-6 col-lg-4" *ngFor="let member of team">
+          <div class="team-card-wrapper">
+            <div class="team-card">
+              <div class="team-image-wrapper">
+                <img [src]="member.image" [alt]="member.name" class="team-image">
+              </div>
+            </div>
+            <div class="team-content">
+              <h3 class="team-name">{{ member.name }}</h3>
+              <p class="team-role">{{ member.role }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Misión y Visión Section -->
+    <div class="mission-vision-section mt-5">
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <div class="mission-card">
+            <div class="mission-icon-wrapper">
+              <i class="bi bi-bullseye mission-icon"></i>
+            </div>
+            <h2 class="mission-title">Nuestra Misión</h2>
+            <p class="mission-text">
+              Ofrecer experiencias gastronómicas excepcionales que deleiten los sentidos, 
+              utilizando ingredientes de la más alta calidad y técnicas culinarias innovadoras. 
+              Nos comprometemos a crear momentos memorables para cada uno de nuestros comensales.
+            </p>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="vision-card">
+            <div class="vision-icon-wrapper">
+              <i class="bi bi-eye vision-icon"></i>
+            </div>
+            <h2 class="vision-title">Nuestra Visión</h2>
+            <p class="vision-text">
+              Ser reconocidos como el referente gastronómico en la región, destacándonos 
+              por nuestra excelencia, innovación y compromiso con la satisfacción del cliente. 
+              Aspiramos a ser el lugar preferido donde las familias y amigos se reúnen para celebrar.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
