@@ -1,4 +1,4 @@
-@import url('../../styles.css');
+@import url('../../../../styles.css');
 
 /* NAVBAR TRANSPARENTE CON BLUR */
 .glass-navbar {
@@ -7,6 +7,23 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   padding: 10px 0;
   transition: background 0.3s ease;
+}
+
+.glass-navbar .container-fluid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.glass-navbar .navbar-brand {
+  margin-left: 0 !important;
+  padding-left: 0;
+}
+
+.glass-navbar .navbar-collapse {
+  margin-right: 0 !important;
+  padding-right: 0;
 }
 
 /* cuando haces scroll, se oscurece un poco */

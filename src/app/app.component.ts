@@ -1,16 +1,12 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
-import { NavbarComponent } from '../share/navbar/navbar.component';
-import { HomeComponent } from '../home/home.component';
-import { FooterComponent } from '../share/footer/footer.component';
+import { MainLayoutComponent } from './templates/main-layout/main-layout.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, NavbarComponent, HomeComponent,FooterComponent],
+  imports: [MainLayoutComponent],
   templateUrl: './app.component.html',
 })
 export class AppComponent {
-  title = 'project';
-
+  title = 'presteza';
 }

@@ -10,7 +10,7 @@ import { Router, NavigationEnd } from '@angular/router';
   styleUrl: './navbar.component.css'
 })
 export class NavbarComponent {
-@HostListener('window:scroll', [])
+  @HostListener('window:scroll', [])
   onWindowScroll() {
     const navbar = document.querySelector('.glass-navbar');
     if (window.scrollY > 50) {
@@ -23,5 +23,4 @@ export class NavbarComponent {
   navigateTo(path: string) {
     // tu lógica de navegación
   }
-
 }
