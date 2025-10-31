@@ -1,0 +1,84 @@
+.menu-category {
+  margin-bottom: 4rem;
+  animation: fadeInUp 0.8s ease-out both;
+}
+
+.category-title {
+  color: #6b1d3d; /* Vinotinto elegante */
+  font-weight: 800;
+  font-size: 3rem;
+  padding-bottom: 15px;
+  display: inline-block;
+  position: relative;
+  margin-bottom: 2.5rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  animation: slideInLeft 0.6s ease-out both;
+  text-shadow: 
+    2px 2px 4px rgba(0, 0, 0, 0.1),
+    0 0 20px rgba(107, 29, 61, 0.15);
+}
+
+.category-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 120px;
+  height: 5px;
+  background: linear-gradient(90deg, #6b1d3d 0%, #8b2d4f 50%, #9b3d5f 50%, #7b2d4f 50%, #6b1d3d 100%);
+  background-size: 200% 100%;
+  border-radius: 3px;
+  animation: expandWidth 0.8s ease-out 0.3s both, shimmer 4s ease-in-out infinite;
+  box-shadow: 0 2px 8px rgba(107, 29, 61, 0.5);
+}
+
+@keyframes shimmer {
+  0%, 100% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 0%;
+  }
+}
+
+.category-title::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(107, 29, 61, 0.3), transparent);
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes expandWidth {
+  from {
+    width: 0;
+  }
+  to {
+    width: 80px;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

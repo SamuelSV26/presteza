@@ -1,15 +1,38 @@
 .btn{
-  background-color: #b99afc;
-  color : black;
+  background-color: #6b1d3d;
+  color : #ffffff;
   border: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
 }
 .btn:hover{
-  background-color: #834df9;
-  color: black;
+  background-color: #8b2d4f;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(107, 29, 61, 0.4);
 }
 
 .text-primary-e{
-  color: #4300D2;
+  color: #6b1d3d;
+}
+
+/* Forzar color vinotinto en iconos sociales */
+.social-icons i.bi-facebook,
+.social-icons i.bi-instagram,
+.social-icons a i,
+.social-icons a i.bi {
+  color: #6b1d3d !important;
+  fill: #6b1d3d !important;
+  stroke: #6b1d3d !important;
+}
+
+.social-icons a:hover i.bi-facebook,
+.social-icons a:hover i.bi-instagram,
+.social-icons a:hover i,
+.social-icons a:hover i.bi {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 

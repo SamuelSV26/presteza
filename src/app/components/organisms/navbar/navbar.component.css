@@ -41,9 +41,11 @@
   letter-spacing: 0.5px;
 }
 
-.nav-link:hover {
-  color: #b699ff;
-  border-bottom: 2px solid #b699ff;
+.nav-link:hover,
+.nav-link.active {
+  color: #8b2d4f;
+  border-bottom: 2px solid #8b2d4f;
+  text-shadow: 0 1px 4px rgba(107, 29, 61, 0.5);
 }
 
 /* DROPDOWN */

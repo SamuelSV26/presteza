@@ -1,14 +1,13 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LinkComponent } from '../../atoms/link/link.component';
-import { IconComponent } from '../../atoms/icon/icon.component';
 
 @Component({
   selector: 'app-social-icons',
   standalone: true,
-  imports: [CommonModule, LinkComponent, IconComponent],
+  imports: [CommonModule],
   templateUrl: './social-icons.component.html',
-  styleUrl: './social-icons.component.css'
+  styleUrl: './social-icons.component.css',
+  encapsulation: ViewEncapsulation.None
 })
 export class SocialIconsComponent {
   @Input() socialLinks: { name: string; url: string; icon: string }[] = [

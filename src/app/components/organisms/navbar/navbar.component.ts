@@ -1,15 +1,18 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener } from '@angular/core';
-import { Router, NavigationEnd } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { CartComponent } from '../cart/cart.component';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink, CartComponent],
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.css'
 })
 export class NavbarComponent {
+  constructor(private router: Router) {}
+
   @HostListener('window:scroll', [])
   onWindowScroll() {
     const navbar = document.querySelector('.glass-navbar');
@@ -21,6 +24,6 @@ export class NavbarComponent {
   }
 
   navigateTo(path: string) {
-    // tu lógica de navegación
+    this.router.navigate([path]);
   }
 }

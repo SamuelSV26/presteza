@@ -1,0 +1,54 @@
+<section class="menu-category-page">
+  <div class="container py-5">
+    <div class="mb-4">
+      <button class="btn-back" (click)="goBack()">
+        <i class="bi bi-arrow-left"></i>
+        <span>Volver al Menú</span>
+      </button>
+    </div>
+
+    @if (category$ | async; as category) {
+      @if (category) {
+        <div class="text-center mb-5">
+          <h1 class="display-3 fw-bold mb-3">{{ category.name }}</h1>
+          <p class="lead">{{ category.description }}</p>
+        </div>
+      }
+    }
+
+    <div class="row g-4">
+      @if (items$ | async; as items) {
+        @if (items.length > 0) {
+          @for (item of items; track item.id) {
+            <div class="col-md-6 col-lg-4">
+              <div class="product-card" (click)="openCustomizationModal(item)">
+                <app-menu-item
+                  [name]="item.name"
+                  [description]="item.description"
+                  [price]="item.price"
+                  [imageUrl]="item.imageUrl"
+                  [available]="item.available">
+                </app-menu-item>
+              </div>
+            </div>
+          }
+        } @else {
+          <div class="col-12">
+            <div class="text-center py-5">
+              <i class="bi bi-inbox" style="font-size: 4rem; color: #6b1d3d; opacity: 0.5;"></i>
+              <p class="mt-3" style="color: #6b1d3d; font-size: 1.2rem;">No hay productos disponibles en esta categoría</p>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+
+  @if (showCustomizationModal && selectedProduct) {
+    <app-product-customization-modal
+      [product]="selectedProduct"
+      (close)="closeCustomizationModal()"
+      (productAdded)="onProductAdded()">
+    </app-product-customization-modal>
+  }
+</section>

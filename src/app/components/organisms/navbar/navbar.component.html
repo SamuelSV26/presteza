@@ -1,7 +1,7 @@
 <nav class="navbar navbar-expand-lg glass-navbar fixed-top">
   <div class="container-fluid">
     <!-- LOGO -->
-    <a class="navbar-brand fw-bold text-white ms-0" (click)="navigateTo('/')">
+    <a class="navbar-brand fw-bold text-white ms-0" [routerLink]="'/'">
       PRESTEZA
     </a>
 
@@ -22,10 +22,10 @@
     <div class="collapse navbar-collapse justify-content-end me-0" id="navbarNav">
       <ul class="navbar-nav align-items-center gap-4">
         <li class="nav-item">
-          <a class="nav-link" (click)="navigateTo('/')">INICIO</a>
+          <a class="nav-link" [routerLink]="'/'" routerLinkActive="active">INICIO</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" (click)="navigateTo('/menu')">MENÚ</a>
+          <a class="nav-link" [routerLink]="'/menu'" routerLinkActive="active">MENÚ</a>
         </li>
         <li class="nav-item dropdown">
           <a
@@ -46,12 +46,15 @@
           </ul>
         </li>
         <li class="nav-item">
-          <a class="nav-link" (click)="navigateTo('/nosotros')">NOSOTROS</a>
+          <a class="nav-link" [routerLink]="'/nosotros'" routerLinkActive="active">NOSOTROS</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link" (click)="navigateTo('/contacto')">CONTACTO</a>
-        </li>
-      </ul>
-    </div>
-  </div>
-</nav>
+                <li class="nav-item">
+                  <a class="nav-link" [routerLink]="'/contacto'" routerLinkActive="active">CONTACTO</a>
+                </li>
+                <li class="nav-item">
+                  <app-cart></app-cart>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </nav>

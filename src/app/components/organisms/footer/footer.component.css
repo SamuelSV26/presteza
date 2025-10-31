@@ -1,28 +1,25 @@
 .footer {
   background-color: #fff;
-  color: #222;
-  border-top: 1px solid #eee;
+  color: #4a0f28;
+  border-top: 2px solid rgba(107, 29, 61, 0.2);
   position: relative;
 }
 
 .footer a {
-  color: #000;
+  color: #6b1d3d;
   text-decoration: none;
   transition: color 0.3s ease;
+  font-weight: 500;
 }
 
 .footer a:hover {
-  color: #6f42c1; /* tono morado suave */
+  color: #8b2d4f;
 }
 
-.social-icons i {
-  font-size: 1.5rem;
-  color: #000;
-  transition: color 0.3s ease;
-}
 
-.social-icons i:hover {
-  color: #6f42c1;
+.footer h5 {
+  color: #6b1d3d;
+  font-weight: 700;
 }
 
 .whatsapp-float {

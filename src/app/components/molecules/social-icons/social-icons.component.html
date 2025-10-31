@@ -1,7 +1,7 @@
 <div class="social-icons mb-3">
   @for (link of socialLinks; track link.name) {
-    <a [href]="link.url" class="me-3">
-      <app-icon [name]="link.icon" size="1.5rem"></app-icon>
+    <a [href]="link.url" [attr.aria-label]="link.name" style="display: inline-flex; align-items: center; justify-content: center; width: 45px; height: 45px; border-radius: 50%; background: rgba(107, 29, 61, 0.1); border: 2px solid rgba(107, 29, 61, 0.3); text-decoration: none; transition: all 0.3s ease;">
+      <i [class]="'bi bi-' + link.icon" style="color: #6b1d3d !important; font-size: 1.5rem; display: block;"></i>
     </a>
   }
 </div>
