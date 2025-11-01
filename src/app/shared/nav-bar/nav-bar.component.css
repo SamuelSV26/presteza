@@ -1,12 +1,20 @@
+<<<<<<<< Updated upstream:src/share/navbar/navbar.component.css
 @import url('../../styles.css');
+========
+@import url('../../../styles.css');
+>>>>>>>> Stashed changes:src/app/shared/nav-bar/nav-bar.component.css
 
 /* NAVBAR TRANSPARENTE CON BLUR */
 .glass-navbar {
   backdrop-filter: blur(10px);
-  background: rgba(0, 0, 0, 0.15); /* leve transparencia */
+  background: rgba(0, 0, 0, 0.358); /* leve transparencia */
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   padding: 10px 0;
+<<<<<<<< Updated upstream:src/share/navbar/navbar.component.css
   transition: background 0.3s ease;
+========
+  transition:  0.3s ease;
+>>>>>>>> Stashed changes:src/app/shared/nav-bar/nav-bar.component.css
 }
 
 /* cuando haces scroll, se oscurece un poco */
@@ -25,14 +33,15 @@
 }
 
 .nav-link:hover {
+<<<<<<<< Updated upstream:src/share/navbar/navbar.component.css
   color: #b699ff;
   border-bottom: 2px solid #b699ff;
+========
+  color: #662626;
+  border-bottom: 2px solid #662626;
+>>>>>>>> Stashed changes:src/app/shared/nav-bar/nav-bar.component.css
 }
 
-/* DROPDOWN */
-.dropdown-menu .dropdown-item:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
 
 /* BOTÓN HAMBURGUESA */
 .navbar-toggler:focus {

@@ -3,7 +3,7 @@
   top: 0;
   left: 0;
   width: 100%;
-  height: 80vh; /* Usa vh en lugar de porcentaje */
+  height: 80vh;
   overflow: hidden;
   z-index: 0;
 }
@@ -13,15 +13,15 @@
   top: 50%;
   left: 50%;
   width: 100vw;
-  height: 56.25vw; /* relación 16:9 */
-  min-height: 80vh; /* que coincida con el contenedor */
-  min-width: 142.22vh; /* ajustado para mantener proporción */
+  height: 56.25vw;
+  min-height: 80vh;
+  min-width: 142.22vh;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
 .overlay-content {
-  position: absolute; /* sigue encima del video */
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
