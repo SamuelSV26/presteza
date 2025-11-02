@@ -1,0 +1,61 @@
+.video-background {
+  position: relative;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 80vh;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.video-background iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100vw;
+  height: 56.25vw;
+  min-height: 80vh;
+  min-width: 142.22vh;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.overlay-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  text-align: center;
+  z-index: 1;
+}
+.valores {
+  background-color: #fff;
+  padding: 4rem 0;
+  position: relative;
+  z-index: 1;
+}
+
+.icono {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.icono:hover {
+  transform: scale(1.1);
+}
+
+.valores p {
+  color: #555;
+  font-size: 1rem;
+  line-height: 1.6;
+  max-width: 90%;
+  margin: 0 auto;
+}

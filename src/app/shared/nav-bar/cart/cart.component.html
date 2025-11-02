@@ -1,0 +1,65 @@
+<div class="cart-container">
+  <button class="cart-button" (click)="toggleCart()" type="button" aria-label="Abrir carrito">
+    <i class="bi bi-cart3"></i>
+    <ng-container *ngIf="(totalItems$ | async) as totalItems">
+      <span *ngIf="totalItems > 0" class="cart-badge">{{ totalItems }}</span>
+    </ng-container>
+  </button>
+
+  <div *ngIf="showCartDropdown" class="cart-dropdown" role="dialog" aria-label="Carrito">
+    <div class="cart-header">
+      <h5 class="cart-title">Carrito</h5>
+      <button class="btn-close-cart" (click)="toggleCart()">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="cart-body">
+      <ng-container *ngIf="(cartItems$ | async) as items">
+        <div *ngIf="items.length === 0" class="empty-cart">
+          <i class="bi bi-cart-x"></i>
+          <p>Tu carrito está vacío</p>
+        </div>
+
+        <div *ngIf="items.length > 0" class="cart-items-wrapper">
+          <div class="cart-items">
+            <div class="cart-item" *ngFor="let item of items; trackBy: trackById">
+              <div class="item-info">
+                <h6 class="item-name">{{ item.productName }}</h6>
+                <div *ngIf="(item.selectedOptions?.length ?? 0) > 0" class="item-options">
+                  <span class="option-tag" *ngFor="let option of item.selectedOptions ?? []">{{ option.name }}</span>
+                </div>
+                <div class="item-price">{{ item.totalPrice | currency:'COP':'symbol':'1.0-0' }}</div>
+              </div>
+
+              <div class="item-controls">
+                <div class="quantity-controls">
+                  <button class="quantity-btn" (click)="updateQuantity(item.id, item.quantity - 1)" [disabled]="item.quantity <= 1">
+                    <i class="bi bi-dash"></i>
+                  </button>
+                  <span class="quantity-value">{{ item.quantity }}</span>
+                  <button class="quantity-btn" (click)="updateQuantity(item.id, item.quantity + 1)">
+                    <i class="bi bi-plus"></i>
+                  </button>
+                </div>
+                <button class="btn-remove-item" (click)="removeItem(item.id)">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="cart-footer">
+            <div class="cart-total">
+              <span class="total-label">Total:</span>
+              <span class="total-value">
+                <ng-container *ngIf="(totalPrice$ | async) as totalPrice">{{ totalPrice | currency:'COP':'symbol':'1.0-0' }}</ng-container>
+              </span>
+            </div>
+            <button class="btn-checkout" (click)="clearCart()">Finalizar Pedido</button>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,52 @@
+<nav class="navbar navbar-expand-lg glass-navbar fixed-top">
+  <div class="container">
+    <!-- LOGO -->
+    <a class="navbar-brand fw-bold text-white" (click)="navigateTo('/')">
+      PRESTEZA
+    </a>
+
+    <!-- Contenido colapsable -->
+    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+      <ul class="navbar-nav align-items-center gap-4">
+        <li class="nav-item">
+          <a class="nav-link" role="button" (click)="navigateTo('/')">INICIO</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" role="button" (click)="navigateTo('/menu')"
+            >MENÚ</a
+          >
+        </li>
+        <li class="nav-item">
+          <a
+            class="nav-link"
+            role="button"
+            aria-expanded="false"
+            (click)="navigateTo('/sede')"
+          >
+            NUESTRA SEDE
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" role="button" (click)="navigateTo('/nosotros')"
+            >NOSOTROS</a
+          >
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" role="button" (click)="navigateTo('/contacto')">CONTACTO</a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link account-btn" role="button" (click)="onAccountClick()">
+            <i class="bi bi-person-circle "></i>
+            {{ userName ? userName : 'INGRESAR' }}
+          </a>
+        </li>
+
+        <!-- carrito -->
+        <li class="nav-item d-flex align-items-center">
+          <app-cart></app-cart>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>

@@ -1,0 +1,56 @@
+<section class="menu-category-page">
+  <div class="container py-5">
+    <div class="mb-4">
+      <button class="btn-back" (click)="goBack()">
+        <i class="bi bi-arrow-left"></i>
+        <span>Volver al Menú</span>
+      </button>
+    </div>
+
+    <ng-container *ngIf="category$ | async as category">
+      <ng-container *ngIf="category">
+        <div class="text-center mb-5">
+          <h1 class="display-3 fw-bold mb-3">{{ category.name }}</h1>
+          <p class="lead">{{ category.description }}</p>
+        </div>
+      </ng-container>
+    </ng-container>
+
+    <div class="row g-4">
+      <ng-container *ngIf="items$ | async as items">
+        <ng-container *ngIf="items.length > 0; else noItems">
+          <div class="col-md-6 col-lg-4" *ngFor="let item of items">
+            <div class="product-card" (click)="openCustomizationModal(item)">
+              <app-menu-item
+                [name]="item.name"
+                [description]="item.description"
+                [price]="item.price"
+                [imageUrl]="item.imageUrl"
+                [available]="item.available">
+              </app-menu-item>
+            </div>
+          </div>
+        </ng-container>
+
+        <ng-template #noItems>
+          <div class="col-12">
+            <div class="text-center py-5">
+              <i class="bi bi-inbox" style="font-size: 4rem; color: #6b1d3d; opacity: 0.5;"></i>
+              <p class="mt-3" style="color: #6b1d3d; font-size: 1.2rem;">
+                No hay productos disponibles en esta categoría
+              </p>
+            </div>
+          </div>
+        </ng-template>
+      </ng-container>
+    </div>
+  </div>
+
+  <ng-container *ngIf="showCustomizationModal && selectedProduct">
+    <app-product-customization-modal
+      [product]="selectedProduct"
+      (close)="closeCustomizationModal()"
+      (productAdded)="onProductAdded()">
+    </app-product-customization-modal>
+  </ng-container>
+</section>
