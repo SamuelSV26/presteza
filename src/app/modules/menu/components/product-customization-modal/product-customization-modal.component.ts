@@ -1,8 +1,8 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MenuItem, ProductOption } from '../../../core/services/menu.service';
-import { CartService, CartItemOption } from '../../../core/services/cart.service';
+import { MenuItem, ProductOption } from '../../../../core/services/menu.service';
+import { CartItemOption, CartService } from '../../../../core/services/cart.service';
 
 interface SelectedOption {
   option: ProductOption;

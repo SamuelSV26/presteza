@@ -1,62 +1,4 @@
-@import url('../../../styles.css');
-
-/* NAVBAR TRANSPARENTE CON BLUR */
-.glass-navbar {
-  backdrop-filter: blur(10px);
-  background: rgba(0, 0, 0, 0.358);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  padding: 10px 0;
-  transition: 0.3s ease;
-}
-
-.glass-navbar.scrolled {
-  background: rgba(0, 0, 0, 0.4);
-}
-
-/* BRAND */
-.navbar-brand {
-  color: #fff;
-  font-weight: 700;
-}
-
-/* LINKS */
-.nav-link {
-  color: #fff;
-  font-weight: 600;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
-  transition: color 0.3s ease, border-bottom 0.3s ease;
-  border-bottom: 2px solid transparent;
-  letter-spacing: 0.5px;
-}
-
-.nav-link:hover {
-  color: #662626;
-  border-bottom: 2px solid #662626;
-}
-
-/* BOTÓN HAMBURGUESA */
-.navbar-toggler:focus {
-  outline: none;
-  box-shadow: none;
-}
-.navbar-toggler i {
-  color: white;
-}
-
-/* RESPONSIVE */
-@media (max-width: 992px) {
-  .navbar-nav {
-    background: rgba(0, 0, 0, 0.8);
-    border-radius: 10px;
-    padding: 15px;
-    text-align: center;
-  }
-
-  .nav-link {
-    border: none;
-    margin-bottom: 8px;
-  }
-  .menu-item {
+.menu-item {
   border: none;
   border-radius: 24px;
   overflow: hidden;
@@ -331,5 +273,4 @@
     opacity: 1;
     transform: translateY(0);
   }
-}
 }

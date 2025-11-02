@@ -8,7 +8,7 @@ import { Observable } from 'rxjs';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './cart.component.html',
-  styleUrl: './cart.component.css'
+  styleUrls: ['./cart.component.css']
 })
 export class CartComponent implements OnInit {
   cartItems$!: Observable<CartItem[]>;
@@ -33,10 +33,16 @@ export class CartComponent implements OnInit {
   }
 
   updateQuantity(itemId: string, quantity: number): void {
+    if (quantity < 1) return;
     this.cartService.updateQuantity(itemId, quantity);
   }
 
   clearCart(): void {
     this.cartService.clearCart();
+    this.showCartDropdown = false;
+  }
+
+  trackById(index: number, item: CartItem) {
+    return item.id;
   }
 }

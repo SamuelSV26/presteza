@@ -1,11 +1,12 @@
-import { Component, HostListener, ElementRef } from '@angular/core';
+import { Component, HostListener, ElementRef, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { CartComponent } from './cart/cart.component';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CartComponent],
   templateUrl: './nav-bar.component.html',
   styleUrls: ['./nav-bar.component.css']
 })
@@ -27,7 +28,6 @@ export class NavbarComponent {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: Event) {
-    // cierra el dropdown si se hace click fuera del componente
     const target = event.target as Node;
     if (!this.el.nativeElement.contains(target)) {
       this.sedesOpen = false;
@@ -48,4 +48,11 @@ export class NavbarComponent {
   navigateTo(path: string) {
     this.router.navigate([path]);
   }
+
+  @Input() name: string = '';
+  @Input() description: string = '';
+  @Input() price: number = 0;
+  @Input() imageUrl: string | undefined = '';
+  @Input() available: boolean = true;
 }
+

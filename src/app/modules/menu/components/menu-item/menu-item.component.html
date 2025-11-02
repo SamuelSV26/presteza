@@ -1,0 +1,22 @@
+<div class="menu-item card h-100" [class.unavailable]="!available">
+  <div class="card-img-top">
+    <ng-container *ngIf="imageUrl; else noImage">
+      <img [src]="imageUrl" [alt]="name" />
+    </ng-container>
+
+    <ng-template #noImage>
+      <div class="image-placeholder">
+        <i class="bi bi-image" style="font-size: 3rem; color: rgba(107, 29, 61, 0.5)"></i>
+      </div>
+    </ng-template>
+  </div>
+
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start mb-2">
+      <h5 class="card-title mb-0">{{ name }}</h5>
+      <span class="badge bg-primary price-badge">{{ price | currency:'COP':'symbol':'1.0-0' }}</span>
+    </div>
+    <p class="card-text">{{ description }}</p>
+    <span *ngIf="!available" class="badge bg-danger">No disponible</span>
+  </div>
+</div>

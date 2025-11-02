@@ -1,11 +1,11 @@
+import { MenuItemComponent } from '../menu-item/menu-item.component';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MenuService, MenuItem, MenuCategory } from '../../../core/services/menu.service';
-import { ProductCustomizationModalComponent } from '../../../components/organisms/product-customization-modal/product-customization-modal.component';
-import { MenuItemComponent } from '../../../components/molecules/menu-item/menu-item.component';
+import { MenuService, MenuItem, MenuCategory } from '../../../../core/services/menu.service';
 import { Observable } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
+import { ProductCustomizationModalComponent } from '../product-customization-modal/product-customization-modal.component';
 
 @Component({
   selector: 'app-menu-category',

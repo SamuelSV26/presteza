@@ -2,7 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { HomeComponent } from './modules/home/home.component'; // ajusta la ruta si tu carpeta es distinta
 import { MenuComponent } from './modules/menu/menu.component';
-import { MenuCategoryComponent } from './modules/menu/menu-category/menu-category.component';
+import { MenuCategoryComponent } from './modules/menu/components/menu-category/menu-category.component';
 import { SedeComponent } from './modules/sede/sede.component';
 
 export const routes: Routes = [

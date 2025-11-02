@@ -5,10 +5,9 @@
       <div class="col-md-4 mb-4 mb-md-0">
         <h5 class="fw-bold mb-3">Acceso Rápido</h5>
         <ul class="list-unstyled">
-          <li><a href="#">Inicio</a></li>
-          <li><a href="#">Nosotros</a></li>
-          <li><a href="#">Política de Tratamiento de Datos</a></li>
-          <li><a href="#">Contacto</a></li>
+          <li><a role="button" (click)="navigateTo('home')">Inicio</a></li>
+          <li><a role="button" (click)="navigateTo('contact')">Contacto</a></li>
+          <li><a role="button" (click)="navigateTo('menu')">Menú</a></li>
         </ul>
       </div>
 
@@ -16,8 +15,8 @@
       <div class="col-md-4 mb-4 mb-md-0">
         <h5 class="fw-bold mb-3">Visítanos</h5>
         <ul class="list-unstyled">
-          <li><a href="#">Nuestra Sede</a></li>
-          <li><a href="#">Sede Manizales – Milán</a></li>
+            <li class="fw-semibold">Nuestra Sede</li>
+          <li><a role="button" (click)="navigateTo('sede')">Sede Manizales – Milán</a></li>
         </ul>
       </div>
 

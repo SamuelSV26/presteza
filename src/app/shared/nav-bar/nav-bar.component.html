@@ -12,7 +12,9 @@
           <a class="nav-link" role="button" (click)="navigateTo('/')">INICIO</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" role="button" (click)="navigateTo('/menu')">MENÚ</a>
+          <a class="nav-link" role="button" (click)="navigateTo('/menu')"
+            >MENÚ</a
+          >
         </li>
         <li class="nav-item">
           <a
@@ -23,8 +25,15 @@
           >
             NUESTRA SEDE
           </a>
+        </li>
+
         <li class="nav-item">
           <a class="nav-link" role="button" (click)="navigateTo('/contacto')">CONTACTO</a>
+        </li>
+
+        <!-- carrito -->
+        <li class="nav-item d-flex align-items-center">
+          <app-cart></app-cart>
         </li>
       </ul>
     </div>
