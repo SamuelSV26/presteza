@@ -26,9 +26,20 @@
             NUESTRA SEDE
           </a>
         </li>
-
+        <li class="nav-item">
+          <a class="nav-link" role="button" (click)="navigateTo('/nosotros')"
+            >NOSOTROS</a
+          >
+        </li>
         <li class="nav-item">
           <a class="nav-link" role="button" (click)="navigateTo('/contacto')">CONTACTO</a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link account-btn" role="button" (click)="onAccountClick()">
+            <i class="bi bi-person-circle "></i>
+            {{ userName ? userName : 'INGRESAR' }}
+          </a>
         </li>
 
         <!-- carrito -->

@@ -8,12 +8,17 @@ import { CartComponent } from './cart/cart.component';
   standalone: true,
   imports: [CommonModule, CartComponent],
   templateUrl: './nav-bar.component.html',
-  styleUrls: ['./nav-bar.component.css']
+  styleUrls: ['./nav-bar.component.css'],
 })
 export class NavbarComponent {
   sedesOpen = false;
   selectedSede = '';
+  userName: string | null = null;
 
+  ngOnInit() {
+    const storedUser = localStorage.getItem('userName');
+    this.userName = storedUser ? storedUser : null;
+  }
   constructor(private router: Router, private el: ElementRef) {}
 
   @HostListener('window:scroll', [])
@@ -49,10 +54,17 @@ export class NavbarComponent {
     this.router.navigate([path]);
   }
 
+  onAccountClick() {
+    if (this.userName) {
+      this.router.navigate(['/perfil']);
+    } else {
+      this.router.navigate(['/login']);
+    }
+  }
+
   @Input() name: string = '';
   @Input() description: string = '';
   @Input() price: number = 0;
   @Input() imageUrl: string | undefined = '';
   @Input() available: boolean = true;
 }
-

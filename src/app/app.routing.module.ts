@@ -4,6 +4,7 @@ import { HomeComponent } from './modules/home/home.component'; // ajusta la ruta
 import { MenuComponent } from './modules/menu/menu.component';
 import { MenuCategoryComponent } from './modules/menu/components/menu-category/menu-category.component';
 import { SedeComponent } from './modules/sede/sede.component';
+import { NosotrosComponent } from './modules/nosotros/nosotros.component';
 
 export const routes: Routes = [
   {
@@ -26,6 +27,10 @@ export const routes: Routes = [
   {
     path: 'sede',
     component: SedeComponent
+  },
+  {
+    path: 'nosotros',
+    component: NosotrosComponent
   }
 ];
 
