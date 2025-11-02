@@ -9,7 +9,7 @@ import { FooterComponent } from './shared/footer/footer.component';
   standalone: true,
   imports: [CommonModule, RouterModule, NavbarComponent, FooterComponent],
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.scss']
+  styleUrls: ['./app.component.css']
 })
 export class AppComponent {
   constructor(private router: Router) {
