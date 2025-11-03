@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { HomeComponent } from './modules/home/home.component';
 import { MenuComponent } from './modules/menu/menu.component';
 import { MenuCategoryComponent } from './modules/menu/components/menu-category/menu-category.component';
+import { ProductDetailComponent } from './modules/menu/components/product-detail/product-detail.component';
 import { SedeComponent } from './modules/sede/sede.component';
 import { NosotrosComponent } from './modules/nosotros/nosotros.component';
 import { ContactoComponent } from './modules/contacto/contacto.component';
@@ -30,6 +31,10 @@ export const routes: Routes = [
   {
     path: 'menu/:id',
     component: MenuCategoryComponent
+  },
+  {
+    path: 'menu/producto/:id',
+    component: ProductDetailComponent
   },
   {
     path: 'sede',

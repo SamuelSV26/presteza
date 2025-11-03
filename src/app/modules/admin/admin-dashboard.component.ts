@@ -42,7 +42,7 @@ export class AdminDashboardComponent implements OnInit {
   productViewMode: 'grid' | 'list' = 'list';
 
   // Configuración
-  settingsForm: FormGroup;
+  settingsForm!: FormGroup;
 
   // Contadores de pedidos por estado
   get pendingOrdersCount(): number {
