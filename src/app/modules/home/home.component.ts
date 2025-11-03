@@ -107,6 +107,10 @@ export class HomeComponent implements OnInit {
     this.router.navigate(['/menu']);
   }
 
+  navigateToProductDetail(productId: number): void {
+    this.router.navigate(['/menu/producto', productId]);
+  }
+
   navigateToCategory(categoryId: string) {
     this.router.navigate(['/menu', categoryId]);
   }

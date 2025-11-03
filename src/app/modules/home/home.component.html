@@ -87,7 +87,7 @@
             <div class="product-image-wrapper">
               <img [src]="product.imageUrl" [alt]="product.name" class="product-image" />
               <div class="product-overlay">
-                <button class="product-btn" (click)="navigateToMenu()">
+                <button class="product-btn" (click)="navigateToProductDetail(product.id)">
                   <i class="bi bi-eye"></i>
                   Ver Detalles
                 </button>
