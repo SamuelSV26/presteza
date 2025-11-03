@@ -6,6 +6,7 @@ import { MenuCategoryComponent } from './modules/menu/components/menu-category/m
 import { SedeComponent } from './modules/sede/sede.component';
 import { NosotrosComponent } from './modules/nosotros/nosotros.component';
 import { ContactoComponent } from './modules/contacto/contacto.component';
+import { RegistroComponent } from './modules/registro/registro.component';
 
 export const routes: Routes = [
   {
@@ -36,6 +37,10 @@ export const routes: Routes = [
   {
     path: 'contacto',
     component: ContactoComponent
+  },
+  {
+    path: 'registro',
+    component: RegistroComponent
   }
 ];
 

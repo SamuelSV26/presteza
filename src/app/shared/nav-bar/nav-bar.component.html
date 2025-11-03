@@ -35,11 +35,74 @@
           <a class="nav-link" role="button" (click)="navigateTo('/contacto')">CONTACTO</a>
         </li>
 
-        <li class="nav-item">
-          <a class="nav-link account-btn" role="button" (click)="onAccountClick()">
-            <i class="bi bi-person-circle "></i>
-            {{ userName ? userName : 'INGRESAR' }}
+        <li class="nav-item account-item">
+          <!-- Overlay sutil cuando el modal está abierto -->
+          <div *ngIf="showLoginModal" class="login-overlay-backdrop" (click)="closeLoginModal()"></div>
+          
+          <a class="nav-link account-btn" role="button" (click)="onAccountClick($event)">
+            <i class="bi bi-person-circle"></i>
           </a>
+          
+          <!-- Modal de Inicio de Sesión -->
+          <div *ngIf="showLoginModal" class="login-modal-dropdown" (click)="$event.stopPropagation()">
+            <div class="login-modal">
+              <button class="login-modal-close" (click)="closeLoginModal()">
+                <i class="bi bi-x-lg"></i>
+              </button>
+              <div class="login-modal-header">
+                <div class="login-modal-icon-wrapper">
+                  <i class="bi bi-person-circle"></i>
+                </div>
+                <h2 class="login-modal-title">Iniciar Sesión</h2>
+              </div>
+              <form class="login-modal-form" (ngSubmit)="onLoginSubmit()">
+                <div class="form-group">
+                  <label for="email" class="form-label">
+                    <i class="bi bi-envelope-fill"></i>
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    class="form-control"
+                    placeholder="tu@email.com"
+                    [(ngModel)]="loginEmail"
+                    name="email"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="password" class="form-label">
+                    <i class="bi bi-lock-fill"></i>
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    class="form-control"
+                    placeholder="Ingresa tu contraseña"
+                    [(ngModel)]="loginPassword"
+                    name="password"
+                    required
+                  />
+                </div>
+                <div class="login-modal-options">
+                  <label class="remember-me">
+                    <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" />
+                    <span>Recordarme</span>
+                  </label>
+                  <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
+                </div>
+                <button type="submit" class="login-submit-btn">
+                  <span>Iniciar Sesión</span>
+                  <i class="bi bi-arrow-right"></i>
+                </button>
+              </form>
+              <div class="login-modal-footer">
+                <button class="register-btn" (click)="navigateToRegistro()">
+                  ¿No tienes una cuenta? <strong>Regístrate aquí</strong>
+                </button>
+              </div>
+            </div>
+          </div>
         </li>
 
         <!-- carrito -->
