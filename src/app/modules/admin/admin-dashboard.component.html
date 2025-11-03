@@ -1,0 +1,540 @@
+<section class="admin-dashboard">
+  <div class="admin-container-wrapper">
+    <div class="container-fluid admin-container">
+    <!-- Sidebar de Navegación -->
+    <div class="admin-sidebar">
+      <nav class="admin-nav">
+        <button 
+          class="nav-item" 
+          [class.active]="activeTab === 'dashboard'"
+          (click)="setActiveTab('dashboard')">
+          <i class="bi bi-speedometer2"></i>
+          <span>Dashboard</span>
+        </button>
+        <button 
+          class="nav-item" 
+          [class.active]="activeTab === 'products'"
+          (click)="setActiveTab('products')">
+          <i class="bi bi-box-seam"></i>
+          <span>Productos</span>
+          <span class="badge">{{ stats.totalProducts }}</span>
+        </button>
+        <button 
+          class="nav-item" 
+          [class.active]="activeTab === 'orders'"
+          (click)="setActiveTab('orders')">
+          <i class="bi bi-receipt-cutoff"></i>
+          <span>Pedidos</span>
+          <span class="badge badge-warning" *ngIf="stats.pendingOrders > 0">{{ stats.pendingOrders }}</span>
+        </button>
+        <button 
+          class="nav-item" 
+          [class.active]="activeTab === 'categories'"
+          (click)="setActiveTab('categories')">
+          <i class="bi bi-folder"></i>
+          <span>Categorías</span>
+        </button>
+        <button 
+          class="nav-item" 
+          [class.active]="activeTab === 'settings'"
+          (click)="setActiveTab('settings')">
+          <i class="bi bi-gear"></i>
+          <span>Configuración</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="nav-item nav-item-logout" (click)="logout()">
+          <i class="bi bi-box-arrow-right"></i>
+          <span>Salir</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="admin-content">
+      <!-- Mensaje de Bienvenida -->
+      <div class="welcome-section">
+        <h1 class="welcome-title">
+          <i class="bi bi-hand-thumbs-up"></i>
+          Bienvenido, Administrador
+        </h1>
+        <p class="welcome-subtitle">Gestiona tu restaurante desde aquí</p>
+      </div>
+
+      <!-- Tab: Dashboard -->
+      <div *ngIf="activeTab === 'dashboard'" class="tab-content">
+        <h2 class="section-title">Resumen General</h2>
+        
+        <!-- Tarjetas de Estadísticas -->
+        <div class="stats-grid">
+          <div class="stat-card stat-primary">
+            <div class="stat-icon">
+              <i class="bi bi-receipt-cutoff"></i>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-value">{{ stats.totalOrders }}</h3>
+              <p class="stat-label">Total Pedidos</p>
+            </div>
+          </div>
+          
+          <div class="stat-card stat-warning">
+            <div class="stat-icon">
+              <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-value">{{ stats.pendingOrders }}</h3>
+              <p class="stat-label">Pedidos Pendientes</p>
+            </div>
+          </div>
+          
+          <div class="stat-card stat-success">
+            <div class="stat-icon">
+              <i class="bi bi-currency-dollar"></i>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-value">${{ stats.totalRevenue | number }}</h3>
+              <p class="stat-label">Ingresos Totales</p>
+            </div>
+          </div>
+          
+          <div class="stat-card stat-info">
+            <div class="stat-icon">
+              <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-value">{{ stats.totalProducts }}</h3>
+              <p class="stat-label">Productos Activos</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pedidos Recientes -->
+        <div class="recent-orders-card">
+          <div class="card-header">
+            <h3 class="card-title">Pedidos Recientes</h3>
+            <button class="btn-link" (click)="setActiveTab('orders')">Ver Todos</button>
+          </div>
+          <div class="orders-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID Pedido</th>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th>Total</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let order of orders.slice(0, 5)">
+                  <td>{{ order.id }}</td>
+                  <td>{{ formatDate(order.date) }}</td>
+                  <td>{{ order.deliveryAddress || 'N/A' }}</td>
+                  <td>${{ order.total | number }}</td>
+                  <td>
+                    <span class="status-badge" [ngClass]="getOrderStatusClass(order.status)">
+                      {{ getOrderStatusText(order.status) }}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn-icon-small" (click)="selectedOrder = order">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Productos -->
+      <div *ngIf="activeTab === 'products'" class="tab-content">
+        <div class="section-header">
+          <h2 class="section-title">Gestión de Productos</h2>
+          <div class="header-actions">
+            <div class="view-toggle">
+              <button 
+                class="view-toggle-btn" 
+                [class.active]="productViewMode === 'list'"
+                (click)="productViewMode = 'list'"
+                title="Vista de lista">
+                <i class="bi bi-list-ul"></i>
+              </button>
+              <button 
+                class="view-toggle-btn" 
+                [class.active]="productViewMode === 'grid'"
+                (click)="productViewMode = 'grid'"
+                title="Vista de cuadrícula">
+                <i class="bi bi-grid-3x3-gap"></i>
+              </button>
+            </div>
+            <button class="btn-primary" (click)="openProductModal()">
+              <i class="bi bi-plus-lg"></i>
+              Agregar Producto
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtros y Búsqueda -->
+        <div class="filters-section">
+          <input 
+            type="text" 
+            class="search-input" 
+            placeholder="Buscar productos..."
+            [(ngModel)]="searchTerm" />
+          <select class="filter-select" [(ngModel)]="categoryFilter">
+            <option value="">Todas las categorías</option>
+            <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
+          </select>
+        </div>
+
+        <!-- Vista de Lista -->
+        <div *ngIf="productViewMode === 'list'" class="products-table-card">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let product of getFilteredProducts()">
+                <td>{{ product.id }}</td>
+                <td>{{ product.name }}</td>
+                <td>{{ product.categoryId }}</td>
+                <td>${{ product.price | number }}</td>
+                <td>
+                  <span class="status-badge" [class.status-success]="product.available" [class.status-danger]="!product.available">
+                    {{ product.available ? 'Disponible' : 'No Disponible' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn-icon-small" (click)="openProductModal(product)" title="Editar">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn-icon-small" (click)="toggleProductAvailability(product)" 
+                            [title]="product.available ? 'Desactivar' : 'Activar'">
+                      <i class="bi" [class.bi-toggle-on]="product.available" [class.bi-toggle-off]="!product.available"></i>
+                    </button>
+                    <button class="btn-icon-small btn-danger" (click)="deleteProduct(product.id)" title="Eliminar">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Vista de Grid -->
+        <div *ngIf="productViewMode === 'grid'" class="products-grid-view">
+          <div class="products-grid">
+            <div *ngFor="let product of getFilteredProducts()" class="product-card-grid">
+              <div class="product-card-image">
+                <img [src]="product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80'" 
+                     [alt]="product.name" 
+                     class="product-image" />
+                <div class="product-card-overlay">
+                  <span class="status-badge" [class.status-success]="product.available" [class.status-danger]="!product.available">
+                    {{ product.available ? 'Disponible' : 'No Disponible' }}
+                  </span>
+                </div>
+              </div>
+              <div class="product-card-body">
+                <div class="product-card-header">
+                  <span class="product-id">#{{ product.id }}</span>
+                  <span class="product-price">${{ product.price | number }}</span>
+                </div>
+                <h3 class="product-name">{{ product.name }}</h3>
+                <p class="product-description">{{ product.description }}</p>
+                <div class="product-category">
+                  <i class="bi bi-folder"></i>
+                  <span>{{ product.categoryId }}</span>
+                </div>
+                <div class="product-card-actions">
+                  <button class="btn-icon-small" (click)="openProductModal(product)" title="Editar">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <button class="btn-icon-small" (click)="toggleProductAvailability(product)" 
+                          [title]="product.available ? 'Desactivar' : 'Activar'">
+                    <i class="bi" [class.bi-toggle-on]="product.available" [class.bi-toggle-off]="!product.available"></i>
+                  </button>
+                  <button class="btn-icon-small btn-danger" (click)="deleteProduct(product.id)" title="Eliminar">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Pedidos -->
+      <div *ngIf="activeTab === 'orders'" class="tab-content">
+        <div class="section-header">
+          <h2 class="section-title">Gestión de Pedidos</h2>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filters-section">
+          <div class="filter-tabs">
+            <button class="filter-tab" [class.active]="orderFilter === 'all'" (click)="orderFilter = 'all'">
+              Todos ({{ orders.length }})
+            </button>
+            <button class="filter-tab" [class.active]="orderFilter === 'pending'" (click)="orderFilter = 'pending'">
+              Pendientes ({{ pendingOrdersCount }})
+            </button>
+            <button class="filter-tab" [class.active]="orderFilter === 'preparing'" (click)="orderFilter = 'preparing'">
+              En Preparación ({{ preparingOrdersCount }})
+            </button>
+            <button class="filter-tab" [class.active]="orderFilter === 'ready'" (click)="orderFilter = 'ready'">
+              Listos ({{ readyOrdersCount }})
+            </button>
+            <button class="filter-tab" [class.active]="orderFilter === 'delivered'" (click)="orderFilter = 'delivered'">
+              Entregados ({{ deliveredOrdersCount }})
+            </button>
+          </div>
+          <input 
+            type="text" 
+            class="search-input" 
+            placeholder="Buscar pedidos..."
+            [(ngModel)]="searchTerm" />
+        </div>
+
+        <!-- Lista de Pedidos -->
+        <div class="orders-list-admin">
+          <div *ngFor="let order of getFilteredOrders()" class="order-card-admin">
+            <div class="order-header-admin">
+              <div class="order-info-admin">
+                <span class="order-id-admin">Pedido #{{ order.id }}</span>
+                <span class="order-date-admin">{{ formatDate(order.date) }}</span>
+              </div>
+              <span class="status-badge" [ngClass]="getOrderStatusClass(order.status)">
+                {{ getOrderStatusText(order.status) }}
+              </span>
+            </div>
+            
+            <div class="order-items-admin">
+              <div *ngFor="let item of order.items" class="order-item-admin">
+                <span class="item-name-admin">{{ item.name }}</span>
+                <span class="item-quantity-admin">x{{ item.quantity }}</span>
+                <span class="item-price-admin">${{ (item.price * item.quantity) | number }}</span>
+              </div>
+            </div>
+            
+            <div class="order-footer-admin">
+              <div class="order-total-admin">
+                <span class="total-label">Total:</span>
+                <span class="total-value">${{ order.total | number }}</span>
+              </div>
+              <div class="order-actions-admin">
+                <select class="status-select" [value]="order.status" 
+                        (change)="updateOrderStatus(order, $any($event.target).value)">
+                  <option value="pending">Pendiente</option>
+                  <option value="preparing">Preparando</option>
+                  <option value="ready">Listo</option>
+                  <option value="delivered">Entregado</option>
+                  <option value="cancelled">Cancelado</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Categorías -->
+      <div *ngIf="activeTab === 'categories'" class="tab-content">
+        <div class="section-header">
+          <h2 class="section-title">Gestión de Categorías</h2>
+        </div>
+
+        <div class="categories-grid">
+          <div *ngFor="let category of categories" class="category-card-admin">
+            <div class="category-icon-admin">
+              <i [class]="'bi ' + category.icon"></i>
+            </div>
+            <h3 class="category-name-admin">{{ category.name }}</h3>
+            <p class="category-description-admin">{{ category.description }}</p>
+            <div class="category-actions">
+              <button class="btn-icon-small">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn-icon-small btn-danger">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Configuración -->
+      <div *ngIf="activeTab === 'settings'" class="tab-content">
+        <h2 class="section-title">Configuración</h2>
+        
+        <form [formGroup]="settingsForm" (ngSubmit)="onSettingsSubmit()" class="settings-form">
+          <!-- Información General -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">
+              <i class="bi bi-info-circle"></i>
+              Información General
+            </h3>
+            <div class="settings-grid">
+              <div class="form-group">
+                <label class="form-label">Nombre del Restaurante</label>
+                <input type="text" formControlName="restaurantName" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email de Contacto</label>
+                <input type="email" formControlName="email" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Teléfono</label>
+                <input type="tel" formControlName="phone" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Dirección</label>
+                <input type="text" formControlName="address" class="form-control" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Horarios -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">
+              <i class="bi bi-clock"></i>
+              Horarios de Atención
+            </h3>
+            <div class="settings-grid">
+              <div class="form-group">
+                <label class="form-label">Hora de Apertura</label>
+                <input type="time" formControlName="openingTime" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Hora de Cierre</label>
+                <input type="time" formControlName="closingTime" class="form-control" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Opciones de Servicio -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">
+              <i class="bi bi-truck"></i>
+              Opciones de Servicio
+            </h3>
+            <div class="settings-grid">
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" formControlName="deliveryEnabled" />
+                  <span>Habilitar Delivery</span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" formControlName="pickupEnabled" />
+                  <span>Habilitar Recoger en Tienda</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Configuración de Pedidos -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">
+              <i class="bi bi-gear"></i>
+              Configuración de Pedidos
+            </h3>
+            <div class="settings-grid">
+              <div class="form-group">
+                <label class="form-label">Tasa de Impuesto (%)</label>
+                <input type="number" formControlName="taxRate" class="form-control" min="0" max="100" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Monto Mínimo de Pedido</label>
+                <input type="number" formControlName="minOrderAmount" class="form-control" min="0" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Costo de Delivery</label>
+                <input type="number" formControlName="deliveryFee" class="form-control" min="0" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Distancia Máxima de Delivery (km)</label>
+                <input type="number" formControlName="maxDeliveryDistance" class="form-control" min="1" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Botones de Acción -->
+          <div class="settings-actions">
+            <button type="button" class="btn-outline" (click)="settingsForm.reset()">
+              <i class="bi bi-arrow-counterclockwise"></i>
+              Restablecer
+            </button>
+            <button type="submit" class="btn-primary">
+              <i class="bi bi-check-lg"></i>
+              Guardar Configuración
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Agregar/Editar Producto -->
+  <div *ngIf="showProductModal" class="modal-overlay" (click)="closeProductModal()">
+    <div class="modal-content modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ selectedProduct ? 'Editar Producto' : 'Agregar Nuevo Producto' }}</h3>
+        <button class="modal-close" (click)="closeProductModal()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <form [formGroup]="productForm" (ngSubmit)="saveProduct()" class="modal-form">
+        <div class="form-group">
+          <label class="form-label">Nombre del Producto</label>
+          <input type="text" formControlName="name" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción</label>
+          <textarea formControlName="description" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label">Precio</label>
+              <input type="number" formControlName="price" class="form-control" />
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label">Categoría</label>
+              <select formControlName="categoryId" class="form-control">
+                <option value="">Seleccionar categoría</option>
+                <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" formControlName="available" />
+            <span>Producto disponible</span>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-outline" (click)="closeProductModal()">Cancelar</button>
+          <button type="submit" class="btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  </div>
+</section>
+
