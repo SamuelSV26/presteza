@@ -102,29 +102,26 @@ export class PerfilComponent implements OnInit {
   }
 
   private loadFavoriteDishes() {
-    // Cargar favoritos basados en el historial o preferencias del usuario
-    if (this.userProfile?.preferences?.favoriteCategories && this.userProfile.preferences.favoriteCategories.length > 0) {
-      // Si hay categorías favoritas, cargar items de esas categorías
-      const favoriteCategoryIds = this.userProfile.preferences.favoriteCategories;
-      let loadedItems: MenuItem[] = [];
-      let loadedCount = 0;
-      
-      favoriteCategoryIds.forEach(categoryId => {
-        if (loadedCount < 6) {
-          this.menuService.getItemsByCategory(categoryId).subscribe(items => {
-            loadedItems = [...loadedItems, ...items.slice(0, 2)];
-            loadedCount += items.slice(0, 2).length;
-            // Limitar a 6 favoritos
-            this.favoriteDishes = loadedItems.slice(0, 6);
+    // Cargar favoritos desde el servicio
+    this.userService.getFavoriteDishes().subscribe(favoriteIds => {
+      if (favoriteIds.length > 0) {
+        // Cargar items de favoritos
+        const loadedItems: MenuItem[] = [];
+        favoriteIds.forEach(id => {
+          this.menuService.getItemById(id).subscribe(item => {
+            if (item) {
+              loadedItems.push(item);
+              this.favoriteDishes = [...loadedItems];
+            }
           });
-        }
-      });
-    } else {
-      // Si no hay categorías favoritas, usar items populares
-      this.menuService.getFeaturedItems().subscribe(items => {
-        this.favoriteDishes = items.slice(0, 6);
-      });
-    }
+        });
+      } else {
+        // Si no hay favoritos guardados, usar items populares
+        this.menuService.getFeaturedItems().subscribe(items => {
+          this.favoriteDishes = items.slice(0, 6);
+        });
+      }
+    });
   }
 
   private loadMockData() {

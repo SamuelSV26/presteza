@@ -5,20 +5,17 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MenuService, MenuItem, MenuCategory } from '../../../../core/services/menu.service';
 import { Observable } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
-import { ProductCustomizationModalComponent } from '../product-customization-modal/product-customization-modal.component';
 
 @Component({
   selector: 'app-menu-category',
   standalone: true,
-  imports: [CommonModule, MenuItemComponent, ProductCustomizationModalComponent],
+  imports: [CommonModule, MenuItemComponent],
   templateUrl: './menu-category.component.html',
   styleUrl: './menu-category.component.css'
 })
 export class MenuCategoryComponent implements OnInit {
   category$!: Observable<MenuCategory | undefined>;
   items$!: Observable<MenuItem[]>;
-  selectedProduct: MenuItem | null = null;
-  showCustomizationModal = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -42,17 +39,14 @@ export class MenuCategoryComponent implements OnInit {
     this.router.navigate(['/menu']);
   }
 
-  openCustomizationModal(product: MenuItem): void {
-    this.selectedProduct = product;
-    this.showCustomizationModal = true;
+  openProductDetail(product: MenuItem): void {
+    this.router.navigate(['/menu/producto', product.id]);
   }
 
-  closeCustomizationModal(): void {
-    this.showCustomizationModal = false;
-    this.selectedProduct = null;
-  }
-
-  onProductAdded(): void {
-    this.closeCustomizationModal();
+  onFavoriteClick(event: { dishId: number; action: 'add' | 'remove' | 'login' }): void {
+    if (event.action === 'login') {
+      // Disparar evento global para mostrar el modal de login en el navbar
+      window.dispatchEvent(new CustomEvent('showLoginModal'));
+    }
   }
 }

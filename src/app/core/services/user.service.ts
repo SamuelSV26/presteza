@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 export interface UserProfile {
   id: string;
@@ -180,11 +181,57 @@ export class UserService {
     return 'user_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
   }
 
+  getFavoriteDishes(): Observable<number[]> {
+    // Retornar IDs de platos favoritos
+    const storedFavorites = localStorage.getItem('userFavoriteDishes');
+    if (storedFavorites) {
+      return of(JSON.parse(storedFavorites));
+    }
+    return of([]);
+  }
+
+  addFavoriteDish(dishId: number): void {
+    this.getFavoriteDishes().subscribe(favorites => {
+      if (!favorites.includes(dishId)) {
+        const updatedFavorites = [...favorites, dishId];
+        localStorage.setItem('userFavoriteDishes', JSON.stringify(updatedFavorites));
+      }
+    });
+  }
+
+  removeFavoriteDish(dishId: number): void {
+    this.getFavoriteDishes().subscribe(favorites => {
+      const updatedFavorites = favorites.filter(id => id !== dishId);
+      localStorage.setItem('userFavoriteDishes', JSON.stringify(updatedFavorites));
+    });
+  }
+
+  /**
+   * Verifica si un plato está en la lista de favoritos del usuario
+   * @param dishId ID del plato a verificar
+   * @returns Observable que emite true si el plato es favorito, false en caso contrario
+   */
+  isFavorite(dishId: number): Observable<boolean> {
+    return this.getFavoriteDishes().pipe(
+      map((favorites: number[]) => favorites.includes(dishId))
+    );
+  }
+
+  toggleFavorite(dishId: number): void {
+    this.getFavoriteDishes().subscribe(favorites => {
+      if (favorites.includes(dishId)) {
+        this.removeFavoriteDish(dishId);
+      } else {
+        this.addFavoriteDish(dishId);
+      }
+    });
+  }
+
   logout(): void {
     localStorage.removeItem('userName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userPhone');
+    localStorage.removeItem('userProfile');
     this.userProfileSubject.next(null);
   }
 }
-

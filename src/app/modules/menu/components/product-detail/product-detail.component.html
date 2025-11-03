@@ -1,0 +1,186 @@
+<section class="product-detail-page">
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Cargando producto...</p>
+  </div>
+
+  <div *ngIf="!loading && product" class="container py-5">
+    <!-- Botón Volver -->
+    <button class="btn-back" (click)="goBack()">
+      <i class="bi bi-arrow-left"></i>
+      <span>Volver</span>
+    </button>
+
+    <div class="product-detail-content">
+      <!-- Columna Izquierda: Imagen -->
+      <div class="product-image-section">
+        <div class="product-image-wrapper">
+          <img 
+            [src]="product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80'" 
+            [alt]="product.name"
+            class="product-image" />
+          <button class="favorite-btn-large" (click)="toggleFavorite()" [title]="isLoggedIn ? 'Agregar a favoritos' : 'Inicia sesión para agregar favoritos'">
+            <i class="bi" [class.bi-heart]="!(isFavorite$ | async)" [class.bi-heart-fill]="isFavorite$ | async" 
+               [class.favorite-active]="isFavorite$ | async"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Información -->
+      <div class="product-info-section">
+        <!-- Header -->
+        <div class="product-header">
+          <h1 class="product-title">{{ product.name }}</h1>
+          <p class="product-description">{{ product.description }}</p>
+          
+          <!-- Rating -->
+          <div class="rating-section">
+            <div class="stars">
+              <i *ngFor="let star of getStars()" 
+                 class="bi" 
+                 [class.bi-star-fill]="star <= rating" 
+                 [class.bi-star]="star > rating"
+                 [class.filled]="star <= rating"></i>
+            </div>
+            <span class="rating-value">{{ rating }}</span>
+            <span class="reviews-count">({{ totalReviews }} reseñas)</span>
+          </div>
+
+          <!-- Precio Base -->
+          <div class="base-price">
+            <span class="price-label">Precio base:</span>
+            <span class="price-value">{{ basePrice | currency:'COP':'symbol':'1.0-0' }}</span>
+          </div>
+        </div>
+
+        <!-- Opciones de Personalización -->
+        <div class="customization-section">
+          <!-- Adicionales -->
+          <div *ngIf="extras.length > 0" class="option-group">
+            <h3 class="option-group-title">
+              <i class="bi bi-plus-circle"></i>
+              Agregar extras
+            </h3>
+            <div class="options-list">
+              <label *ngFor="let option of extras" class="option-item">
+                <input 
+                  type="checkbox" 
+                  [checked]="selectedOptions.get(option.id)"
+                  (change)="toggleOption(option.id)"
+                  class="option-checkbox" />
+                <span class="option-name">{{ option.name }}</span>
+                <span *ngIf="option.price > 0" class="option-price">
+                  +{{ option.price | currency:'COP':'symbol':'1.0-0' }}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Adicionar -->
+          <div *ngIf="addons.length > 0" class="option-group">
+            <h3 class="option-group-title">
+              <i class="bi bi-plus-lg"></i>
+              Adicionar
+            </h3>
+            <div class="options-list">
+              <label *ngFor="let option of addons" class="option-item">
+                <input 
+                  type="checkbox" 
+                  [checked]="selectedOptions.get(option.id)"
+                  (change)="toggleOption(option.id)"
+                  class="option-checkbox" />
+                <span class="option-name">{{ option.name }}</span>
+                <span *ngIf="option.price > 0" class="option-price">
+                  +{{ option.price | currency:'COP':'symbol':'1.0-0' }}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Tamaños -->
+          <div *ngIf="sizes.length > 0" class="option-group">
+            <h3 class="option-group-title">
+              <i class="bi bi-arrows-angle-expand"></i>
+              Tamaño
+            </h3>
+            <div class="options-list">
+              <label *ngFor="let option of sizes" class="option-item">
+                <input 
+                  type="radio" 
+                  [name]="'size-' + product.id"
+                  [checked]="selectedOptions.get(option.id)"
+                  (change)="toggleOption(option.id)"
+                  class="option-radio" />
+                <span class="option-name">{{ option.name }}</span>
+                <span *ngIf="option.price > 0" class="option-price">
+                  +{{ option.price | currency:'COP':'symbol':'1.0-0' }}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Opciones de Eliminación -->
+          <div *ngIf="removals.length > 0" class="option-group">
+            <h3 class="option-group-title">
+              <i class="bi bi-dash-circle"></i>
+              Quitar ingredientes
+            </h3>
+            <div class="options-list">
+              <label *ngFor="let option of removals" class="option-item">
+                <input 
+                  type="checkbox" 
+                  [checked]="selectedOptions.get(option.id)"
+                  (change)="toggleOption(option.id)"
+                  class="option-checkbox" />
+                <span class="option-name">{{ option.name }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cantidad y Precio Total -->
+        <div class="quantity-price-section">
+          <div class="quantity-control">
+            <label class="quantity-label">Cantidad:</label>
+            <div class="quantity-selector">
+              <button class="quantity-btn" (click)="decreaseQuantity()" [disabled]="quantity <= 1">
+                <i class="bi bi-dash"></i>
+              </button>
+              <span class="quantity-value">{{ quantity }}</span>
+              <button class="quantity-btn" (click)="increaseQuantity()">
+                <i class="bi bi-plus"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="total-price-section">
+            <div class="price-breakdown">
+              <div class="price-row">
+                <span>Precio base</span>
+                <span>{{ basePrice | currency:'COP':'symbol':'1.0-0' }}</span>
+              </div>
+              <div *ngIf="getSelectedOptionsPrice() > 0" class="price-row">
+                <span>Extras</span>
+                <span>+{{ getSelectedOptionsPrice() | currency:'COP':'symbol':'1.0-0' }}</span>
+              </div>
+              <div class="price-row total-row">
+                <span>Total</span>
+                <span class="total-price">{{ totalPrice | currency:'COP':'symbol':'1.0-0' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botón Agregar al Carrito -->
+        <div class="action-section">
+          <button class="btn-add-to-cart" (click)="addToCart()" [disabled]="!product.available">
+            <i class="bi bi-cart-plus"></i>
+            <span>Agregar al Carrito</span>
+          </button>
+          <p *ngIf="!product.available" class="unavailable-text">Producto no disponible</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+

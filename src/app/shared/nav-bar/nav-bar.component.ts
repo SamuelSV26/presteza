@@ -23,6 +23,11 @@ export class NavbarComponent {
   ngOnInit() {
     const storedUser = localStorage.getItem('userName');
     this.userName = storedUser ? storedUser : null;
+    
+    // Escuchar evento para mostrar modal de login desde otros componentes
+    window.addEventListener('showLoginModal', () => {
+      this.showLoginModal = true;
+    });
   }
   constructor(private router: Router, private el: ElementRef) {}
 
@@ -88,7 +93,9 @@ export class NavbarComponent {
       localStorage.setItem('userName', this.loginEmail.split('@')[0]);
       this.userName = this.loginEmail.split('@')[0];
       this.closeLoginModal();
-      // this.router.navigate(['/perfil']);
+      
+      // Disparar evento para que los componentes actualicen su estado
+      window.dispatchEvent(new CustomEvent('userLoggedIn'));
     }
   }
 

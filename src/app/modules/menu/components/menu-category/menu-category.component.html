@@ -20,13 +20,15 @@
       <ng-container *ngIf="items$ | async as items">
         <ng-container *ngIf="items.length > 0; else noItems">
           <div class="col-md-6 col-lg-4" *ngFor="let item of items">
-            <div class="product-card" (click)="openCustomizationModal(item)">
+            <div class="product-card" (click)="openProductDetail(item)">
               <app-menu-item
                 [name]="item.name"
                 [description]="item.description"
                 [price]="item.price"
                 [imageUrl]="item.imageUrl"
-                [available]="item.available">
+                [available]="item.available"
+                [dishId]="item.id"
+                (favoriteClick)="onFavoriteClick($event)">
               </app-menu-item>
             </div>
           </div>
@@ -46,11 +48,4 @@
     </div>
   </div>
 
-  <ng-container *ngIf="showCustomizationModal && selectedProduct">
-    <app-product-customization-modal
-      [product]="selectedProduct"
-      (close)="closeCustomizationModal()"
-      (productAdded)="onProductAdded()">
-    </app-product-customization-modal>
-  </ng-container>
 </section>

@@ -1,5 +1,5 @@
 <div class="menu-item card h-100" [class.unavailable]="!available">
-  <div class="card-img-top">
+  <div class="card-img-top position-relative">
     <ng-container *ngIf="imageUrl; else noImage">
       <img [src]="imageUrl" [alt]="name" />
     </ng-container>
@@ -9,6 +9,17 @@
         <i class="bi bi-image" style="font-size: 3rem; color: rgba(107, 29, 61, 0.5)"></i>
       </div>
     </ng-template>
+    
+    <!-- Botón de Favorito -->
+    <button 
+      class="favorite-btn" 
+      (click)="onFavoriteClick($event)"
+      [title]="isLoggedIn ? 'Agregar a favoritos' : 'Inicia sesión para agregar favoritos'">
+      <i class="bi" 
+         [class.bi-heart]="!(isFavorite$ | async)" 
+         [class.bi-heart-fill]="isFavorite$ | async" 
+         [class.favorite-active]="isFavorite$ | async"></i>
+    </button>
   </div>
 
   <div class="card-body">
