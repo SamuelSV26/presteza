@@ -7,6 +7,7 @@ import { SedeComponent } from './modules/sede/sede.component';
 import { NosotrosComponent } from './modules/nosotros/nosotros.component';
 import { ContactoComponent } from './modules/contacto/contacto.component';
 import { RegistroComponent } from './modules/registro/registro.component';
+import { PerfilComponent } from './modules/perfil/perfil.component';
 import { homeGuard } from './core/guards/home.guard';
 import { homeResolver } from './core/resolvers/home.resolver';
 
@@ -45,6 +46,10 @@ export const routes: Routes = [
   {
     path: 'registro',
     component: RegistroComponent
+  },
+  {
+    path: 'perfil',
+    component: PerfilComponent
   }
 ];
 

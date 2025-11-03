@@ -1,0 +1,644 @@
+<section class="perfil-page">
+  <!-- Hero Section -->
+  <div class="hero-section">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="profile-avatar-large">
+        <div class="avatar-circle-large">
+          <span *ngIf="userProfile">{{ getInitials(userProfile.fullName) }}</span>
+          <span *ngIf="!userProfile">?</span>
+        </div>
+      </div>
+      <h1 class="hero-title">{{ userProfile?.fullName || 'Mi Perfil' }}</h1>
+      <p class="hero-subtitle">Gestiona tu cuenta y preferencias</p>
+      <div *ngIf="!userProfile" class="alert alert-info mt-3" style="max-width: 500px; margin: 1rem auto; background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Modo de demostración:</strong> Mostrando datos de prueba
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenido Principal -->
+  <div class="container py-5">
+    <!-- Tabs de Navegación -->
+    <div class="profile-tabs">
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'profile'"
+        (click)="setActiveTab('profile')"
+      >
+        <i class="bi bi-person-circle me-2"></i>
+        Mi Perfil
+      </button>
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'orders'"
+        (click)="setActiveTab('orders')"
+      >
+        <i class="bi bi-receipt me-2"></i>
+        Mis Pedidos
+        <span class="badge" *ngIf="orders.length > 0">{{ orders.length }}</span>
+      </button>
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'addresses'"
+        (click)="setActiveTab('addresses')"
+      >
+        <i class="bi bi-geo-alt me-2"></i>
+        Direcciones
+      </button>
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'payment'"
+        (click)="setActiveTab('payment')"
+      >
+        <i class="bi bi-credit-card me-2"></i>
+        Métodos de Pago
+      </button>
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'settings'"
+        (click)="setActiveTab('settings')"
+      >
+        <i class="bi bi-gear me-2"></i>
+        Configuración
+      </button>
+    </div>
+
+    <!-- Contenido de las Tabs -->
+    <div class="profile-content">
+      <!-- Tab: Mi Perfil -->
+      <div *ngIf="activeTab === 'profile'" class="tab-content">
+        <!-- Resumen Rápido -->
+        <div class="profile-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">
+                <i class="bi bi-person-circle me-2"></i>
+                Bienvenido, {{ userProfile?.fullName || 'Usuario' }}
+              </h2>
+              <p class="card-subtitle">Gestiona tu información y preferencias</p>
+            </div>
+            <button class="btn-primary" (click)="openProfileEdit()">
+              <i class="bi bi-pencil me-2"></i>
+              Editar Perfil
+            </button>
+          </div>
+          <div class="quick-info">
+            <div class="info-item">
+              <i class="bi bi-envelope-fill"></i>
+              <div>
+                <span class="info-label">Email</span>
+                <span class="info-value">{{ userProfile?.email || 'N/A' }}</span>
+              </div>
+            </div>
+            <div class="info-item">
+              <i class="bi bi-telephone-fill"></i>
+              <div>
+                <span class="info-label">Teléfono</span>
+                <span class="info-value">{{ userProfile?.phone || 'N/A' }}</span>
+              </div>
+            </div>
+            <div class="info-item">
+              <i class="bi bi-calendar-check"></i>
+              <div>
+                <span class="info-label">Miembro desde</span>
+                <span class="info-value">{{ userProfile && userProfile.memberSince ? formatDate(userProfile.memberSince) : 'N/A' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mis Direcciones -->
+        <div class="profile-card mt-4">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="bi bi-geo-alt me-2"></i>
+              Mis Direcciones
+            </h2>
+            <button class="btn-primary" (click)="showAddressModal = true; editingAddress = null">
+              <i class="bi bi-plus-lg me-2"></i>
+              Agregar Dirección
+            </button>
+          </div>
+          <div *ngIf="addresses.length === 0" class="empty-state">
+            <i class="bi bi-geo-alt empty-icon"></i>
+            <h3>No tienes direcciones guardadas</h3>
+            <p>Agrega una dirección para facilitar tus pedidos</p>
+            <button class="btn-primary" (click)="showAddressModal = true">
+              <i class="bi bi-plus-lg me-2"></i>
+              Agregar Primera Dirección
+            </button>
+          </div>
+          <div *ngIf="addresses.length > 0" class="addresses-grid">
+            <div *ngFor="let address of addresses" class="address-card">
+              <div class="address-header">
+                <h3 class="address-title">{{ address.title }}</h3>
+                <span class="address-badge" *ngIf="address.isDefault">Principal</span>
+              </div>
+              <p class="address-text">{{ address.address }}</p>
+              <p class="address-city">{{ address.city }} - {{ address.postalCode }}</p>
+              <div class="address-actions">
+                <button class="btn-icon" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
+                  <i class="bi bi-star"></i>
+                </button>
+                <button class="btn-icon" title="Editar" (click)="editAddress(address)">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn-icon btn-icon-danger" title="Eliminar" (click)="deleteAddress(address)">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Platos Recomendados -->
+        <div class="profile-card mt-4">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="bi bi-star-fill me-2"></i>
+              Platos Recomendados para Ti
+            </h2>
+            <button class="btn-outline" (click)="router.navigate(['/menu'])">
+              Ver Todo
+              <i class="bi bi-arrow-right ms-2"></i>
+            </button>
+          </div>
+          <div class="dishes-grid">
+            <div *ngFor="let dish of recommendedDishes" class="dish-card" (click)="router.navigate(['/menu'])">
+              <div class="dish-image-wrapper">
+                <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'" 
+                     [alt]="dish.name" 
+                     class="dish-image" />
+                <div class="dish-overlay">
+                  <i class="bi bi-eye"></i>
+                </div>
+              </div>
+              <div class="dish-content">
+                <h3 class="dish-name">{{ dish.name }}</h3>
+                <p class="dish-description">{{ dish.description }}</p>
+                <div class="dish-footer">
+                  <span class="dish-price">${{ dish.price | number }}</span>
+                  <button class="dish-btn" (click)="router.navigate(['/menu']); $event.stopPropagation()">
+                    <i class="bi bi-cart-plus"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="recommendedDishes.length === 0" class="empty-state">
+            <i class="bi bi-star empty-icon"></i>
+            <p>No hay recomendaciones disponibles</p>
+          </div>
+        </div>
+
+        <!-- Tus Platos Favoritos -->
+        <div class="profile-card mt-4">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="bi bi-heart-fill me-2"></i>
+              Tus Platos Favoritos
+            </h2>
+            <button class="btn-outline" (click)="router.navigate(['/menu'])">
+              Explorar Más
+              <i class="bi bi-arrow-right ms-2"></i>
+            </button>
+          </div>
+          <div class="dishes-grid">
+            <div *ngFor="let dish of favoriteDishes" class="dish-card" (click)="router.navigate(['/menu'])">
+              <div class="dish-image-wrapper">
+                <div class="favorite-badge">
+                  <i class="bi bi-heart-fill"></i>
+                </div>
+                <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'" 
+                     [alt]="dish.name" 
+                     class="dish-image" />
+                <div class="dish-overlay">
+                  <i class="bi bi-eye"></i>
+                </div>
+              </div>
+              <div class="dish-content">
+                <h3 class="dish-name">{{ dish.name }}</h3>
+                <p class="dish-description">{{ dish.description }}</p>
+                <div class="dish-footer">
+                  <span class="dish-price">${{ dish.price | number }}</span>
+                  <button class="dish-btn" (click)="router.navigate(['/menu']); $event.stopPropagation()">
+                    <i class="bi bi-cart-plus"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="favoriteDishes.length === 0" class="empty-state">
+            <i class="bi bi-heart empty-icon"></i>
+            <h3>No tienes platos favoritos aún</h3>
+            <p>Explora nuestro menú y marca tus favoritos</p>
+            <button class="btn-primary" (click)="router.navigate(['/menu'])">
+              <i class="bi bi-menu-button-wide me-2"></i>
+              Ver Menú
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Mis Pedidos -->
+      <div *ngIf="activeTab === 'orders'" class="tab-content">
+        <div class="profile-card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="bi bi-receipt me-2"></i>
+              Historial de Pedidos
+            </h2>
+          </div>
+          <div *ngIf="orders.length === 0" class="empty-state">
+            <i class="bi bi-inbox empty-icon"></i>
+            <h3>No tienes pedidos aún</h3>
+            <p>Cuando hagas tu primer pedido, aparecerá aquí</p>
+            <button class="btn-primary" (click)="router.navigate(['/menu'])">
+              <i class="bi bi-menu-button-wide me-2"></i>
+              Ver Menú
+            </button>
+          </div>
+          <div *ngIf="orders.length > 0" class="orders-list">
+            <div *ngFor="let order of orders" class="order-card">
+              <div class="order-header">
+                <div class="order-info">
+                  <span class="order-id">Pedido #{{ order.id }}</span>
+                  <span class="order-date">{{ formatDate(order.date) }}</span>
+                </div>
+                <span class="order-status" [ngClass]="getOrderStatusClass(order.status)">
+                  <i [class]="'bi ' + getOrderStatusIcon(order.status)"></i>
+                  {{ getOrderStatusText(order.status) }}
+                </span>
+              </div>
+              <div class="order-items">
+                <div *ngFor="let item of order.items" class="order-item">
+                  <span class="item-name">{{ item.name }}</span>
+                  <span class="item-quantity">x{{ item.quantity }}</span>
+                  <span class="item-price">${{ (item.price * item.quantity) | number }}</span>
+                </div>
+              </div>
+              <div class="order-footer">
+                <span class="order-total">Total: ${{ order.total | number }}</span>
+                <button class="btn-outline" *ngIf="order.status === 'ready'">
+                  <i class="bi bi-check-lg me-2"></i>
+                  Confirmar Recepción
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Direcciones -->
+      <div *ngIf="activeTab === 'addresses'" class="tab-content">
+        <div class="profile-card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="bi bi-geo-alt me-2"></i>
+              Mis Direcciones
+            </h2>
+            <button class="btn-primary" (click)="showAddressModal = true">
+              <i class="bi bi-plus-lg me-2"></i>
+              Agregar Dirección
+            </button>
+          </div>
+          <div *ngIf="addresses.length === 0" class="empty-state">
+            <i class="bi bi-geo-alt empty-icon"></i>
+            <h3>No tienes direcciones guardadas</h3>
+            <p>Agrega una dirección para facilitar tus pedidos</p>
+          </div>
+          <div *ngIf="addresses.length > 0" class="addresses-grid">
+            <div *ngFor="let address of addresses" class="address-card">
+              <div class="address-header">
+                <h3 class="address-title">{{ address.title }}</h3>
+                <span class="address-badge" *ngIf="address.isDefault">Principal</span>
+              </div>
+              <p class="address-text">{{ address.address }}</p>
+              <p class="address-city">{{ address.city }} - {{ address.postalCode }}</p>
+              <div class="address-actions">
+                <button class="btn-icon" title="Editar">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn-icon" title="Eliminar">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Métodos de Pago -->
+      <div *ngIf="activeTab === 'payment'" class="tab-content">
+        <div class="profile-card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="bi bi-credit-card me-2"></i>
+              Métodos de Pago
+            </h2>
+            <button class="btn-primary">
+              <i class="bi bi-plus-lg me-2"></i>
+              Agregar Método
+            </button>
+          </div>
+          <div *ngIf="paymentMethods.length === 0" class="empty-state">
+            <i class="bi bi-credit-card empty-icon"></i>
+            <h3>No tienes métodos de pago guardados</h3>
+            <p>Agrega un método de pago para agilizar tus pedidos</p>
+          </div>
+          <div *ngIf="paymentMethods.length > 0" class="payment-methods-list">
+            <div *ngFor="let method of paymentMethods" class="payment-method-card">
+              <div class="payment-icon">
+                <i class="bi bi-credit-card-2-front" *ngIf="method.type === 'card'"></i>
+                <i class="bi bi-cash-coin" *ngIf="method.type === 'cash'"></i>
+              </div>
+              <div class="payment-info">
+                <h3 *ngIf="method.type === 'card'">
+                  {{ method.brand }} •••• {{ method.last4 }}
+                </h3>
+                <h3 *ngIf="method.type === 'cash'">Efectivo</h3>
+                <span class="payment-badge" *ngIf="method.isDefault">Principal</span>
+              </div>
+              <div class="payment-actions">
+                <button class="btn-icon" title="Editar">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn-icon" title="Eliminar">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Configuración -->
+      <div *ngIf="activeTab === 'settings'" class="tab-content">
+        <!-- Información Personal -->
+        <div class="profile-card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="bi bi-person-circle me-2"></i>
+              Información Personal
+            </h2>
+          </div>
+          <form [formGroup]="profileForm" (ngSubmit)="onProfileSubmit()" class="profile-form">
+            <div class="row g-4">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="fullName" class="form-label">
+                    <i class="bi bi-person-fill me-2"></i>Nombre Completo
+                  </label>
+                  <input
+                    type="text"
+                    id="fullName"
+                    formControlName="fullName"
+                    class="form-control"
+                    [class.is-invalid]="submitted && profileForm.get('fullName')?.errors"
+                  />
+                  <div *ngIf="submitted && profileForm.get('fullName')?.errors" class="invalid-feedback">
+                    <span *ngIf="profileForm.get('fullName')?.errors?.['required']">El nombre es requerido</span>
+                    <span *ngIf="profileForm.get('fullName')?.errors?.['minlength']">El nombre debe tener al menos 3 caracteres</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="email" class="form-label">
+                    <i class="bi bi-envelope-fill me-2"></i>Correo Electrónico
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    formControlName="email"
+                    class="form-control"
+                    [class.is-invalid]="submitted && profileForm.get('email')?.errors"
+                  />
+                  <div *ngIf="submitted && profileForm.get('email')?.errors" class="invalid-feedback">
+                    <span *ngIf="profileForm.get('email')?.errors?.['required']">El email es requerido</span>
+                    <span *ngIf="profileForm.get('email')?.errors?.['email']">Ingresa un email válido</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="phone" class="form-label">
+                    <i class="bi bi-telephone-fill me-2"></i>Teléfono
+                  </label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    formControlName="phone"
+                    class="form-control"
+                    [class.is-invalid]="submitted && profileForm.get('phone')?.errors"
+                    placeholder="3104941839"
+                  />
+                  <div *ngIf="submitted && profileForm.get('phone')?.errors" class="invalid-feedback">
+                    <span *ngIf="profileForm.get('phone')?.errors?.['required']">El teléfono es requerido</span>
+                    <span *ngIf="profileForm.get('phone')?.errors?.['pattern']">Ingresa un teléfono válido (10 dígitos)</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label class="form-label">
+                    <i class="bi bi-calendar-check me-2"></i>Miembro desde
+                  </label>
+                  <div class="info-display">
+                    {{ userProfile && userProfile.memberSince ? formatDate(userProfile.memberSince) : 'N/A' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">
+                <i class="bi bi-check-lg me-2"></i>
+                Guardar Cambios
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Configuración de Cuenta -->
+        <div class="profile-card mt-4">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="bi bi-gear me-2"></i>
+              Configuración de Cuenta
+            </h2>
+          </div>
+          <div class="settings-section">
+            <h3 class="settings-title">Cambiar Contraseña</h3>
+            <button class="btn-outline" (click)="showPasswordModal = true">
+              <i class="bi bi-key me-2"></i>
+              Cambiar Contraseña
+            </button>
+          </div>
+          <div class="settings-section">
+            <h3 class="settings-title">Preferencias de Notificaciones</h3>
+            <div class="settings-item">
+              <div class="settings-label">
+                <i class="bi bi-bell me-2"></i>
+                Notificaciones Push
+              </div>
+              <label class="switch">
+                <input type="checkbox" [checked]="userProfile?.preferences?.notifications ?? false" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="settings-item">
+              <div class="settings-label">
+                <i class="bi bi-envelope me-2"></i>
+                Notificaciones por Email
+              </div>
+              <label class="switch">
+                <input type="checkbox" [checked]="userProfile?.preferences?.emailNotifications ?? false" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="settings-item">
+              <div class="settings-label">
+                <i class="bi bi-chat-dots me-2"></i>
+                Notificaciones por SMS
+              </div>
+              <label class="switch">
+                <input type="checkbox" [checked]="userProfile?.preferences?.smsNotifications ?? false" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="settings-section danger-zone">
+            <h3 class="settings-title">Zona de Peligro</h3>
+            <button class="btn-danger" (click)="logout()">
+              <i class="bi bi-box-arrow-right me-2"></i>
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Agregar/Editar Dirección -->
+  <div *ngIf="showAddressModal || showEditAddressModal" class="modal-overlay" (click)="showAddressModal = false; showEditAddressModal = false; editingAddress = null">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ editingAddress ? 'Editar Dirección' : 'Agregar Nueva Dirección' }}</h3>
+        <button class="modal-close" (click)="showAddressModal = false; showEditAddressModal = false; editingAddress = null">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <form [formGroup]="addressForm" (ngSubmit)="onAddressSubmit()" class="modal-form">
+        <div class="form-group">
+          <label class="form-label">Nombre de la dirección</label>
+          <input type="text" formControlName="title" class="form-control" placeholder="Ej: Casa, Trabajo" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dirección</label>
+          <textarea formControlName="address" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label">Ciudad</label>
+              <input type="text" formControlName="city" class="form-control" />
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label">Código Postal</label>
+              <input type="text" formControlName="postalCode" class="form-control" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-outline" (click)="showAddressModal = false; showEditAddressModal = false; editingAddress = null">Cancelar</button>
+          <button type="submit" class="btn-primary">{{ editingAddress ? 'Actualizar' : 'Guardar' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Perfil -->
+  <div *ngIf="showProfileModal" class="modal-overlay" (click)="closeProfileEdit()">
+    <div class="modal-content modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Editar Información Personal</h3>
+        <button class="modal-close" (click)="closeProfileEdit()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <form [formGroup]="profileForm" (ngSubmit)="onProfileSubmit(); closeProfileEdit()" class="modal-form">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label">Nombre Completo</label>
+              <input type="text" formControlName="fullName" class="form-control" />
+              <div *ngIf="submitted && profileForm.get('fullName')?.errors" class="invalid-feedback">
+                <span *ngIf="profileForm.get('fullName')?.errors?.['required']">El nombre es requerido</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label">Correo Electrónico</label>
+              <input type="email" formControlName="email" class="form-control" />
+              <div *ngIf="submitted && profileForm.get('email')?.errors" class="invalid-feedback">
+                <span *ngIf="profileForm.get('email')?.errors?.['required']">El email es requerido</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label">Teléfono</label>
+              <input type="tel" formControlName="phone" class="form-control" />
+              <div *ngIf="submitted && profileForm.get('phone')?.errors" class="invalid-feedback">
+                <span *ngIf="profileForm.get('phone')?.errors?.['required']">El teléfono es requerido</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-outline" (click)="closeProfileEdit()">Cancelar</button>
+          <button type="submit" class="btn-primary">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Cambiar Contraseña -->
+  <div *ngIf="showPasswordModal" class="modal-overlay" (click)="showPasswordModal = false">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Cambiar Contraseña</h3>
+        <button class="modal-close" (click)="showPasswordModal = false">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <form [formGroup]="passwordForm" (ngSubmit)="onPasswordSubmit()" class="modal-form">
+        <div class="form-group">
+          <label class="form-label">Contraseña Actual</label>
+          <input type="password" formControlName="currentPassword" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nueva Contraseña</label>
+          <input type="password" formControlName="newPassword" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirmar Nueva Contraseña</label>
+          <input type="password" formControlName="confirmPassword" class="form-control" />
+          <div *ngIf="passwordForm.get('confirmPassword')?.errors?.['mismatch']" class="invalid-feedback">
+            Las contraseñas no coinciden
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-outline" (click)="showPasswordModal = false">Cancelar</button>
+          <button type="submit" class="btn-primary">Cambiar Contraseña</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
