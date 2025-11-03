@@ -1,0 +1,223 @@
+<section class="contacto-page">
+  <!-- Hero Section -->
+  <div class="hero-section">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <h1 class="hero-title">Contáctanos</h1>
+      <p class="hero-subtitle">Estamos aquí para ayudarte y responder todas tus preguntas</p>
+    </div>
+  </div>
+
+  <!-- Contenido Principal -->
+  <div class="container py-5">
+    <!-- Formulario e Información de Contacto -->
+    <div class="row g-5 mb-5">
+      <!-- Formulario de Contacto -->
+      <div class="col-lg-7">
+        <div class="form-card">
+          <div class="form-header">
+            <div class="form-icon-wrapper">
+              <i class="bi bi-envelope-fill form-icon"></i>
+            </div>
+            <h2 class="form-title">Envíanos un Mensaje</h2>
+            <p class="form-subtitle">Completa el formulario y nos pondremos en contacto contigo</p>
+          </div>
+
+          <form [formGroup]="contactForm" (ngSubmit)="onSubmit()" class="contact-form">
+            <!-- Mensaje de éxito -->
+            <div *ngIf="formSuccess" class="alert alert-success alert-dismissible fade show" role="alert">
+              <i class="bi bi-check-circle-fill me-2"></i>
+              ¡Mensaje enviado exitosamente! Nos pondremos en contacto contigo pronto.
+            </div>
+
+            <!-- Nombre -->
+            <div class="form-group mb-4">
+              <label for="name" class="form-label">
+                <i class="bi bi-person-fill me-2"></i>Nombre Completo
+              </label>
+              <input
+                type="text"
+                id="name"
+                formControlName="name"
+                class="form-control"
+                [class.is-invalid]="submitted && f['name'].errors"
+                placeholder="Ingresa tu nombre completo"
+              />
+              <div *ngIf="submitted && f['name'].errors" class="invalid-feedback">
+                <span *ngIf="f['name'].errors?.['required']">El nombre es requerido</span>
+                <span *ngIf="f['name'].errors?.['minlength']">El nombre debe tener al menos 2 caracteres</span>
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div class="form-group mb-4">
+              <label for="email" class="form-label">
+                <i class="bi bi-envelope-fill me-2"></i>Correo Electrónico
+              </label>
+              <input
+                type="email"
+                id="email"
+                formControlName="email"
+                class="form-control"
+                [class.is-invalid]="submitted && f['email'].errors"
+                placeholder="tu@email.com"
+              />
+              <div *ngIf="submitted && f['email'].errors" class="invalid-feedback">
+                <span *ngIf="f['email'].errors?.['required']">El correo es requerido</span>
+                <span *ngIf="f['email'].errors?.['email']">Ingresa un correo válido</span>
+              </div>
+            </div>
+
+            <!-- Teléfono -->
+            <div class="form-group mb-4">
+              <label for="phone" class="form-label">
+                <i class="bi bi-telephone-fill me-2"></i>Teléfono
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                formControlName="phone"
+                class="form-control"
+                [class.is-invalid]="submitted && f['phone'].errors"
+                placeholder="3101234567"
+              />
+              <div *ngIf="submitted && f['phone'].errors" class="invalid-feedback">
+                <span *ngIf="f['phone'].errors?.['required']">El teléfono es requerido</span>
+                <span *ngIf="f['phone'].errors?.['pattern']">Ingresa un teléfono válido (10 dígitos)</span>
+              </div>
+            </div>
+
+            <!-- Asunto -->
+            <div class="form-group mb-4">
+              <label for="subject" class="form-label">
+                <i class="bi bi-tag-fill me-2"></i>Asunto
+              </label>
+              <input
+                type="text"
+                id="subject"
+                formControlName="subject"
+                class="form-control"
+                [class.is-invalid]="submitted && f['subject'].errors"
+                placeholder="¿Sobre qué quieres contactarnos?"
+              />
+              <div *ngIf="submitted && f['subject'].errors" class="invalid-feedback">
+                <span *ngIf="f['subject'].errors?.['required']">El asunto es requerido</span>
+                <span *ngIf="f['subject'].errors?.['minlength']">El asunto debe tener al menos 5 caracteres</span>
+              </div>
+            </div>
+
+            <!-- Mensaje -->
+            <div class="form-group mb-4">
+              <label for="message" class="form-label">
+                <i class="bi bi-chat-dots-fill me-2"></i>Mensaje
+              </label>
+              <textarea
+                id="message"
+                formControlName="message"
+                class="form-control"
+                rows="5"
+                [class.is-invalid]="submitted && f['message'].errors"
+                placeholder="Escribe tu mensaje aquí..."
+              ></textarea>
+              <div *ngIf="submitted && f['message'].errors" class="invalid-feedback">
+                <span *ngIf="f['message'].errors?.['required']">El mensaje es requerido</span>
+                <span *ngIf="f['message'].errors?.['minlength']">El mensaje debe tener al menos 10 caracteres</span>
+              </div>
+            </div>
+
+            <!-- Botón de Envío -->
+            <div class="form-actions">
+              <button type="submit" class="submit-btn">
+                <i class="bi bi-send-fill me-2"></i>
+                Enviar Mensaje
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Información de Contacto -->
+      <div class="col-lg-5">
+        <div class="info-section">
+          <!-- Información de Contacto -->
+          <div class="info-card contact-info-card">
+            <div class="contact-info-grid">
+              <div class="contact-info-item">
+                <div class="info-icon-wrapper">
+                  <i class="bi bi-telephone-fill info-icon"></i>
+                </div>
+                <h3 class="info-title">Teléfono</h3>
+                <a href="tel:{{ contactInfo.phone }}" class="info-link">
+                  {{ contactInfo.phone }}
+                </a>
+              </div>
+              <div class="contact-info-divider"></div>
+              <div class="contact-info-item">
+                <div class="info-icon-wrapper">
+                  <i class="bi bi-envelope-fill info-icon"></i>
+                </div>
+                <h3 class="info-title">Email</h3>
+                <a href="mailto:{{ contactInfo.email }}" class="info-link">
+                  {{ contactInfo.email }}
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-card">
+            <div class="info-icon-wrapper">
+              <i class="bi bi-geo-alt-fill info-icon"></i>
+            </div>
+            <h3 class="info-title">Dirección</h3>
+            <p class="info-text">{{ contactInfo.address }}</p>
+          </div>
+
+          <!-- Horarios -->
+          <div class="schedule-card">
+            <div class="schedule-header">
+              <i class="bi bi-clock-history schedule-icon"></i>
+              <h3 class="schedule-title">Horarios de Atención</h3>
+            </div>
+            <div class="schedule-times">
+              <div class="schedule-item">
+                <i class="bi bi-calendar-week schedule-item-icon"></i>
+                <span class="schedule-label">{{ contactInfo.schedule.weekdays }}</span>
+              </div>
+              <div class="schedule-item">
+                <i class="bi bi-calendar-weekend schedule-item-icon"></i>
+                <span class="schedule-label">{{ contactInfo.schedule.weekends }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- WhatsApp -->
+          <div class="whatsapp-section">
+            <div class="whatsapp-header">
+              <i class="bi bi-whatsapp whatsapp-header-icon"></i>
+              <h3 class="whatsapp-title">Escríbenos por WhatsApp</h3>
+              <p class="whatsapp-subtitle">Responde tus dudas al instante</p>
+            </div>
+            <a
+              [href]="whatsappInfo.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="whatsapp-link"
+            >
+              <div class="whatsapp-icon-wrapper">
+                <i class="bi bi-whatsapp"></i>
+              </div>
+              <div class="whatsapp-content">
+                <span class="whatsapp-name">{{ whatsappInfo.name }}</span>
+                <span class="whatsapp-phone">{{ whatsappInfo.phone }}</span>
+              </div>
+              <div class="whatsapp-badge">
+                <i class="bi bi-send-fill"></i>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+

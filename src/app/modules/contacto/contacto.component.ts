@@ -1,0 +1,68 @@
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+
+@Component({
+  selector: 'app-contacto',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule],
+  templateUrl: './contacto.component.html',
+  styleUrls: ['./contacto.component.css']
+})
+export class ContactoComponent {
+  contactForm: FormGroup;
+  submitted = false;
+  formSuccess = false;
+
+  contactInfo = {
+    phone: '3104941839',
+    email: 'contacto@presteza.com',
+    address: 'Carrera 23 # 70B - 57, Milan, Manizales, Caldas',
+    schedule: {
+      weekdays: 'Lunes a Viernes: 11:00 AM - 10:00 PM',
+      weekends: 'Sábados y Domingos: 12:00 PM - 11:00 PM'
+    }
+  };
+
+  whatsappInfo = {
+    name: 'WhatsApp',
+    icon: 'bi-whatsapp',
+    url: 'https://wa.me/573104941839',
+    color: '#25D366',
+    phone: '3104941839'
+  };
+
+  constructor(private fb: FormBuilder) {
+    this.contactForm = this.fb.group({
+      name: ['', [Validators.required, Validators.minLength(2)]],
+      email: ['', [Validators.required, Validators.email]],
+      phone: ['', [Validators.required, Validators.pattern(/^[0-9]{10}$/)]],
+      subject: ['', [Validators.required, Validators.minLength(5)]],
+      message: ['', [Validators.required, Validators.minLength(10)]]
+    });
+  }
+
+  onSubmit() {
+    this.submitted = true;
+    
+    if (this.contactForm.valid) {
+      // Aquí puedes agregar la lógica para enviar el formulario
+      console.log('Formulario enviado:', this.contactForm.value);
+      
+      // Simular envío exitoso
+      this.formSuccess = true;
+      this.contactForm.reset();
+      this.submitted = false;
+      
+      // Ocultar mensaje de éxito después de 5 segundos
+      setTimeout(() => {
+        this.formSuccess = false;
+      }, 5000);
+    }
+  }
+
+  get f() {
+    return this.contactForm.controls;
+  }
+}
+
