@@ -35,13 +35,13 @@ export class MenuService {
       id: 'almuerzos',
       name: 'Almuerzos del Día',
       description: 'Platos principales y almuerzos completos',
-      icon: 'bi-briefcase'
+      icon: 'bi-egg-fried'
     },
     {
       id: 'hamburguesas',
       name: 'Hamburguesas',
       description: 'Hamburguesas artesanales con ingredientes frescos',
-      icon: 'bi-burger'
+      icon: 'bi-layers'
     },
     {
       id: 'entradas',

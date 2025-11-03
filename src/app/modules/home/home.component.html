@@ -1,37 +1,218 @@
-<section>
-<div class="video-background" >
-  <img class="video-fallback" src="assets/fondo.jpg" alt="fondo" />
-  <iframe
-    src="https://www.youtube.com/embed/32T8Oja5Yn4?autoplay=1&mute=1&controls=0&loop=1&playlist=32T8Oja5Yn4&modestbranding=1&showinfo=0&rel=0&playsinline=1&end=46"
-    frameborder="0"
-    allow="autoplay; fullscreen"
-    allowfullscreen
-  ></iframe>
-</div>
-</section>
-
-<section class="valores container my-5">
-  <div class="row text-center">
-    <div class="col-md-4 mb-4">
-      <img src="https://lamilagrosaburgerhouse.co/wp-content/uploads/2022/05/iconos-03-150x150.png" alt="calidad" class="icono mb-3">
-      <p>
-        Escogimos la mejor carne para nuestros productos, haciéndolos únicos,
-        jugosos y exquisitos al paladar.
-      </p>
+<section class="home-page">
+  <!-- Hero Section con Video -->
+  <div class="hero-section">
+    <div class="video-background">
+      <img class="video-fallback" src="assets/fondo.jpg" alt="fondo" />
+      <iframe
+        src="https://www.youtube.com/embed/32T8Oja5Yn4?autoplay=1&mute=1&controls=0&loop=1&playlist=32T8Oja5Yn4&modestbranding=1&showinfo=0&rel=0&playsinline=1&end=46"
+        frameborder="0"
+        allow="autoplay; fullscreen"
+        allowfullscreen
+      ></iframe>
     </div>
-    <div class="col-md-4 mb-4">
-      <img src="https://lamilagrosaburgerhouse.co/wp-content/uploads/2022/05/iconos-02-150x150.png" alt="ingredientes" class="icono mb-3">
-      <p>
-        Cada ingrediente es cuidadosamente seleccionado por un personal altamente
-        capacitado para garantizar la mejor calidad.
-      </p>
-    </div>
-    <div class="col-md-4 mb-4">
-      <img src="https://lamilagrosaburgerhouse.co/wp-content/uploads/2022/05/iconos_Mesa-de-trabajo-1-150x150.png" alt="reconocimiento" class="icono mb-3">
-      <p>
-        En poco tiempo logramos posicionar nuestra marca y obtener reconocimientos
-        locales por nuestra excelencia y dedicación.
-      </p>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <h1 class="hero-title">PRESTEZA</h1>
+      <p class="hero-subtitle">Sabores que despiertan emociones</p>
+      <p class="hero-description">Disfruta de la mejor gastronomía en cada bocado</p>
+      <div class="hero-buttons">
+        <button class="btn-primary" (click)="navigateToMenu()">
+          <i class="bi bi-menu-button-wide me-2"></i>
+          Ver Menú Completo
+        </button>
+        <button class="btn-secondary" (click)="navigateToMenu()">
+          <i class="bi bi-arrow-right me-2"></i>
+          Pedir Ahora
+        </button>
+      </div>
     </div>
   </div>
+
+  <!-- Sección de Valores Mejorada -->
+  <section class="valores-section">
+    <div class="container">
+      <h2 class="section-title">¿Por qué elegir Presteza?</h2>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="valor-card">
+            <div class="valor-icon-wrapper">
+              <i class="bi bi-award-fill valor-icon"></i>
+            </div>
+            <h3 class="valor-title">100% Calidad</h3>
+            <p class="valor-text">
+              Escogimos la mejor carne para nuestros productos, haciéndolos únicos,
+              jugosos y exquisitos al paladar.
+            </p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="valor-card">
+            <div class="valor-icon-wrapper">
+              <i class="bi bi-stars valor-icon"></i>
+            </div>
+            <h3 class="valor-title">Ingredientes Premium</h3>
+            <p class="valor-text">
+              Cada ingrediente es cuidadosamente seleccionado por un personal altamente
+              capacitado para garantizar la mejor calidad.
+            </p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="valor-card">
+            <div class="valor-icon-wrapper">
+              <i class="bi bi-trophy-fill valor-icon"></i>
+            </div>
+            <h3 class="valor-title">Reconocimiento Local</h3>
+            <p class="valor-text">
+              En poco tiempo logramos posicionar nuestra marca y obtener reconocimientos
+              locales por nuestra excelencia y dedicación.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Productos Destacados -->
+  <section class="featured-products-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Nuestros Favoritos</h2>
+        <p class="section-subtitle">Platos que no puedes dejar de probar</p>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-4" *ngFor="let product of featuredProducts">
+          <div class="product-card">
+            <div class="product-badge">{{ product.badge }}</div>
+            <div class="product-image-wrapper">
+              <img [src]="product.imageUrl" [alt]="product.name" class="product-image" />
+              <div class="product-overlay">
+                <button class="product-btn" (click)="navigateToMenu()">
+                  <i class="bi bi-eye"></i>
+                  Ver Detalles
+                </button>
+              </div>
+            </div>
+            <div class="product-content">
+              <h3 class="product-name">{{ product.name }}</h3>
+              <p class="product-description">{{ product.description }}</p>
+              <div class="product-footer">
+                <span class="product-price">${{ product.price | number }}</span>
+                <button class="add-to-cart-btn" (click)="navigateToMenu()">
+                  <i class="bi bi-cart-plus"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="text-center mt-5">
+        <button class="btn-primary-lg" (click)="navigateToMenu()">
+          Ver Todo el Menú
+          <i class="bi bi-arrow-right ms-2"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Categorías Destacadas -->
+  <section class="categories-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Explora Nuestras Categorías</h2>
+        <p class="section-subtitle">Descubre todo lo que tenemos para ofrecerte</p>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-4 col-lg-3" *ngFor="let category of featuredCategories">
+          <div class="category-card" (click)="navigateToCategory(category.id)">
+            <div class="category-icon-wrapper">
+              <i [class]="'bi ' + category.icon"></i>
+            </div>
+            <h3 class="category-name">{{ category.name }}</h3>
+            <p class="category-description">{{ category.description }}</p>
+            <div class="category-arrow">
+              <i class="bi bi-arrow-right"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Estadísticas -->
+  <section class="stats-section">
+    <div class="stats-background-pattern"></div>
+    <div class="container">
+      <div class="stats-header">
+        <h2 class="stats-title">Números que Hablan</h2>
+        <p class="stats-subtitle">Nuestra trayectoria en cifras</p>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-3 col-6">
+          <div class="stat-card">
+            <div class="stat-icon-wrapper">
+              <div class="stat-icon-bg"></div>
+              <i class="bi bi-people-fill stat-icon"></i>
+            </div>
+            <div class="stat-number" data-target="5000">0+</div>
+            <div class="stat-label">Clientes Satisfechos</div>
+            <div class="stat-decoration"></div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="stat-card">
+            <div class="stat-icon-wrapper">
+              <div class="stat-icon-bg"></div>
+              <i class="bi bi-cup-hot-fill stat-icon"></i>
+            </div>
+            <div class="stat-number" data-target="100">0+</div>
+            <div class="stat-label">Platos Únicos</div>
+            <div class="stat-decoration"></div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="stat-card">
+            <div class="stat-icon-wrapper">
+              <div class="stat-icon-bg"></div>
+              <i class="bi bi-star-fill stat-icon"></i>
+            </div>
+            <div class="stat-number" data-target="4.9">0</div>
+            <div class="stat-label">Calificación Promedio</div>
+            <div class="stat-decoration"></div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="stat-card">
+            <div class="stat-icon-wrapper">
+              <div class="stat-icon-bg"></div>
+              <i class="bi bi-clock-history stat-icon"></i>
+            </div>
+            <div class="stat-number" data-target="5">0</div>
+            <div class="stat-label">Años de Experiencia</div>
+            <div class="stat-decoration"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Call to Action Final -->
+  <section class="cta-section">
+    <div class="container">
+      <div class="cta-content">
+        <h2 class="cta-title">¿Listo para disfrutar?</h2>
+        <p class="cta-subtitle">Haz tu pedido ahora y disfruta de nuestros deliciosos platillos</p>
+        <div class="cta-buttons">
+          <button class="btn-primary-lg" (click)="navigateToMenu()">
+            <i class="bi bi-menu-button-wide me-2"></i>
+            Ver Menú Completo
+          </button>
+          <button class="btn-outline-lg" (click)="navigateToMenu()">
+            <i class="bi bi-telephone-fill me-2"></i>
+            Llamar Ahora
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
 </section>
