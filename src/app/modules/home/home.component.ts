@@ -1,7 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { MenuService } from '../../core/services/menu.service';
+import { LoadingService } from '../../core/services/loading.service';
+import { ErrorHandlerService } from '../../core/services/error-handler.service';
+import { HomeData } from '../../core/resolvers/home.resolver';
 
 @Component({
   selector: 'app-home',
@@ -13,44 +16,91 @@ import { MenuService } from '../../core/services/menu.service';
 export class HomeComponent implements OnInit {
   featuredProducts: any[] = [];
   featuredCategories: any[] = [];
+  loading = false;
+  error: string | null = null;
 
   constructor(
     private menuService: MenuService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute,
+    private loadingService: LoadingService,
+    private errorHandler: ErrorHandlerService
   ) {}
 
   ngOnInit() {
-    this.menuService.getCategories().subscribe(categories => {
-      this.featuredCategories = categories.slice(0, 6);
+    // Obtener datos del resolver
+    const resolvedData = this.route.snapshot.data['homeData'] as HomeData;
+    
+    if (resolvedData) {
+      if (resolvedData.error) {
+        this.error = resolvedData.error;
+      } else {
+        this.featuredCategories = resolvedData.categories;
+        this.featuredProducts = resolvedData.featuredProducts.map(item => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80',
+          badge: this.getBadgeForProduct(item.id)
+        }));
+      }
+    } else {
+      // Fallback: cargar datos manualmente si el resolver no está disponible
+      this.loadData();
+    }
+
+    // Suscribirse a errores globales
+    this.errorHandler.error$.subscribe(error => {
+      if (error) {
+        this.error = error.message;
+      }
+    });
+  }
+
+  private loadData() {
+    this.loading = true;
+    this.loadingService.startLoading('Cargando datos...');
+
+    this.menuService.getCategories().subscribe({
+      next: (categories) => {
+        this.featuredCategories = categories.slice(0, 6);
+      },
+      error: (error) => {
+        this.error = 'Error al cargar las categorías';
+        this.errorHandler.handleError(error);
+      }
     });
 
-    // Productos destacados
-    this.featuredProducts = [
-      {
-        id: 1,
-        name: 'Bandeja Paisa Presteza',
-        description: 'Carne asada, chicharrón, frijoles, arroz, aguacate, huevo, plátano y arepa',
-        price: 25000,
-        imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80',
-        badge: 'Más Popular'
+    this.menuService.getFeaturedItems().subscribe({
+      next: (items) => {
+        this.featuredProducts = items.map(item => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80',
+          badge: this.getBadgeForProduct(item.id)
+        }));
+        this.loading = false;
+        this.loadingService.stopLoading();
       },
-      {
-        id: 6,
-        name: 'Hamburguesa Presteza',
-        description: 'Doble carne, queso cheddar, tocino, huevo y salsa BBQ',
-        price: 22000,
-        imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&q=80',
-        badge: 'Especial'
-      },
-      {
-        id: 30,
-        name: 'Cazuela de Mariscos',
-        description: 'Mezcla de mariscos en salsa cremosa con arroz y patacones',
-        price: 28000,
-        imageUrl: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80',
-        badge: 'Recomendado'
+      error: (error) => {
+        this.error = 'Error al cargar los productos destacados';
+        this.errorHandler.handleError(error);
+        this.loading = false;
+        this.loadingService.stopLoading();
       }
-    ];
+    });
+  }
+
+  private getBadgeForProduct(id: number): string {
+    const badges: { [key: number]: string } = {
+      1: 'Más Popular',
+      6: 'Especial',
+      30: 'Recomendado'
+    };
+    return badges[id] || 'Destacado';
   }
 
   navigateToMenu() {

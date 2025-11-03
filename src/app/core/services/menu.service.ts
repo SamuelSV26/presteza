@@ -480,4 +480,13 @@ export class MenuService {
     const item = this.menuItems.find(item => item.id === id);
     return of(item);
   }
+
+  getFeaturedItems(): Observable<MenuItem[]> {
+    // Retornar productos destacados/populares
+    const featuredIds = [1, 6, 30]; // Bandeja Paisa, Hamburguesa Presteza, Cazuela de Mariscos
+    const featured = this.menuItems.filter(item => 
+      featuredIds.includes(item.id) && item.available
+    );
+    return of(featured);
+  }
 }
