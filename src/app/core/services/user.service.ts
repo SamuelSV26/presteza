@@ -151,6 +151,16 @@ export class UserService {
     });
   }
 
+  updateAddress(address: Address): void {
+    this.getAddresses().subscribe(addresses => {
+      const index = addresses.findIndex(a => a.id === address.id);
+      if (index !== -1) {
+        addresses[index] = address;
+        localStorage.setItem('userAddresses', JSON.stringify(addresses));
+      }
+    });
+  }
+
   getPaymentMethods(): Observable<PaymentMethod[]> {
     const storedMethods = localStorage.getItem('userPaymentMethods');
     if (storedMethods) {

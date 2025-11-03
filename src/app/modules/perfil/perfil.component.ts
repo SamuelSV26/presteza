@@ -255,8 +255,15 @@ export class PerfilComponent implements OnInit {
     this.submitted = true;
     if (this.profileForm.valid && this.userProfile) {
       this.userService.updateUserProfile(this.profileForm.value);
+      // Actualizar el perfil local también
+      this.userService.getUserProfile().subscribe(updatedProfile => {
+        if (updatedProfile) {
+          this.userProfile = updatedProfile;
+        }
+      });
       alert('Perfil actualizado correctamente');
       this.submitted = false;
+      this.showProfileModal = false;
     }
   }
 
@@ -285,6 +292,7 @@ export class PerfilComponent implements OnInit {
       this.showEditAddressModal = false;
       this.editingAddress = null;
       this.submitted = false;
+      alert('Dirección guardada correctamente');
     }
   }
 
@@ -331,12 +339,27 @@ export class PerfilComponent implements OnInit {
   }
 
   openProfileEdit() {
+    if (this.userProfile) {
+      this.profileForm.patchValue({
+        fullName: this.userProfile.fullName,
+        email: this.userProfile.email,
+        phone: this.userProfile.phone
+      });
+    }
     this.showProfileModal = true;
   }
 
   closeProfileEdit() {
     this.showProfileModal = false;
     this.submitted = false;
+    this.profileForm.reset();
+    if (this.userProfile) {
+      this.profileForm.patchValue({
+        fullName: this.userProfile.fullName,
+        email: this.userProfile.email,
+        phone: this.userProfile.phone
+      });
+    }
   }
 
   onPasswordSubmit() {

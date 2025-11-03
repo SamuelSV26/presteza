@@ -270,6 +270,15 @@
   color: #8b2d4f;
 }
 
+.btn-icon-danger {
+  color: #dc3545;
+}
+
+.btn-icon-danger:hover {
+  background: rgba(220, 53, 69, 0.1);
+  color: #c82333;
+}
+
 /* Orders */
 .orders-list {
   display: flex;
@@ -648,6 +657,10 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
+.modal-large {
+  max-width: 700px;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -843,6 +856,58 @@
 
 .mt-4 {
   margin-top: 2rem;
+}
+
+/* Quick Info */
+.quick-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.info-item:hover {
+  background: rgba(107, 29, 61, 0.05);
+  transform: translateY(-2px);
+}
+
+.info-item i {
+  font-size: 1.5rem;
+  color: #6b1d3d;
+}
+
+.info-item > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.info-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 1rem;
+  color: #6b1d3d;
+  font-weight: 600;
+}
+
+.card-subtitle {
+  color: #666;
+  font-size: 1rem;
+  margin-top: 0.5rem;
 }
 
 /* Responsive */
