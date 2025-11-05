@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MenuService, MenuItem, MenuCategory } from '../../core/services/menu.service';
 import { UserService, Order } from '../../core/services/user.service';
+import { AuthService } from '../../core/services/auth.service';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 
 @Component({
@@ -64,6 +65,7 @@ export class AdminDashboardComponent implements OnInit {
   constructor(
     private menuService: MenuService,
     private userService: UserService,
+    private authService: AuthService,
     private router: Router,
     private fb: FormBuilder
   ) {
@@ -269,8 +271,8 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   logout(): void {
-    localStorage.removeItem('isAdmin');
-    this.router.navigate(['/']);
+    // Usar el método logout del AuthService que limpia todo correctamente
+    this.authService.logout();
   }
 }
 

@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { UserService, UserProfile, Order, Address, PaymentMethod } from '../../core/services/user.service';
 import { MenuService, MenuItem } from '../../core/services/menu.service';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-perfil',
@@ -36,7 +37,8 @@ export class PerfilComponent implements OnInit {
     private userService: UserService,
     public router: Router,
     private fb: FormBuilder,
-    private menuService: MenuService
+    private menuService: MenuService,
+    private authService: AuthService
   ) {
     this.profileForm = this.fb.group({
       fullName: ['', [Validators.required, Validators.minLength(3)]],
@@ -59,17 +61,49 @@ export class PerfilComponent implements OnInit {
   }
 
   ngOnInit() {
-    // Por ahora, cargar datos de prueba para visualizar el perfil
-    this.loadMockData();
+    this.loadUserProfile();
 
-    // Primero verificar si hay userName en localStorage
+    // Suscribirse a cambios en la información del usuario
+    this.authService.userInfo$.subscribe(userInfo => {
+      this.loadUserProfile();
+    });
+
+    // Cargar platos recomendados y favoritos
+    this.loadRecommendedDishes();
+    this.loadFavoriteDishes();
+  }
+
+  private loadUserProfile() {
+    // Obtener información del usuario autenticado
+    const userInfo = this.authService.getUserInfo();
     const userName = localStorage.getItem('userName');
+    const userEmail = localStorage.getItem('userEmail');
+    const userPhone = localStorage.getItem('userPhone');
     
-    if (!userName) {
-      // No hay usuario logueado, pero mostrar datos de prueba
-      console.log('Modo de demostración: mostrando datos de prueba');
-    } else {
-      // Suscribirse al perfil del usuario real
+    if (userInfo || userName) {
+      // Crear perfil con datos del usuario autenticado
+      const userProfile: UserProfile = {
+        id: userInfo?.userId || 'user_' + Date.now(),
+        fullName: userInfo?.name || userName || 'Usuario',
+        email: userInfo?.email || userEmail || '',
+        phone: userPhone || '',
+        memberSince: new Date(), // Se puede obtener del token JWT si está disponible
+        preferences: {
+          notifications: true,
+          emailNotifications: true,
+          smsNotifications: false,
+          favoriteCategories: []
+        }
+      };
+
+      this.userProfile = userProfile;
+      this.profileForm.patchValue({
+        fullName: userProfile.fullName,
+        email: userProfile.email,
+        phone: userProfile.phone
+      });
+
+      // Intentar obtener el perfil completo del servicio
       this.userService.getUserProfile().subscribe(profile => {
         if (profile) {
           this.userProfile = profile;
@@ -78,20 +112,17 @@ export class PerfilComponent implements OnInit {
             email: profile.email,
             phone: profile.phone
           });
-        } else {
-          // Si no hay perfil pero sí userName, usar datos de prueba
-          this.loadMockData();
         }
       });
 
       this.loadOrders();
       this.loadAddresses();
       this.loadPaymentMethods();
+    } else {
+      // No hay usuario logueado, mostrar datos de prueba
+      console.log('Modo de demostración: mostrando datos de prueba');
+      this.loadMockData();
     }
-
-    // Cargar platos recomendados y favoritos
-    this.loadRecommendedDishes();
-    this.loadFavoriteDishes();
   }
 
   private loadRecommendedDishes() {
@@ -413,8 +444,8 @@ export class PerfilComponent implements OnInit {
 
   logout() {
     if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-      this.userService.logout();
-      this.router.navigate(['/']);
+      // Usar authService.logout() que limpia todo correctamente y actualiza los observables
+      this.authService.logout();
     }
   }
 

@@ -4,6 +4,7 @@ import { Observable, throwError } from 'rxjs';
 import { catchError, finalize, tap } from 'rxjs/operators';
 import { LoadingService } from '../services/loading.service';
 import { ErrorHandlerService } from '../services/error-handler.service';
+import { AuthService } from '../services/auth.service';
 import { Router } from '@angular/router';
 
 /**
@@ -15,6 +16,7 @@ export const httpInterceptor: HttpInterceptorFn = (
 ): Observable<HttpEvent<unknown>> => {
   const loadingService = inject(LoadingService);
   const errorHandler = inject(ErrorHandlerService);
+  const authService = inject(AuthService);
   const router = inject(Router);
 
   // Iniciar loading solo para peticiones que no sean de verificación
@@ -22,13 +24,22 @@ export const httpInterceptor: HttpInterceptorFn = (
     loadingService.startLoading();
   }
 
-  // Clonar la request para agregar headers comunes si es necesario
-  const clonedRequest = req.clone({
+  // Agregar token JWT a las peticiones (excepto login y register)
+  const token = authService.getToken();
+  let clonedRequest = req.clone({
     setHeaders: {
       'Content-Type': 'application/json',
-      // Aquí puedes agregar headers de autenticación, etc.
     }
   });
+
+  if (token && !req.url.includes('/auth/login') && !req.url.includes('/auth/register')) {
+    clonedRequest = req.clone({
+      setHeaders: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      }
+    });
+  }
 
   return next(clonedRequest).pipe(
     tap({
@@ -46,6 +57,7 @@ export const httpInterceptor: HttpInterceptorFn = (
           // Manejar errores específicos
           if (error.status === 401) {
             // Redirigir al login si no está autenticado
+            authService.logout();
             router.navigate(['/']);
           } else if (error.status === 403) {
             // Manejar acceso denegado

@@ -43,6 +43,27 @@
             <i class="bi bi-person-circle"></i>
           </a>
           
+          <!-- Dropdown del Usuario Autenticado -->
+          <div *ngIf="showUserDropdown" class="user-dropdown" (click)="$event.stopPropagation()">
+            <div class="user-dropdown-content">
+              <div class="user-dropdown-header">
+                <i class="bi bi-person-circle"></i>
+                <div class="user-dropdown-info">
+                  <p class="user-dropdown-email">{{ userEmail }}</p>
+                </div>
+              </div>
+              <div class="user-dropdown-divider"></div>
+              <button class="user-dropdown-item" (click)="navigateToProfile()">
+                <i class="bi bi-person"></i>
+                <span>Mi Perfil</span>
+              </button>
+              <button class="user-dropdown-item user-dropdown-logout" (click)="logout()">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Cerrar Sesión</span>
+              </button>
+            </div>
+          </div>
+          
           <!-- Modal de Inicio de Sesión -->
           <div *ngIf="showLoginModal" class="login-modal-dropdown" (click)="$event.stopPropagation()">
             <div class="login-modal">
@@ -56,6 +77,13 @@
                 <h2 class="login-modal-title">Iniciar Sesión</h2>
               </div>
               <form class="login-modal-form" (ngSubmit)="onLoginSubmit()">
+                <!-- Mensaje de error -->
+                <div *ngIf="loginError" class="alert alert-danger alert-dismissible fade show" role="alert">
+                  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                  {{ loginError }}
+                  <button type="button" class="btn-close" (click)="loginError = null" aria-label="Close"></button>
+                </div>
+
                 <div class="form-group">
                   <label for="email" class="form-label">
                     <i class="bi bi-envelope-fill"></i>
@@ -68,6 +96,7 @@
                     [(ngModel)]="loginEmail"
                     name="email"
                     required
+                    [disabled]="isLoading"
                   />
                 </div>
                 <div class="form-group">
@@ -82,18 +111,23 @@
                     [(ngModel)]="loginPassword"
                     name="password"
                     required
+                    [disabled]="isLoading"
                   />
                 </div>
                 <div class="login-modal-options">
                   <label class="remember-me">
-                    <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" />
+                    <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" [disabled]="isLoading" />
                     <span>Recordarme</span>
                   </label>
                   <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
                 </div>
-                <button type="submit" class="login-submit-btn">
-                  <span>Iniciar Sesión</span>
-                  <i class="bi bi-arrow-right"></i>
+                <button type="submit" class="login-submit-btn" [disabled]="isLoading">
+                  <span *ngIf="!isLoading">Iniciar Sesión</span>
+                  <span *ngIf="isLoading">
+                    <i class="bi bi-hourglass-split"></i>
+                    Cargando...
+                  </span>
+                  <i *ngIf="!isLoading" class="bi bi-arrow-right"></i>
                 </button>
               </form>
               <div class="login-modal-footer">

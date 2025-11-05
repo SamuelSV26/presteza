@@ -28,6 +28,13 @@
               ¡Cuenta creada exitosamente! Redirigiendo...
             </div>
 
+            <!-- Mensaje de error -->
+            <div *ngIf="formError" class="alert alert-danger alert-dismissible fade show" role="alert">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>
+              {{ formError }}
+              <button type="button" class="btn-close" (click)="formError = null" aria-label="Close"></button>
+            </div>
+
             <!-- Nombre -->
             <div class="form-group mb-4">
               <label for="name" class="form-label">
@@ -100,7 +107,8 @@
               />
               <div *ngIf="submitted && f['password'].errors" class="invalid-feedback">
                 <span *ngIf="f['password'].errors?.['required']">La contraseña es requerida</span>
-                <span *ngIf="f['password'].errors?.['minlength']">La contraseña debe tener al menos 6 caracteres</span>
+                <span *ngIf="f['password'].errors?.['minlength']">La contraseña debe tener al menos 8 caracteres</span>
+                <span *ngIf="f['password'].errors?.['pattern']">La contraseña debe tener al menos una mayúscula, una minúscula y un número</span>
               </div>
             </div>
 
@@ -140,9 +148,13 @@
 
             <!-- Botón de Registro -->
             <div class="form-actions">
-              <button type="submit" class="submit-btn">
+              <button type="submit" class="submit-btn" [disabled]="isLoading">
                 <i class="bi bi-person-plus-fill me-2"></i>
-                Crear Cuenta
+                <span *ngIf="!isLoading">Crear Cuenta</span>
+                <span *ngIf="isLoading">
+                  <i class="bi bi-hourglass-split"></i>
+                  Registrando...
+                </span>
               </button>
             </div>
 
