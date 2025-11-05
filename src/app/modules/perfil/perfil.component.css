@@ -405,65 +405,265 @@
   color: #6b1d3d;
 }
 
-/* Addresses */
+/* Addresses - Rediseño Moderno */
 .addresses-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
+  margin-top: 1.5rem;
 }
 
 .address-card {
-  background: #f8f9fa;
-  border-radius: 15px;
-  padding: 1.5rem;
-  border: 2px solid rgba(107, 29, 61, 0.1);
-  transition: all 0.3s ease;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 0;
+  border: 2px solid rgba(107, 29, 61, 0.08);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(107, 29, 61, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.address-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #6b1d3d 0%, #8b2d4f 50%, #6b1d3d 100%);
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.address-card:hover::before,
+.address-card.is-default::before {
+  opacity: 1;
+  animation: shimmer 2s infinite;
 }
 
 .address-card:hover {
-  border-color: #6b1d3d;
-  box-shadow: 0 4px 15px rgba(107, 29, 61, 0.15);
+  transform: translateY(-8px);
+  border-color: rgba(107, 29, 61, 0.3);
+  box-shadow: 0 12px 40px rgba(107, 29, 61, 0.2);
 }
 
-.address-header {
+.address-card.is-default {
+  border-color: #6b1d3d;
+  background: linear-gradient(135deg, #ffffff 0%, rgba(107, 29, 61, 0.02) 100%);
+  box-shadow: 0 8px 30px rgba(107, 29, 61, 0.15);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.address-card-header {
+  padding: 1.5rem 1.5rem 1rem;
   display: flex;
-  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  position: relative;
+}
+
+.address-icon-wrapper {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.1) 0%, rgba(139, 45, 79, 0.08) 100%);
+  display: flex;
   align-items: center;
-  margin-bottom: 1rem;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.address-card:hover .address-icon-wrapper,
+.address-card.is-default .address-icon-wrapper {
+  background: linear-gradient(135deg, #6b1d3d 0%, #8b2d4f 100%);
+  transform: scale(1.1);
+}
+
+.address-icon-wrapper i {
+  font-size: 1.5rem;
+  color: #6b1d3d;
+  transition: all 0.3s ease;
+}
+
+.address-card:hover .address-icon-wrapper i,
+.address-card.is-default .address-icon-wrapper i {
+  color: #ffffff;
+}
+
+.address-title-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .address-title {
   color: #6b1d3d;
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
+  margin: 0;
+  line-height: 1.2;
 }
 
 .address-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   background: linear-gradient(135deg, #6b1d3d 0%, #8b2d4f 100%);
   color: #ffffff;
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
+  padding: 0.4rem 0.9rem;
+  border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 600;
+  box-shadow: 0 2px 8px rgba(107, 29, 61, 0.3);
+  animation: pulse 2s infinite;
 }
 
-.address-text {
-  color: #333;
-  margin-bottom: 0.5rem;
-  line-height: 1.6;
+.address-badge i {
+  font-size: 0.7rem;
 }
 
-.address-city {
-  color: #666;
-  font-size: 0.9rem;
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(107, 29, 61, 0.3);
+  }
+  50% {
+    box-shadow: 0 2px 12px rgba(107, 29, 61, 0.5);
+  }
+}
+
+.address-details {
+  padding: 0 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.address-detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  color: #555;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.address-detail-item i {
+  color: #6b1d3d;
+  font-size: 1rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.address-detail-item span {
+  flex: 1;
 }
 
 .address-actions {
   display: flex;
   gap: 0.5rem;
-  margin-top: 1rem;
-  justify-content: flex-end;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(to bottom, rgba(107, 29, 61, 0.02) 0%, rgba(107, 29, 61, 0.05) 100%);
+  border-top: 1px solid rgba(107, 29, 61, 0.08);
+  border-radius: 0 0 20px 20px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  justify-content: center;
+  min-width: 90px;
+}
+
+.action-btn i {
+  font-size: 1rem;
+}
+
+.action-btn span {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .action-btn span {
+    display: inline;
+  }
+}
+
+.star-btn {
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 193, 7, 0.15) 100%);
+  color: #ff9800;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.star-btn:hover {
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
+}
+
+.edit-btn {
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.1) 0%, rgba(139, 45, 79, 0.1) 100%);
+  color: #6b1d3d;
+  border: 1px solid rgba(107, 29, 61, 0.2);
+}
+
+.edit-btn:hover {
+  background: linear-gradient(135deg, #6b1d3d 0%, #8b2d4f 100%);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(107, 29, 61, 0.3);
+}
+
+.delete-btn {
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(220, 53, 69, 0.15) 100%);
+  color: #dc3545;
+  border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.delete-btn:hover {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .addresses-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .action-btn {
+    flex: 1;
+    min-width: auto;
+  }
 }
 
 /* Payment Methods */
@@ -703,6 +903,109 @@
   gap: 1rem;
   justify-content: flex-end;
   margin-top: 1.5rem;
+}
+
+/* Checkbox personalizado para dirección principal */
+.default-address-option {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.05) 0%, rgba(139, 45, 79, 0.03) 100%);
+  border-radius: 12px;
+  border: 2px solid rgba(107, 29, 61, 0.1);
+  transition: all 0.3s ease;
+}
+
+.default-address-option:hover {
+  border-color: rgba(107, 29, 61, 0.3);
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.08) 0%, rgba(139, 45, 79, 0.05) 100%);
+}
+
+.default-address-checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.default-address-checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  position: relative;
+  height: 24px;
+  width: 24px;
+  background-color: #ffffff;
+  border: 2px solid #6b1d3d;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.default-address-checkbox:hover .checkmark {
+  border-color: #8b2d4f;
+  background-color: rgba(107, 29, 61, 0.05);
+}
+
+.default-address-checkbox input[type="checkbox"]:checked ~ .checkmark {
+  background-color: #6b1d3d;
+  border-color: #6b1d3d;
+}
+
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+  left: 7px;
+  top: 3px;
+  width: 6px;
+  height: 12px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.default-address-checkbox input[type="checkbox"]:checked ~ .checkmark:after {
+  display: block;
+}
+
+.default-address-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b1d3d;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.default-address-text i {
+  color: #ffc107;
+  font-size: 1.1rem;
+}
+
+.default-address-checkbox input[type="checkbox"]:checked ~ .default-address-text {
+  color: #6b1d3d;
+  font-weight: 600;
+}
+
+.default-address-checkbox input[type="checkbox"]:checked ~ .default-address-text i {
+  color: #ffc107;
+  animation: starPulse 0.5s ease;
+}
+
+@keyframes starPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
 }
 
 /* Dishes Grid */

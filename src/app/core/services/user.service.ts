@@ -39,6 +39,7 @@ export interface Address {
   id: string;
   title: string;
   address: string;
+  neighborhood?: string; // Barrio
   city: string;
   postalCode: string;
   isDefault: boolean;
@@ -64,32 +65,84 @@ export class UserService {
   }
 
   private loadUserProfile(): void {
-    const userName = localStorage.getItem('userName');
-    if (userName) {
-      // Cargar perfil desde localStorage o crear uno por defecto
-      const storedProfile = localStorage.getItem('userProfile');
+    // Obtener información del usuario actual desde userInfo
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      this.userProfileSubject.next(null);
+      return;
+    }
+    
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+      
+      // Cargar perfil desde localStorage asociado al usuario actual
+      const storedProfile = localStorage.getItem(`userProfile_${userId}`);
       if (storedProfile) {
         const profile = JSON.parse(storedProfile);
         profile.memberSince = new Date(profile.memberSince);
-        this.userProfileSubject.next(profile);
-      } else {
-        // Crear perfil por defecto
-        const defaultProfile: UserProfile = {
-          id: this.generateId(),
-          fullName: userName,
-          email: localStorage.getItem('userEmail') || `${userName}@email.com`,
-          phone: localStorage.getItem('userPhone') || '',
-          memberSince: new Date(),
-          preferences: {
-            notifications: true,
-            emailNotifications: true,
-            smsNotifications: false,
-            favoriteCategories: []
+        // Validar que el perfil pertenezca al usuario actual
+        if (profile.email === userInfo.email || profile.id === userId) {
+          // Asegurar que la fecha de registro se preserve desde localStorage
+          const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) || 
+                               localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
+          if (savedDateStr) {
+            try {
+              const savedDate = new Date(savedDateStr);
+              if (!isNaN(savedDate.getTime())) {
+                profile.memberSince = savedDate;
+              }
+            } catch (e) {
+              console.error('Error al actualizar fecha de registro en perfil guardado:', e);
+            }
           }
-        };
-        this.saveUserProfile(defaultProfile);
-        this.userProfileSubject.next(defaultProfile);
+          
+          this.userProfileSubject.next(profile);
+          return;
+        }
       }
+      
+      // Obtener fecha de registro guardada
+      let registrationDate: Date = new Date(); // Por defecto fecha actual
+      const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) || 
+                           localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
+      
+      if (savedDateStr) {
+        try {
+          registrationDate = new Date(savedDateStr);
+          // Validar que la fecha sea válida
+          if (isNaN(registrationDate.getTime())) {
+            registrationDate = new Date();
+          }
+        } catch (e) {
+          console.error('Error al parsear fecha de registro:', e);
+          registrationDate = new Date();
+        }
+      } else {
+        // Si no hay fecha guardada, guardar la fecha actual como fecha de registro
+        localStorage.setItem(`userRegistrationDate_${userId}`, registrationDate.toISOString());
+        localStorage.setItem(`userRegistrationDate_${userInfo.email}`, registrationDate.toISOString());
+      }
+      
+      // Si no hay perfil guardado, crear uno por defecto con datos del token
+      const defaultProfile: UserProfile = {
+        id: userId,
+        fullName: userInfo.name || 'Usuario',
+        email: userInfo.email || '',
+        phone: localStorage.getItem('userPhone') || '',
+        memberSince: registrationDate, // Usar la fecha de registro guardada
+        preferences: {
+          notifications: true,
+          emailNotifications: true,
+          smsNotifications: false,
+          favoriteCategories: []
+        }
+      };
+      this.saveUserProfile(defaultProfile);
+      this.userProfileSubject.next(defaultProfile);
+    } catch (e) {
+      console.error('Error al cargar perfil del usuario:', e);
+      this.userProfileSubject.next(null);
     }
   }
 
@@ -97,17 +150,98 @@ export class UserService {
     return this.userProfile$;
   }
 
+  /**
+   * Inicializa el perfil del usuario en el servicio
+   * Útil cuando el componente tiene datos del perfil que aún no están en el servicio
+   */
+  initializeUserProfile(profile: UserProfile): void {
+    this.saveUserProfile(profile);
+    this.userProfileSubject.next(profile);
+  }
+
   updateUserProfile(updates: Partial<UserProfile>): void {
-    const currentProfile = this.userProfileSubject.value;
-    if (currentProfile) {
-      const updatedProfile = { ...currentProfile, ...updates };
-      this.saveUserProfile(updatedProfile);
-      this.userProfileSubject.next(updatedProfile);
+    let currentProfile = this.userProfileSubject.value;
+    
+    // Si no existe un perfil, crear uno nuevo con los datos proporcionados
+    if (!currentProfile) {
+      const userInfoStr = localStorage.getItem('userInfo');
+      let userId: string | null = null;
+      let registrationDate: Date = new Date();
+      
+      if (userInfoStr) {
+        try {
+          const userInfo = JSON.parse(userInfoStr);
+          userId = userInfo.userId || userInfo.email;
+          // Intentar obtener fecha de registro guardada
+          const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) || 
+                               localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
+          if (savedDateStr) {
+            try {
+              registrationDate = new Date(savedDateStr);
+              if (isNaN(registrationDate.getTime())) {
+                registrationDate = new Date();
+              }
+            } catch (e) {
+              registrationDate = new Date();
+            }
+          }
+        } catch (e) {
+          console.error('Error al obtener userId:', e);
+        }
+      }
+      
+      const userName = localStorage.getItem('userName');
+      const userEmail = localStorage.getItem('userEmail');
+      const userPhone = localStorage.getItem('userPhone');
+      
+      currentProfile = {
+        id: userId || 'user_' + Date.now(),
+        fullName: updates.fullName || userName || 'Usuario',
+        email: updates.email || userEmail || '',
+        phone: updates.phone || userPhone || '',
+        memberSince: registrationDate, // Usar la fecha de registro guardada
+        preferences: {
+          notifications: true,
+          emailNotifications: true,
+          smsNotifications: false,
+          favoriteCategories: []
+        }
+      };
     }
+    
+    // Actualizar el perfil con los nuevos datos, pero preservar la fecha de registro original
+    const updatedProfile = { 
+      ...currentProfile, 
+      ...updates,
+      memberSince: currentProfile.memberSince // Preservar la fecha de registro original
+    };
+    this.saveUserProfile(updatedProfile);
+    this.userProfileSubject.next(updatedProfile);
   }
 
   private saveUserProfile(profile: UserProfile): void {
-    localStorage.setItem('userProfile', JSON.stringify(profile));
+    // Obtener userId del usuario actual
+    const userInfoStr = localStorage.getItem('userInfo');
+    let userId: string | null = null;
+    
+    if (userInfoStr) {
+      try {
+        const userInfo = JSON.parse(userInfoStr);
+        userId = userInfo.userId || userInfo.email || profile.id;
+      } catch (e) {
+        console.error('Error al obtener userId:', e);
+      }
+    }
+    
+    if (userId) {
+      // Guardar perfil asociado al userId del usuario actual
+      localStorage.setItem(`userProfile_${userId}`, JSON.stringify(profile));
+    } else {
+      // Fallback: guardar sin userId (compatibilidad)
+      localStorage.setItem('userProfile', JSON.stringify(profile));
+    }
+    
+    // Actualizar datos básicos en localStorage
     localStorage.setItem('userName', profile.fullName);
     if (profile.email) {
       localStorage.setItem('userEmail', profile.email);
@@ -138,28 +272,63 @@ export class UserService {
   }
 
   getAddresses(): Observable<Address[]> {
-    const storedAddresses = localStorage.getItem('userAddresses');
-    if (storedAddresses) {
-      return of(JSON.parse(storedAddresses));
+    // Obtener el userId del usuario actual
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return of([]);
     }
+    
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+      
+      // Retornar direcciones asociadas al usuario actual
+      const storedAddresses = localStorage.getItem(`userAddresses_${userId}`);
+      if (storedAddresses) {
+        return of(JSON.parse(storedAddresses));
+      }
+    } catch (e) {
+      console.error('Error al obtener direcciones del usuario:', e);
+    }
+    
     return of([]);
   }
 
   saveAddress(address: Address): void {
-    this.getAddresses().subscribe(addresses => {
-      const updatedAddresses = [...addresses, address];
-      localStorage.setItem('userAddresses', JSON.stringify(updatedAddresses));
-    });
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) return;
+    
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+      
+      this.getAddresses().subscribe(addresses => {
+        const updatedAddresses = [...addresses, address];
+        localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(updatedAddresses));
+      });
+    } catch (e) {
+      console.error('Error al guardar dirección:', e);
+    }
   }
 
   updateAddress(address: Address): void {
-    this.getAddresses().subscribe(addresses => {
-      const index = addresses.findIndex(a => a.id === address.id);
-      if (index !== -1) {
-        addresses[index] = address;
-        localStorage.setItem('userAddresses', JSON.stringify(addresses));
-      }
-    });
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) return;
+    
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+      
+      this.getAddresses().subscribe(addresses => {
+        const index = addresses.findIndex(a => a.id === address.id);
+        if (index !== -1) {
+          addresses[index] = address;
+          localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(addresses));
+        }
+      });
+    } catch (e) {
+      console.error('Error al actualizar dirección:', e);
+    }
   }
 
   getPaymentMethods(): Observable<PaymentMethod[]> {
@@ -182,28 +351,66 @@ export class UserService {
   }
 
   getFavoriteDishes(): Observable<number[]> {
-    // Retornar IDs de platos favoritos
-    const storedFavorites = localStorage.getItem('userFavoriteDishes');
-    if (storedFavorites) {
-      return of(JSON.parse(storedFavorites));
+    // Obtener el userId del usuario actual desde localStorage
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return of([]);
     }
+    
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email; // Usar userId o email como identificador
+      
+      // Retornar IDs de platos favoritos asociados al usuario actual
+      const storedFavorites = localStorage.getItem(`userFavoriteDishes_${userId}`);
+      if (storedFavorites) {
+        return of(JSON.parse(storedFavorites));
+      }
+    } catch (e) {
+      console.error('Error al obtener favoritos del usuario:', e);
+    }
+    
     return of([]);
   }
 
   addFavoriteDish(dishId: number): void {
-    this.getFavoriteDishes().subscribe(favorites => {
-      if (!favorites.includes(dishId)) {
-        const updatedFavorites = [...favorites, dishId];
-        localStorage.setItem('userFavoriteDishes', JSON.stringify(updatedFavorites));
-      }
-    });
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) return;
+    
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+      
+      this.getFavoriteDishes().subscribe(favorites => {
+        if (!favorites.includes(dishId)) {
+          const updatedFavorites = [...favorites, dishId];
+          localStorage.setItem(`userFavoriteDishes_${userId}`, JSON.stringify(updatedFavorites));
+          // Disparar evento personalizado para notificar cambios
+          window.dispatchEvent(new CustomEvent('favoritesChanged'));
+        }
+      });
+    } catch (e) {
+      console.error('Error al agregar favorito:', e);
+    }
   }
 
   removeFavoriteDish(dishId: number): void {
-    this.getFavoriteDishes().subscribe(favorites => {
-      const updatedFavorites = favorites.filter(id => id !== dishId);
-      localStorage.setItem('userFavoriteDishes', JSON.stringify(updatedFavorites));
-    });
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) return;
+    
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+      
+      this.getFavoriteDishes().subscribe(favorites => {
+        const updatedFavorites = favorites.filter(id => id !== dishId);
+        localStorage.setItem(`userFavoriteDishes_${userId}`, JSON.stringify(updatedFavorites));
+        // Disparar evento personalizado para notificar cambios
+        window.dispatchEvent(new CustomEvent('favoritesChanged'));
+      });
+    } catch (e) {
+      console.error('Error al eliminar favorito:', e);
+    }
   }
 
   /**

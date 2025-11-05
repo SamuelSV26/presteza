@@ -7,9 +7,12 @@ import { SedeComponent } from './modules/sede/sede.component';
 import { NosotrosComponent } from './modules/nosotros/nosotros.component';
 import { ContactoComponent } from './modules/contacto/contacto.component';
 import { RegistroComponent } from './modules/registro/registro.component';
+import { LoginComponent } from './modules/login/login.component';
 import { PerfilComponent } from './modules/perfil/perfil.component';
 import { AdminDashboardComponent } from './modules/admin/admin-dashboard.component';
 import { homeGuard } from './core/guards/home.guard';
+import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 import { homeResolver } from './core/resolvers/home.resolver';
 
 export const routes: Routes = [
@@ -53,12 +56,18 @@ export const routes: Routes = [
     component: RegistroComponent
   },
   {
+    path: 'login',
+    component: LoginComponent
+  },
+  {
     path: 'perfil',
-    component: PerfilComponent
+    component: PerfilComponent,
+    canActivate: [authGuard]
   },
   {
     path: 'admin',
-    component: AdminDashboardComponent
+    component: AdminDashboardComponent,
+    canActivate: [adminGuard]
   }
 ];
 

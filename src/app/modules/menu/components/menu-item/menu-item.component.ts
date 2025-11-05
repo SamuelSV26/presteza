@@ -1,6 +1,8 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { UserService } from '../../../../core/services/user.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { Observable } from 'rxjs';
 
 @Component({
@@ -22,7 +24,11 @@ export class MenuItemComponent implements OnInit, OnChanges {
   isFavorite$: Observable<boolean> = new Observable();
   isLoggedIn: boolean = false;
 
-  constructor(private userService: UserService) {}
+  constructor(
+    private userService: UserService,
+    private authService: AuthService,
+    private router: Router
+  ) {}
 
   ngOnInit() {
     this.checkLoginStatus();
@@ -54,15 +60,18 @@ export class MenuItemComponent implements OnInit, OnChanges {
   }
 
   checkLoginStatus() {
-    this.isLoggedIn = localStorage.getItem('userName') !== null;
+    this.isLoggedIn = this.authService.isAuthenticated();
   }
 
   onFavoriteClick(event: Event) {
     event.stopPropagation();
     
+    // Verificar el estado de autenticación en tiempo real
+    this.checkLoginStatus();
+    
     if (!this.isLoggedIn) {
-      // Emitir evento para mostrar modal de login
-      this.favoriteClick.emit({ dishId: this.dishId, action: 'login' });
+      // Redirigir a la página de login
+      this.router.navigate(['/login']);
       return;
     }
 

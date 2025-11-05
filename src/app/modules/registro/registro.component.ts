@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -11,12 +11,13 @@ import { AuthService } from '../../core/services/auth.service';
   templateUrl: './registro.component.html',
   styleUrls: ['./registro.component.css']
 })
-export class RegistroComponent {
+export class RegistroComponent implements OnInit {
   registroForm: FormGroup;
   submitted = false;
   formSuccess = false;
   formError: string | null = null;
   isLoading = false;
+  loginModalOpen = false;
 
   constructor(
     private fb: FormBuilder, 
@@ -74,7 +75,7 @@ export class RegistroComponent {
           if (response && (response.message || response.userId)) {
             console.log('Usuario registrado correctamente en la base de datos');
             
-            // Opcional: hacer login automático después del registro
+            // Hacer login automático después del registro
             setTimeout(() => {
               this.authService.login(registerData.email, registerData.password).subscribe({
                 next: () => {
@@ -83,8 +84,8 @@ export class RegistroComponent {
                 },
                 error: (loginError) => {
                   console.error('Error en login automático:', loginError);
-                  // Si el login automático falla, redirigir al perfil por defecto
-                  this.router.navigate(['/perfil']);
+                  // Si el login automático falla, redirigir al login para que inicie sesión manualmente
+                  this.router.navigate(['/login']);
                 }
               });
             }, 1500);
@@ -111,10 +112,17 @@ export class RegistroComponent {
     return this.registroForm.controls;
   }
 
-  navigateToLogin() {
-    // Cerrar el modal de registro y mostrar el modal de login desde el navbar
-    // Por ahora redirigimos al home y el usuario puede hacer clic en el icono de usuario
-    this.router.navigate(['/']);
+  ngOnInit() {
+    // No necesita escuchar eventos de modal ahora que tenemos página dedicada
+  }
+
+  navigateToLogin(event?: Event) {
+    if (event) {
+      event.preventDefault();
+    }
+    
+    // Redirigir a la página de login
+    this.router.navigate(['/login']);
   }
 }
 

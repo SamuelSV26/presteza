@@ -1,10 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 import { UserService, UserProfile, Order, Address, PaymentMethod } from '../../core/services/user.service';
 import { MenuService, MenuItem } from '../../core/services/menu.service';
 import { AuthService } from '../../core/services/auth.service';
+import { NotificationService } from '../../core/services/notification.service';
+import { forkJoin, Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-perfil',
@@ -13,7 +16,7 @@ import { AuthService } from '../../core/services/auth.service';
   templateUrl: './perfil.component.html',
   styleUrls: ['./perfil.component.css']
 })
-export class PerfilComponent implements OnInit {
+export class PerfilComponent implements OnInit, OnDestroy {
   activeTab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings' = 'profile';
   userProfile: UserProfile | null = null;
   orders: Order[] = [];
@@ -33,12 +36,15 @@ export class PerfilComponent implements OnInit {
   editingAddress: Address | null = null;
   submitted = false;
   
+  private destroy$ = new Subject<void>();
+  
   constructor(
     private userService: UserService,
     public router: Router,
     private fb: FormBuilder,
     private menuService: MenuService,
-    private authService: AuthService
+    private authService: AuthService,
+    private notificationService: NotificationService
   ) {
     this.profileForm = this.fb.group({
       fullName: ['', [Validators.required, Validators.minLength(3)]],
@@ -49,8 +55,10 @@ export class PerfilComponent implements OnInit {
     this.addressForm = this.fb.group({
       title: ['', [Validators.required]],
       address: ['', [Validators.required]],
-      city: ['', [Validators.required]],
-      postalCode: ['', [Validators.required]]
+      neighborhood: ['', [Validators.required]],
+      city: ['Manizales', [Validators.required, this.cityValidator.bind(this)]],
+      postalCode: ['170001', [Validators.required]],
+      isDefault: [false]
     });
 
     this.passwordForm = this.fb.group({
@@ -64,65 +72,120 @@ export class PerfilComponent implements OnInit {
     this.loadUserProfile();
 
     // Suscribirse a cambios en la información del usuario
-    this.authService.userInfo$.subscribe(userInfo => {
+    this.authService.userInfo$.pipe(takeUntil(this.destroy$)).subscribe(userInfo => {
       this.loadUserProfile();
     });
 
     // Cargar platos recomendados y favoritos
     this.loadRecommendedDishes();
     this.loadFavoriteDishes();
+    
+    // Suscribirse a cambios en favoritos (revisar cada vez que cambie localStorage)
+    this.setupFavoriteListener();
+  }
+  
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+  
+  private setupFavoriteListener() {
+    // Escuchar eventos personalizados cuando se agregan/eliminan favoritos
+    window.addEventListener('favoritesChanged', () => {
+      this.loadFavoriteDishes();
+    });
   }
 
   private loadUserProfile() {
-    // Obtener información del usuario autenticado
+    // Obtener información del usuario autenticado directamente del token
     const userInfo = this.authService.getUserInfo();
-    const userName = localStorage.getItem('userName');
-    const userEmail = localStorage.getItem('userEmail');
-    const userPhone = localStorage.getItem('userPhone');
     
-    if (userInfo || userName) {
-      // Crear perfil con datos del usuario autenticado
-      const userProfile: UserProfile = {
-        id: userInfo?.userId || 'user_' + Date.now(),
-        fullName: userInfo?.name || userName || 'Usuario',
-        email: userInfo?.email || userEmail || '',
-        phone: userPhone || '',
-        memberSince: new Date(), // Se puede obtener del token JWT si está disponible
-        preferences: {
-          notifications: true,
-          emailNotifications: true,
-          smsNotifications: false,
-          favoriteCategories: []
-        }
-      };
-
-      this.userProfile = userProfile;
-      this.profileForm.patchValue({
-        fullName: userProfile.fullName,
-        email: userProfile.email,
-        phone: userProfile.phone
-      });
-
-      // Intentar obtener el perfil completo del servicio
-      this.userService.getUserProfile().subscribe(profile => {
-        if (profile) {
-          this.userProfile = profile;
-          this.profileForm.patchValue({
-            fullName: profile.fullName,
-            email: profile.email,
-            phone: profile.phone
-          });
-        }
-      });
-
-      this.loadOrders();
-      this.loadAddresses();
-      this.loadPaymentMethods();
-    } else {
-      // No hay usuario logueado, mostrar datos de prueba
-      console.log('Modo de demostración: mostrando datos de prueba');
+    if (!userInfo) {
+      // No hay usuario autenticado, mostrar datos de prueba
       this.loadMockData();
+      return;
     }
+    
+    // Obtener fecha de registro guardada
+    const userId = userInfo.userId || userInfo.email;
+    let registrationDate: Date = new Date(); // Por defecto fecha actual
+    
+    // Intentar obtener la fecha de registro guardada
+    const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) || 
+                         localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
+    
+    if (savedDateStr) {
+      try {
+        registrationDate = new Date(savedDateStr);
+        // Validar que la fecha sea válida
+        if (isNaN(registrationDate.getTime())) {
+          registrationDate = new Date();
+        }
+      } catch (e) {
+        console.error('Error al parsear fecha de registro:', e);
+        registrationDate = new Date();
+      }
+    } else {
+      // Si no hay fecha guardada, guardar la fecha actual como fecha de registro
+      localStorage.setItem(`userRegistrationDate_${userId}`, registrationDate.toISOString());
+      localStorage.setItem(`userRegistrationDate_${userInfo.email}`, registrationDate.toISOString());
+    }
+    
+    // Usar SOLO los datos del token/UserInfo, no de localStorage que puede tener datos viejos
+    const userProfile: UserProfile = {
+      id: userInfo.userId || 'user_' + Date.now(),
+      fullName: userInfo.name || 'Usuario',
+      email: userInfo.email || '',
+      phone: localStorage.getItem('userPhone') || '', // Solo el teléfono puede venir de localStorage
+      memberSince: registrationDate, // Usar la fecha de registro guardada
+      preferences: {
+        notifications: true,
+        emailNotifications: true,
+        smsNotifications: false,
+        favoriteCategories: []
+      }
+    };
+
+    // Intentar obtener el perfil guardado del servicio, pero validar que sea del usuario actual
+    this.userService.getUserProfile().subscribe(profile => {
+      // Verificar que el perfil guardado pertenezca al usuario actual
+      if (profile && (profile.email === userInfo.email || profile.id === userInfo.userId)) {
+        // Asegurar que la fecha de registro se preserve desde localStorage
+        const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) || 
+                             localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
+        if (savedDateStr) {
+          try {
+            const savedDate = new Date(savedDateStr);
+            if (!isNaN(savedDate.getTime())) {
+              profile.memberSince = savedDate;
+            }
+          } catch (e) {
+            console.error('Error al actualizar fecha de registro:', e);
+          }
+        }
+        
+        this.userProfile = profile;
+        this.profileForm.patchValue({
+          fullName: profile.fullName,
+          email: profile.email,
+          phone: profile.phone
+        });
+      } else {
+        // Si no hay perfil o es de otro usuario, usar el perfil del token
+        this.userProfile = userProfile;
+        this.profileForm.patchValue({
+          fullName: userProfile.fullName,
+          email: userProfile.email,
+          phone: userProfile.phone
+        });
+        // Inicializar el perfil en el servicio
+        this.userService.initializeUserProfile(userProfile);
+      }
+    });
+
+    this.loadOrders();
+    this.loadAddresses();
+    this.loadPaymentMethods();
   }
 
   private loadRecommendedDishes() {
@@ -134,23 +197,20 @@ export class PerfilComponent implements OnInit {
 
   private loadFavoriteDishes() {
     // Cargar favoritos desde el servicio
-    this.userService.getFavoriteDishes().subscribe(favoriteIds => {
-      if (favoriteIds.length > 0) {
-        // Cargar items de favoritos
-        const loadedItems: MenuItem[] = [];
-        favoriteIds.forEach(id => {
-          this.menuService.getItemById(id).subscribe(item => {
-            if (item) {
-              loadedItems.push(item);
-              this.favoriteDishes = [...loadedItems];
-            }
-          });
+    this.userService.getFavoriteDishes().pipe(takeUntil(this.destroy$)).subscribe(favoriteIds => {
+      if (favoriteIds && favoriteIds.length > 0) {
+        // Cargar todos los items de favoritos usando forkJoin para manejar múltiples suscripciones
+        const favoriteObservables = favoriteIds.map(id => 
+          this.menuService.getItemById(id)
+        );
+        
+        forkJoin(favoriteObservables).pipe(takeUntil(this.destroy$)).subscribe(items => {
+          // Filtrar items nulos/undefined y asegurarse de que solo incluya los que existen
+          this.favoriteDishes = items.filter(item => item !== null && item !== undefined) as MenuItem[];
         });
       } else {
-        // Si no hay favoritos guardados, usar items populares
-        this.menuService.getFeaturedItems().subscribe(items => {
-          this.favoriteDishes = items.slice(0, 6);
-        });
+        // Si no hay favoritos guardados, mostrar array vacío
+        this.favoriteDishes = [];
       }
     });
   }
@@ -257,6 +317,14 @@ export class PerfilComponent implements OnInit {
       ? null : { 'mismatch': true };
   }
 
+  cityValidator(control: AbstractControl): ValidationErrors | null {
+    const city = control.value;
+    if (!city || city.trim().toLowerCase() !== 'manizales') {
+      return { 'invalidCity': true };
+    }
+    return null;
+  }
+
   setActiveTab(tab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings') {
     this.activeTab = tab;
   }
@@ -281,46 +349,92 @@ export class PerfilComponent implements OnInit {
 
   onProfileSubmit() {
     this.submitted = true;
-    if (this.profileForm.valid && this.userProfile) {
+    if (this.profileForm.valid) {
+      // Actualizar el perfil en el servicio
       this.userService.updateUserProfile(this.profileForm.value);
+      
       // Actualizar el perfil local también
       this.userService.getUserProfile().subscribe(updatedProfile => {
         if (updatedProfile) {
           this.userProfile = updatedProfile;
+          // Actualizar el formulario con los valores guardados
+          this.profileForm.patchValue({
+            fullName: updatedProfile.fullName,
+            email: updatedProfile.email,
+            phone: updatedProfile.phone
+          });
         }
       });
-      alert('Perfil actualizado correctamente');
+      
+      this.notificationService.showSuccess('Perfil actualizado correctamente');
       this.submitted = false;
       this.showProfileModal = false;
+    } else {
+      // Mostrar errores de validación
+      this.notificationService.showError('Por favor, completa todos los campos correctamente');
     }
   }
 
   onAddressSubmit() {
     this.submitted = true;
     if (this.addressForm.valid) {
-      if (this.editingAddress) {
-        // Editar dirección existente
-        const updatedAddress: Address = {
-          ...this.editingAddress,
-          ...this.addressForm.value
-        };
-        this.updateAddress(updatedAddress);
-      } else {
-        // Crear nueva dirección
-        const newAddress: Address = {
-          id: 'addr_' + Date.now(),
-          ...this.addressForm.value,
-          isDefault: this.addresses.length === 0
-        };
-        this.userService.saveAddress(newAddress);
-      }
-      this.loadAddresses();
-      this.addressForm.reset();
-      this.showAddressModal = false;
-      this.showEditAddressModal = false;
-      this.editingAddress = null;
-      this.submitted = false;
-      alert('Dirección guardada correctamente');
+      const isDefault = this.addressForm.get('isDefault')?.value || false;
+      
+      this.userService.getAddresses().subscribe(addresses => {
+        if (this.editingAddress) {
+          // Editar dirección existente
+          const updatedAddress: Address = {
+            ...this.editingAddress,
+            ...this.addressForm.value,
+            isDefault: isDefault
+          };
+          
+          // Si se marca como principal, quitar el estado de las demás
+          if (isDefault) {
+            addresses.forEach(addr => {
+              if (addr.id !== updatedAddress.id && addr.isDefault) {
+                const nonDefaultAddr = { ...addr, isDefault: false };
+                this.userService.updateAddress(nonDefaultAddr);
+              }
+            });
+          }
+          this.updateAddress(updatedAddress);
+        } else {
+          // Crear nueva dirección
+          const newAddress: Address = {
+            id: 'addr_' + Date.now(),
+            ...this.addressForm.value,
+            isDefault: isDefault || addresses.length === 0 // Si no hay direcciones, esta será la principal
+          };
+          
+          // Si se marca como principal, quitar el estado de las demás
+          if (isDefault) {
+            addresses.forEach(addr => {
+              if (addr.isDefault) {
+                const nonDefaultAddr = { ...addr, isDefault: false };
+                this.userService.updateAddress(nonDefaultAddr);
+              }
+            });
+          }
+          this.userService.saveAddress(newAddress);
+        }
+        
+        // Recargar direcciones después de guardar
+        this.loadAddresses();
+        
+        // Cerrar modal y limpiar formulario
+        this.addressForm.reset();
+        this.addressForm.patchValue({ 
+          city: 'Manizales',
+          postalCode: '170001',
+          isDefault: false
+        });
+        this.showAddressModal = false;
+        this.showEditAddressModal = false;
+        this.editingAddress = null;
+        this.submitted = false;
+        this.notificationService.showSuccess('Dirección guardada correctamente');
+      });
     }
   }
 
@@ -329,41 +443,83 @@ export class PerfilComponent implements OnInit {
     this.addressForm.patchValue({
       title: address.title,
       address: address.address,
-      city: address.city,
-      postalCode: address.postalCode
+      neighborhood: address.neighborhood || '',
+      city: 'Manizales', // Forzar Manizales al editar
+      postalCode: '170001', // Forzar código postal al editar
+      isDefault: address.isDefault || false
     });
     this.showEditAddressModal = true;
   }
 
-  deleteAddress(address: Address) {
-    if (confirm('¿Estás seguro de que deseas eliminar esta dirección?')) {
-      this.userService.getAddresses().subscribe(addresses => {
-        const updatedAddresses = addresses.filter(a => a.id !== address.id);
-        localStorage.setItem('userAddresses', JSON.stringify(updatedAddresses));
-        this.loadAddresses();
-      });
-    }
+  closeAddressModal() {
+    this.addressForm.reset();
+    this.addressForm.patchValue({ 
+      city: 'Manizales',
+      postalCode: '170001',
+      isDefault: false
+    });
+    this.showAddressModal = false;
+    this.showEditAddressModal = false;
+    this.editingAddress = null;
+    this.submitted = false;
   }
 
   setDefaultAddress(address: Address) {
     this.userService.getAddresses().subscribe(addresses => {
-      const updatedAddresses = addresses.map(a => ({
-        ...a,
-        isDefault: a.id === address.id
-      }));
-      localStorage.setItem('userAddresses', JSON.stringify(updatedAddresses));
+      // Actualizar todas las direcciones: quitar principal de todas y ponerla solo en la seleccionada
+      const updatedAddresses = addresses.map(a => {
+        if (a.id === address.id) {
+          return { ...a, isDefault: true };
+        } else {
+          return { ...a, isDefault: false };
+        }
+      });
+      
+      // Guardar usando el servicio que ya maneja el userId
+      updatedAddresses.forEach(addr => {
+        this.userService.updateAddress(addr);
+      });
+      
+      // Recargar las direcciones para actualizar la vista
       this.loadAddresses();
+      this.notificationService.showSuccess('Dirección principal actualizada');
     });
   }
 
-  updateAddress(updatedAddress: Address) {
-    this.userService.getAddresses().subscribe(addresses => {
-      const index = addresses.findIndex(a => a.id === updatedAddress.id);
-      if (index !== -1) {
-        addresses[index] = updatedAddress;
-        localStorage.setItem('userAddresses', JSON.stringify(addresses));
+  async deleteAddress(address: Address) {
+    const confirmed = await this.notificationService.confirm(
+      'Eliminar Dirección',
+      '¿Estás seguro de que deseas eliminar esta dirección?'
+    );
+    
+    if (confirmed) {
+      // Obtener userId del usuario actual
+      const userInfoStr = localStorage.getItem('userInfo');
+      if (!userInfoStr) {
+        this.notificationService.showError('Error: No se encontró información del usuario');
+        return;
       }
-    });
+      
+      try {
+        const userInfo = JSON.parse(userInfoStr);
+        const userId = userInfo.userId || userInfo.email;
+        
+        this.userService.getAddresses().subscribe(addresses => {
+          const updatedAddresses = addresses.filter(a => a.id !== address.id);
+          localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(updatedAddresses));
+          this.loadAddresses();
+          this.notificationService.showSuccess('Dirección eliminada correctamente');
+        });
+      } catch (e) {
+        console.error('Error al eliminar dirección:', e);
+        this.notificationService.showError('Error al eliminar la dirección');
+      }
+    }
+  }
+
+  updateAddress(updatedAddress: Address) {
+    // Usar el método del servicio que ya maneja el userId
+    this.userService.updateAddress(updatedAddress);
   }
 
   openProfileEdit() {
@@ -394,7 +550,7 @@ export class PerfilComponent implements OnInit {
     this.submitted = true;
     if (this.passwordForm.valid) {
       // Aquí iría la lógica de cambio de contraseña
-      alert('Contraseña actualizada correctamente');
+      this.notificationService.showSuccess('Contraseña actualizada correctamente');
       this.passwordForm.reset();
       this.showPasswordModal = false;
       this.submitted = false;
@@ -442,8 +598,13 @@ export class PerfilComponent implements OnInit {
     });
   }
 
-  logout() {
-    if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+  async logout() {
+    const confirmed = await this.notificationService.confirm(
+      'Cerrar Sesión',
+      '¿Estás seguro de que deseas cerrar sesión?'
+    );
+    
+    if (confirmed) {
       // Usar authService.logout() que limpia todo correctamente y actualiza los observables
       this.authService.logout();
     }

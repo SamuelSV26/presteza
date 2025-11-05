@@ -65,7 +65,7 @@
           </div>
           
           <!-- Modal de Inicio de Sesión -->
-          <div *ngIf="showLoginModal" class="login-modal-dropdown" (click)="$event.stopPropagation()">
+          <div *ngIf="showLoginModal" class="login-modal-dropdown" [class.login-modal-centered]="isOnRegistroPage" (click)="$event.stopPropagation()">
             <div class="login-modal">
               <button class="login-modal-close" (click)="closeLoginModal()">
                 <i class="bi bi-x-lg"></i>

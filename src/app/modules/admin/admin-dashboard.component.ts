@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { MenuService, MenuItem, MenuCategory } from '../../core/services/menu.service';
 import { UserService, Order } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
+import { NotificationService } from '../../core/services/notification.service';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 
 @Component({
@@ -67,7 +68,8 @@ export class AdminDashboardComponent implements OnInit {
     private userService: UserService,
     private authService: AuthService,
     private router: Router,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private notificationService: NotificationService
   ) {
     this.productForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
@@ -166,16 +168,21 @@ export class AdminDashboardComponent implements OnInit {
   saveProduct(): void {
     if (this.productForm.valid) {
       console.log('Guardar producto:', this.productForm.value);
-      alert('Producto guardado correctamente');
+      this.notificationService.showSuccess('Producto guardado correctamente');
       this.closeProductModal();
       this.loadAllProducts();
     }
   }
 
-  deleteProduct(productId: number): void {
-    if (confirm('¿Estás seguro de que deseas eliminar este producto?')) {
+  async deleteProduct(productId: number): Promise<void> {
+    const confirmed = await this.notificationService.confirm(
+      'Eliminar Producto',
+      '¿Estás seguro de que deseas eliminar este producto?'
+    );
+    
+    if (confirmed) {
       console.log('Eliminar producto:', productId);
-      alert('Producto eliminado correctamente');
+      this.notificationService.showSuccess('Producto eliminado correctamente');
       this.loadAllProducts();
     }
   }
@@ -265,7 +272,7 @@ export class AdminDashboardComponent implements OnInit {
   onSettingsSubmit(): void {
     if (this.settingsForm.valid) {
       console.log('Guardar configuración:', this.settingsForm.value);
-      alert('Configuración guardada correctamente');
+      this.notificationService.showSuccess('Configuración guardada correctamente');
       // Aquí iría la lógica para guardar en el backend
     }
   }

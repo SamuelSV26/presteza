@@ -131,22 +131,45 @@
             </button>
           </div>
           <div *ngIf="addresses.length > 0" class="addresses-grid">
-            <div *ngFor="let address of addresses" class="address-card">
-              <div class="address-header">
-                <h3 class="address-title">{{ address.title }}</h3>
-                <span class="address-badge" *ngIf="address.isDefault">Principal</span>
+            <div *ngFor="let address of addresses" class="address-card" [class.is-default]="address.isDefault">
+              <div class="address-card-header">
+                <div class="address-icon-wrapper">
+                  <i class="bi bi-geo-alt-fill"></i>
+                </div>
+                <div class="address-title-section">
+                  <h3 class="address-title">{{ address.title }}</h3>
+                  <span class="address-badge" *ngIf="address.isDefault">
+                    <i class="bi bi-star-fill"></i>
+                    Principal
+                  </span>
+                </div>
               </div>
-              <p class="address-text">{{ address.address }}</p>
-              <p class="address-city">{{ address.city }} - {{ address.postalCode }}</p>
+              <div class="address-details">
+                <div class="address-detail-item">
+                  <i class="bi bi-geo-alt"></i>
+                  <span>{{ address.address }}</span>
+                </div>
+                <div class="address-detail-item" *ngIf="address.neighborhood">
+                  <i class="bi bi-pin-map"></i>
+                  <span>{{ address.neighborhood }}</span>
+                </div>
+                <div class="address-detail-item">
+                  <i class="bi bi-geo"></i>
+                  <span>{{ address.city }} - {{ address.postalCode }}</span>
+                </div>
+              </div>
               <div class="address-actions">
-                <button class="btn-icon" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
+                <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
                   <i class="bi bi-star"></i>
+                  <span>Principal</span>
                 </button>
-                <button class="btn-icon" title="Editar" (click)="editAddress(address)">
+                <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
                   <i class="bi bi-pencil"></i>
+                  <span>Editar</span>
                 </button>
-                <button class="btn-icon btn-icon-danger" title="Eliminar" (click)="deleteAddress(address)">
+                <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
                   <i class="bi bi-trash"></i>
+                  <span>Eliminar</span>
                 </button>
               </div>
             </div>
@@ -310,19 +333,45 @@
             <p>Agrega una dirección para facilitar tus pedidos</p>
           </div>
           <div *ngIf="addresses.length > 0" class="addresses-grid">
-            <div *ngFor="let address of addresses" class="address-card">
-              <div class="address-header">
-                <h3 class="address-title">{{ address.title }}</h3>
-                <span class="address-badge" *ngIf="address.isDefault">Principal</span>
+            <div *ngFor="let address of addresses" class="address-card" [class.is-default]="address.isDefault">
+              <div class="address-card-header">
+                <div class="address-icon-wrapper">
+                  <i class="bi bi-geo-alt-fill"></i>
+                </div>
+                <div class="address-title-section">
+                  <h3 class="address-title">{{ address.title }}</h3>
+                  <span class="address-badge" *ngIf="address.isDefault">
+                    <i class="bi bi-star-fill"></i>
+                    Principal
+                  </span>
+                </div>
               </div>
-              <p class="address-text">{{ address.address }}</p>
-              <p class="address-city">{{ address.city }} - {{ address.postalCode }}</p>
+              <div class="address-details">
+                <div class="address-detail-item">
+                  <i class="bi bi-geo-alt"></i>
+                  <span>{{ address.address }}</span>
+                </div>
+                <div class="address-detail-item" *ngIf="address.neighborhood">
+                  <i class="bi bi-pin-map"></i>
+                  <span>{{ address.neighborhood }}</span>
+                </div>
+                <div class="address-detail-item">
+                  <i class="bi bi-geo"></i>
+                  <span>{{ address.city }} - {{ address.postalCode }}</span>
+                </div>
+              </div>
               <div class="address-actions">
-                <button class="btn-icon" title="Editar">
-                  <i class="bi bi-pencil"></i>
+                <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
+                  <i class="bi bi-star"></i>
+                  <span>Principal</span>
                 </button>
-                <button class="btn-icon" title="Eliminar">
+                <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
+                  <i class="bi bi-pencil"></i>
+                  <span>Editar</span>
+                </button>
+                <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
                   <i class="bi bi-trash"></i>
+                  <span>Eliminar</span>
                 </button>
               </div>
             </div>
@@ -522,11 +571,11 @@
   </div>
 
   <!-- Modal: Agregar/Editar Dirección -->
-  <div *ngIf="showAddressModal || showEditAddressModal" class="modal-overlay" (click)="showAddressModal = false; showEditAddressModal = false; editingAddress = null; addressForm.reset()">
+  <div *ngIf="showAddressModal || showEditAddressModal" class="modal-overlay" (click)="closeAddressModal()">
     <div class="modal-content" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3>{{ editingAddress ? 'Editar Dirección' : 'Agregar Nueva Dirección' }}</h3>
-        <button class="modal-close" (click)="showAddressModal = false; showEditAddressModal = false; editingAddress = null; addressForm.reset()">
+        <button class="modal-close" (click)="closeAddressModal()">
           <i class="bi bi-x-lg"></i>
         </button>
       </div>
@@ -547,14 +596,25 @@
             La dirección es requerida
           </div>
         </div>
+        <div class="form-group">
+          <label class="form-label">Barrio</label>
+          <input type="text" formControlName="neighborhood" class="form-control" 
+                 placeholder="Ej: Centro, Palogrande, La Enea"
+                 [class.is-invalid]="submitted && addressForm.get('neighborhood')?.errors" />
+          <div *ngIf="submitted && addressForm.get('neighborhood')?.errors" class="invalid-feedback">
+            El barrio es requerido
+          </div>
+        </div>
         <div class="row g-3">
           <div class="col-md-6">
             <div class="form-group">
               <label class="form-label">Ciudad</label>
               <input type="text" formControlName="city" class="form-control" 
+                     readonly
                      [class.is-invalid]="submitted && addressForm.get('city')?.errors" />
               <div *ngIf="submitted && addressForm.get('city')?.errors" class="invalid-feedback">
-                La ciudad es requerida
+                <span *ngIf="addressForm.get('city')?.errors?.['required']">La ciudad es requerida</span>
+                <span *ngIf="addressForm.get('city')?.errors?.['invalidCity']">Solo se permiten direcciones en Manizales</span>
               </div>
             </div>
           </div>
@@ -562,6 +622,7 @@
             <div class="form-group">
               <label class="form-label">Código Postal</label>
               <input type="text" formControlName="postalCode" class="form-control" 
+                     readonly
                      [class.is-invalid]="submitted && addressForm.get('postalCode')?.errors" />
               <div *ngIf="submitted && addressForm.get('postalCode')?.errors" class="invalid-feedback">
                 El código postal es requerido
@@ -569,8 +630,20 @@
             </div>
           </div>
         </div>
+        <div class="form-group">
+          <div class="default-address-option">
+            <label class="default-address-checkbox">
+              <input type="checkbox" formControlName="isDefault" />
+              <span class="checkmark"></span>
+              <span class="default-address-text">
+                <i class="bi bi-star-fill"></i>
+                Marcar como dirección principal
+              </span>
+            </label>
+          </div>
+        </div>
         <div class="modal-actions">
-          <button type="button" class="btn-outline" (click)="showAddressModal = false; showEditAddressModal = false; editingAddress = null; addressForm.reset(); submitted = false">Cancelar</button>
+          <button type="button" class="btn-outline" (click)="closeAddressModal()">Cancelar</button>
           <button type="submit" class="btn-primary">{{ editingAddress ? 'Actualizar' : 'Guardar' }}</button>
         </div>
       </form>

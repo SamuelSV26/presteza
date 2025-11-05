@@ -1,9 +1,10 @@
-import { Component, HostListener, ElementRef, Input, OnInit } from '@angular/core';
+import { Component, HostListener, ElementRef, Input, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, NavigationEnd } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CartComponent } from './cart/cart.component';
 import { AuthService } from '../../core/services/auth.service';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-navbar',
@@ -19,6 +20,7 @@ export class NavbarComponent implements OnInit {
   userEmail: string | null = null;
   showLoginModal = false;
   showUserDropdown = false;
+  isOnRegistroPage = false;
   loginEmail = '';
   loginPassword = '';
   rememberMe = false;
@@ -28,7 +30,8 @@ export class NavbarComponent implements OnInit {
   constructor(
     private router: Router, 
     private el: ElementRef,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -44,6 +47,16 @@ export class NavbarComponent implements OnInit {
       this.userEmail = storedEmail ? storedEmail : null;
     }
     
+    // Verificar la ruta actual
+    this.checkCurrentRoute();
+    
+    // Escuchar cambios de ruta
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.checkCurrentRoute();
+    });
+    
     // Escuchar cambios en el token
     this.authService.userInfo$.subscribe(userInfo => {
       if (userInfo) {
@@ -58,6 +71,7 @@ export class NavbarComponent implements OnInit {
     // Escuchar evento para mostrar modal de login desde otros componentes
     window.addEventListener('showLoginModal', () => {
       this.showLoginModal = true;
+      this.cdr.detectChanges(); // Forzar detección de cambios
     });
 
     // Escuchar evento de login exitoso
@@ -102,6 +116,10 @@ export class NavbarComponent implements OnInit {
     this.router.navigate([path]);
   }
 
+  checkCurrentRoute(): void {
+    this.isOnRegistroPage = this.router.url === '/registro';
+  }
+
   navigateTo(path: string) {
     this.router.navigate([path]);
   }
@@ -141,11 +159,18 @@ export class NavbarComponent implements OnInit {
     this.loginError = null;
     this.loginEmail = '';
     this.loginPassword = '';
+    // Disparar evento para notificar que el modal se cerró
+    window.dispatchEvent(new CustomEvent('closeLoginModal'));
   }
 
   navigateToRegistro() {
     this.closeLoginModal();
     this.router.navigate(['/registro']);
+  }
+
+  navigateToLogin() {
+    this.closeLoginModal();
+    this.router.navigate(['/login']);
   }
 
   onLoginSubmit() {

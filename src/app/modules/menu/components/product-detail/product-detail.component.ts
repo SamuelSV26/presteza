@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MenuService, MenuItem, ProductOption } from '../../../../core/services/menu.service';
 import { UserService } from '../../../../core/services/user.service';
+import { AuthService } from '../../../../core/services/auth.service';
+import { NotificationService } from '../../../../core/services/notification.service';
 import { Observable } from 'rxjs';
 
 interface SelectedOption {
@@ -43,7 +45,9 @@ export class ProductDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private menuService: MenuService,
-    private userService: UserService
+    private userService: UserService,
+    private authService: AuthService,
+    private notificationService: NotificationService
   ) {}
 
   ngOnInit(): void {
@@ -72,10 +76,18 @@ export class ProductDetailComponent implements OnInit {
   }
 
   initFavorites(): void {
-    this.isLoggedIn = localStorage.getItem('userName') !== null;
+    this.isLoggedIn = this.authService.isAuthenticated();
     if (this.product && this.isLoggedIn) {
       this.isFavorite$ = this.userService.isFavorite(this.product.id);
     }
+    
+    // Escuchar cuando el usuario inicie sesión
+    window.addEventListener('userLoggedIn', () => {
+      this.isLoggedIn = this.authService.isAuthenticated();
+      if (this.product && this.isLoggedIn) {
+        this.isFavorite$ = this.userService.isFavorite(this.product.id);
+      }
+    });
   }
 
   organizeOptions(): void {
@@ -163,9 +175,10 @@ export class ProductDetailComponent implements OnInit {
     });
 
     // Aquí iría la lógica para agregar al carrito
-    // Por ahora, redirigir al menú con un mensaje
-    alert('Producto agregado al carrito');
-    this.router.navigate(['/menu']);
+    this.notificationService.showSuccess('Producto agregado al carrito', '¡Éxito!');
+    setTimeout(() => {
+      this.router.navigate(['/menu']);
+    }, 1000);
   }
 
   goBack(): void {
@@ -179,8 +192,12 @@ export class ProductDetailComponent implements OnInit {
   toggleFavorite(): void {
     if (!this.product) return;
     
+    // Verificar el estado de autenticación en tiempo real
+    this.isLoggedIn = this.authService.isAuthenticated();
+    
     if (!this.isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('showLoginModal'));
+      // Redirigir a la página de login
+      this.router.navigate(['/login']);
       return;
     }
 

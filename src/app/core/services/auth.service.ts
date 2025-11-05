@@ -35,7 +35,7 @@ export interface UserInfo {
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:4000'; // Ajusta según tu backend
+  private apiUrl = 'http://localhost:4000';
   private tokenSubject = new BehaviorSubject<string | null>(this.getToken());
   public token$ = this.tokenSubject.asObservable();
   private userInfoSubject = new BehaviorSubject<UserInfo | null>(this.getUserInfo());
@@ -48,7 +48,7 @@ export class AuthService {
     this.checkTokenExpiration();
   }
 
-  login(email: string, password: string): Observable<LoginResponse> {
+  login(email: string, password: string, rememberMe: boolean = false): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.apiUrl}/auth/login`, {
       email,
       password
@@ -62,7 +62,6 @@ export class AuthService {
         if (response.token) {
           token = response.token;
         } else if (typeof response.user === 'string') {
-          // El backend devuelve el token directamente en el campo "user"
           token = response.user;
         } else if (response.data?.token) {
           token = response.data.token;
@@ -79,14 +78,13 @@ export class AuthService {
         }
 
         console.log('✅ Token encontrado (primeros 50 caracteres):', token.substring(0, 50));
-        this.setToken(token);
+        this.setToken(token, rememberMe);
 
         const payload = this.decodeToken(token);
         console.log('🔍 Token decodificado completo:', payload);
 
         if (!payload) {
           console.error('❌ No se pudo decodificar el token. Verifica que el token sea un JWT válido.');
-          // Intentar obtener el rol desde la respuesta directamente si está disponible
           let roleFromResponse: string | undefined;
           if (response.role) {
             roleFromResponse = response.role;
@@ -103,7 +101,6 @@ export class AuthService {
           }
         }
 
-        // Buscar el rol en diferentes campos posibles
         const userRole = payload?.role || payload?.userRole || payload?.rol || payload?.type || 'client';
         console.log('📋 Rol extraído del token (sin normalizar):', userRole);
         console.log('📋 Tipo de dato del rol:', typeof userRole);
@@ -112,8 +109,14 @@ export class AuthService {
         this.tokenSubject.next(token);
         this.userInfoSubject.next(this.getUserInfo());
         window.dispatchEvent(new CustomEvent('userLoggedIn'));
-        // Redirigir según el rol del usuario
-        this.redirectAfterLogin(userRole);
+
+        // Verificar si hay returnUrl en sessionStorage
+        const returnUrl = sessionStorage.getItem('returnUrl');
+        if (!returnUrl) {
+          // Si no hay returnUrl, redirigir según el rol (para login desde registro u otros lugares)
+          const userRole = payload?.role || payload?.userRole || payload?.rol || payload?.type || 'client';
+          this.redirectAfterLogin(userRole);
+        }
       }),
       catchError(this.handleError)
     );
@@ -127,9 +130,19 @@ export class AuthService {
     role?: string;
   }): Observable<RegisterResponse> {
     console.log('Enviando datos de registro:', { ...registerData, password: '***' });
+    const registrationDate = new Date(); // Fecha de registro
+
     return this.http.post<RegisterResponse>(`${this.apiUrl}/auth/register`, registerData).pipe(
       tap(response => {
         console.log('Respuesta del registro:', response);
+
+        // Guardar la fecha de registro asociada al email del usuario
+        // Cuando haga login, se usará esta fecha
+        if (response.userId) {
+          localStorage.setItem(`userRegistrationDate_${response.userId}`, registrationDate.toISOString());
+        }
+        // También guardar por email como respaldo
+        localStorage.setItem(`userRegistrationDate_${registerData.email}`, registrationDate.toISOString());
       }),
       catchError((error) => {
         console.error('Error en el registro:', error);
@@ -139,25 +152,70 @@ export class AuthService {
   }
 
   logout(): void {
+    // Limpiar datos de autenticación de ambos storage
     localStorage.removeItem('authToken');
+    sessionStorage.removeItem('authToken');
     localStorage.removeItem('userInfo');
     localStorage.removeItem('userName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userPhone');
+
+    // Limpiar perfil del usuario
+    localStorage.removeItem('userProfile');
+
+    // Limpiar favoritos (no se eliminan completamente, pero se limpia la referencia)
+    // Los favoritos se mantienen asociados al userId del usuario anterior
+
     this.tokenSubject.next(null);
     this.userInfoSubject.next(null);
     this.router.navigate(['/']);
   }
 
+  /**
+   * Solicita recuperación de contraseña
+   * @param email Email del usuario que olvidó su contraseña
+   */
+  forgotPassword(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/forgot-password`, {
+      email
+    }).pipe(
+      tap(response => {
+        console.log('Respuesta de recuperación de contraseña:', response);
+      }),
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Resetea la contraseña con el token de recuperación
+   * @param token Token de recuperación recibido por email
+   * @param newPassword Nueva contraseña
+   */
+  resetPassword(token: string, newPassword: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/reset-password`, {
+      token,
+      newPassword
+    }).pipe(
+      tap(response => {
+        console.log('Respuesta de reseteo de contraseña:', response);
+      }),
+      catchError(this.handleError)
+    );
+  }
+
   getToken(): string | null {
-    return localStorage.getItem('authToken');
+    // Intentar obtener desde localStorage primero (remember me)
+    const token = localStorage.getItem('authToken');
+    if (token) return token;
+
+    // Si no hay en localStorage, intentar desde sessionStorage
+    return sessionStorage.getItem('authToken');
   }
 
   isAuthenticated(): boolean {
     const token = this.getToken();
     if (!token) return false;
 
-    // Verificar si el token está expirado
     try {
       const payload = this.decodeToken(token);
       if (payload && payload.exp) {
@@ -195,9 +253,7 @@ export class AuthService {
   }
 
   redirectAfterLogin(role?: string): void {
-    // Si no se pasa el rol como parámetro, obtenerlo del localStorage
     const rawRole = role || this.getRole();
-    // Normalizar el rol: convertir a minúsculas y quitar espacios
     const userRole = rawRole ? rawRole.toString().toLowerCase().trim() : null;
 
     console.log('Rol original:', rawRole);
@@ -211,14 +267,23 @@ export class AuthService {
       console.log('✅ Usuario es CLIENTE - Redirigiendo a /perfil');
       this.router.navigate(['/perfil']);
     } else {
-      // Si no tiene rol definido, redirigir al perfil por defecto
       console.warn('⚠️ Rol no reconocido:', userRole, '- Redirigiendo a /perfil por defecto');
       this.router.navigate(['/perfil']);
     }
   }
 
-  private setToken(token: string): void {
-    localStorage.setItem('authToken', token);
+  private setToken(token: string, rememberMe: boolean = false): void {
+    if (rememberMe) {
+      // Guardar en localStorage (persistente, se mantiene después de cerrar el navegador)
+      localStorage.setItem('authToken', token);
+      // Limpiar de sessionStorage si existe
+      sessionStorage.removeItem('authToken');
+    } else {
+      // Guardar en sessionStorage (temporal, se elimina al cerrar el navegador)
+      sessionStorage.setItem('authToken', token);
+      // Limpiar de localStorage si existe
+      localStorage.removeItem('authToken');
+    }
   }
 
   private decodeToken(token: string): any {
@@ -243,7 +308,6 @@ export class AuthService {
 
       let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
 
-      // Añadir padding si es necesario
       while (base64.length % 4) {
         base64 += '=';
       }
@@ -264,7 +328,6 @@ export class AuthService {
         return parsed;
       } catch (base64Error) {
         console.error('❌ Error al decodificar base64:', base64Error);
-        // Intentar decodificación más simple
         try {
           const simpleDecoded = atob(base64Url);
           return JSON.parse(simpleDecoded);
@@ -282,7 +345,6 @@ export class AuthService {
   private decodeAndStoreUserInfo(token: string): void {
     const payload = this.decodeToken(token);
     if (payload) {
-      // Buscar el rol en diferentes campos posibles
       const role = payload.role || payload.userRole || payload.rol || payload.type || 'client';
       const userInfo: UserInfo = {
         userId: payload.userId || payload.sub,
@@ -291,11 +353,40 @@ export class AuthService {
         role: role
       };
       console.log('💾 Guardando información del usuario:', userInfo);
+
+      // Obtener userId del usuario anterior para limpiar datos si es diferente
+      const oldUserInfoStr = localStorage.getItem('userInfo');
+      let oldUserId: string | null = null;
+      if (oldUserInfoStr) {
+        try {
+          const oldUserInfo = JSON.parse(oldUserInfoStr);
+          oldUserId = oldUserInfo.userId || oldUserInfo.email;
+        } catch (e) {
+          console.error('Error al parsear userInfo anterior:', e);
+        }
+      }
+
+      const newUserId = userInfo.userId || userInfo.email;
+
+      // Si es un usuario diferente, limpiar el perfil anterior
+      if (oldUserId && oldUserId !== newUserId) {
+        console.log('🔄 Cambio de usuario detectado. Limpiando datos del usuario anterior.');
+        localStorage.removeItem('userProfile');
+        // Los favoritos se mantienen asociados al userId, así que no hay problema
+      }
+
+      // Guardar fecha de registro del token si está disponible (iat = issued at)
+      if (payload.iat && !localStorage.getItem(`userRegistrationDate_${newUserId}`) && !localStorage.getItem(`userRegistrationDate_${userInfo.email}`)) {
+        const registrationDate = new Date(payload.iat * 1000); // iat está en segundos
+        localStorage.setItem(`userRegistrationDate_${newUserId}`, registrationDate.toISOString());
+        localStorage.setItem(`userRegistrationDate_${userInfo.email}`, registrationDate.toISOString());
+        console.log('📅 Fecha de registro guardada desde el token:', registrationDate);
+      }
+
       localStorage.setItem('userInfo', JSON.stringify(userInfo));
       localStorage.setItem('userName', userInfo.name);
       localStorage.setItem('userEmail', userInfo.email);
 
-      // Guardar teléfono si está disponible en el token
       if (payload.phone || payload.phone_number) {
         localStorage.setItem('userPhone', payload.phone || payload.phone_number);
       }
