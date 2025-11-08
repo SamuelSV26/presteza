@@ -2,12 +2,17 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
-import { UserService, UserProfile, Order, Address, PaymentMethod } from '../../core/services/user.service';
-import { MenuService, MenuItem } from '../../core/services/menu.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { forkJoin, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { UserProfile } from '../../core/models/UserProfile';
+import { Order } from '../../core/models/Order';
+import { Address } from '../../core/models/Address';
+import { PaymentMethod } from '../../core/models/PaymentMethod';
+import { MenuItem } from '../../core/models/MenuItem';
+import { UserService } from '../../core/services/user.service';
+import { MenuService } from '../../core/services/menu.service';
 
 @Component({
   selector: 'app-perfil',
@@ -24,20 +29,20 @@ export class PerfilComponent implements OnInit, OnDestroy {
   paymentMethods: PaymentMethod[] = [];
   recommendedDishes: MenuItem[] = [];
   favoriteDishes: MenuItem[] = [];
-  
+
   profileForm: FormGroup;
   addressForm: FormGroup;
   passwordForm: FormGroup;
-  
+
   showAddressModal = false;
   showPasswordModal = false;
   showProfileModal = false;
   showEditAddressModal = false;
   editingAddress: Address | null = null;
   submitted = false;
-  
+
   private destroy$ = new Subject<void>();
-  
+
   constructor(
     private userService: UserService,
     public router: Router,
@@ -79,16 +84,16 @@ export class PerfilComponent implements OnInit, OnDestroy {
     // Cargar platos recomendados y favoritos
     this.loadRecommendedDishes();
     this.loadFavoriteDishes();
-    
+
     // Suscribirse a cambios en favoritos (revisar cada vez que cambie localStorage)
     this.setupFavoriteListener();
   }
-  
+
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
   }
-  
+
   private setupFavoriteListener() {
     // Escuchar eventos personalizados cuando se agregan/eliminan favoritos
     window.addEventListener('favoritesChanged', () => {
@@ -99,21 +104,21 @@ export class PerfilComponent implements OnInit, OnDestroy {
   private loadUserProfile() {
     // Obtener información del usuario autenticado directamente del token
     const userInfo = this.authService.getUserInfo();
-    
+
     if (!userInfo) {
       // No hay usuario autenticado, mostrar datos de prueba
       this.loadMockData();
       return;
     }
-    
+
     // Obtener fecha de registro guardada
     const userId = userInfo.userId || userInfo.email;
     let registrationDate: Date = new Date(); // Por defecto fecha actual
-    
+
     // Intentar obtener la fecha de registro guardada
-    const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) || 
+    const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
                          localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
-    
+
     if (savedDateStr) {
       try {
         registrationDate = new Date(savedDateStr);
@@ -130,7 +135,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
       localStorage.setItem(`userRegistrationDate_${userId}`, registrationDate.toISOString());
       localStorage.setItem(`userRegistrationDate_${userInfo.email}`, registrationDate.toISOString());
     }
-    
+
     // Usar SOLO los datos del token/UserInfo, no de localStorage que puede tener datos viejos
     const userProfile: UserProfile = {
       id: userInfo.userId || 'user_' + Date.now(),
@@ -151,7 +156,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
       // Verificar que el perfil guardado pertenezca al usuario actual
       if (profile && (profile.email === userInfo.email || profile.id === userInfo.userId)) {
         // Asegurar que la fecha de registro se preserve desde localStorage
-        const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) || 
+        const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
                              localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
         if (savedDateStr) {
           try {
@@ -163,7 +168,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
             console.error('Error al actualizar fecha de registro:', e);
           }
         }
-        
+
         this.userProfile = profile;
         this.profileForm.patchValue({
           fullName: profile.fullName,
@@ -200,10 +205,10 @@ export class PerfilComponent implements OnInit, OnDestroy {
     this.userService.getFavoriteDishes().pipe(takeUntil(this.destroy$)).subscribe(favoriteIds => {
       if (favoriteIds && favoriteIds.length > 0) {
         // Cargar todos los items de favoritos usando forkJoin para manejar múltiples suscripciones
-        const favoriteObservables = favoriteIds.map(id => 
+        const favoriteObservables = favoriteIds.map(id =>
           this.menuService.getItemById(id)
         );
-        
+
         forkJoin(favoriteObservables).pipe(takeUntil(this.destroy$)).subscribe(items => {
           // Filtrar items nulos/undefined y asegurarse de que solo incluya los que existen
           this.favoriteDishes = items.filter(item => item !== null && item !== undefined) as MenuItem[];
@@ -352,7 +357,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
     if (this.profileForm.valid) {
       // Actualizar el perfil en el servicio
       this.userService.updateUserProfile(this.profileForm.value);
-      
+
       // Actualizar el perfil local también
       this.userService.getUserProfile().subscribe(updatedProfile => {
         if (updatedProfile) {
@@ -365,7 +370,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
           });
         }
       });
-      
+
       this.notificationService.showSuccess('Perfil actualizado correctamente');
       this.submitted = false;
       this.showProfileModal = false;
@@ -379,7 +384,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
     this.submitted = true;
     if (this.addressForm.valid) {
       const isDefault = this.addressForm.get('isDefault')?.value || false;
-      
+
       this.userService.getAddresses().subscribe(addresses => {
         if (this.editingAddress) {
           // Editar dirección existente
@@ -388,7 +393,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
             ...this.addressForm.value,
             isDefault: isDefault
           };
-          
+
           // Si se marca como principal, quitar el estado de las demás
           if (isDefault) {
             addresses.forEach(addr => {
@@ -406,7 +411,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
             ...this.addressForm.value,
             isDefault: isDefault || addresses.length === 0 // Si no hay direcciones, esta será la principal
           };
-          
+
           // Si se marca como principal, quitar el estado de las demás
           if (isDefault) {
             addresses.forEach(addr => {
@@ -418,13 +423,13 @@ export class PerfilComponent implements OnInit, OnDestroy {
           }
           this.userService.saveAddress(newAddress);
         }
-        
+
         // Recargar direcciones después de guardar
         this.loadAddresses();
-        
+
         // Cerrar modal y limpiar formulario
         this.addressForm.reset();
-        this.addressForm.patchValue({ 
+        this.addressForm.patchValue({
           city: 'Manizales',
           postalCode: '170001',
           isDefault: false
@@ -453,7 +458,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
   closeAddressModal() {
     this.addressForm.reset();
-    this.addressForm.patchValue({ 
+    this.addressForm.patchValue({
       city: 'Manizales',
       postalCode: '170001',
       isDefault: false
@@ -474,12 +479,12 @@ export class PerfilComponent implements OnInit, OnDestroy {
           return { ...a, isDefault: false };
         }
       });
-      
+
       // Guardar usando el servicio que ya maneja el userId
       updatedAddresses.forEach(addr => {
         this.userService.updateAddress(addr);
       });
-      
+
       // Recargar las direcciones para actualizar la vista
       this.loadAddresses();
       this.notificationService.showSuccess('Dirección principal actualizada');
@@ -491,7 +496,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
       'Eliminar Dirección',
       '¿Estás seguro de que deseas eliminar esta dirección?'
     );
-    
+
     if (confirmed) {
       // Obtener userId del usuario actual
       const userInfoStr = localStorage.getItem('userInfo');
@@ -499,11 +504,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
         this.notificationService.showError('Error: No se encontró información del usuario');
         return;
       }
-      
+
       try {
         const userInfo = JSON.parse(userInfoStr);
         const userId = userInfo.userId || userInfo.email;
-        
+
         this.userService.getAddresses().subscribe(addresses => {
           const updatedAddresses = addresses.filter(a => a.id !== address.id);
           localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(updatedAddresses));
@@ -603,7 +608,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
       'Cerrar Sesión',
       '¿Estás seguro de que deseas cerrar sesión?'
     );
-    
+
     if (confirmed) {
       // Usar authService.logout() que limpia todo correctamente y actualiza los observables
       this.authService.logout();

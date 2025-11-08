@@ -1,11 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { MenuService, MenuItem, MenuCategory } from '../../core/services/menu.service';
-import { UserService, Order } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { MenuItem } from '../../core/models/MenuItem';
+import { MenuCategory } from '../../core/models/MenuCategory';
+import { Order } from '../../core/models/Order';
+import { MenuService } from '../../core/services/menu.service';
+import { UserService } from '../../core/services/user.service';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -16,7 +19,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } 
 })
 export class AdminDashboardComponent implements OnInit {
   activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' = 'dashboard';
-  
+
   // Estadísticas
   stats = {
     totalOrders: 0,
@@ -32,11 +35,11 @@ export class AdminDashboardComponent implements OnInit {
   selectedProduct: MenuItem | null = null;
   showProductModal = false;
   productForm: FormGroup;
-  
+
   // Pedidos
   orders: Order[] = [];
   selectedOrder: Order | null = null;
-  
+
   // Filtros
   orderFilter: 'all' | 'pending' | 'preparing' | 'ready' | 'delivered' = 'all';
   searchTerm = '';
@@ -179,7 +182,7 @@ export class AdminDashboardComponent implements OnInit {
       'Eliminar Producto',
       '¿Estás seguro de que deseas eliminar este producto?'
     );
-    
+
     if (confirmed) {
       console.log('Eliminar producto:', productId);
       this.notificationService.showSuccess('Producto eliminado correctamente');

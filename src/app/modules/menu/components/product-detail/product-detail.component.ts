@@ -1,11 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MenuService, MenuItem, ProductOption } from '../../../../core/services/menu.service';
 import { UserService } from '../../../../core/services/user.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { Observable } from 'rxjs';
+import { MenuItem, ProductOption} from '../../../../core/models/MenuItem';
+import { MenuService } from '../../../../core/services/menu.service';
 
 interface SelectedOption {
   option: ProductOption;
@@ -26,11 +27,11 @@ export class ProductDetailComponent implements OnInit {
   selectedOptions: Map<string, boolean> = new Map();
   totalPrice = 0;
   basePrice = 0;
-  
+
   // Mock data para rating
   rating = 4.5;
   totalReviews = 124;
-  
+
   // Opciones agrupadas por tipo
   addons: ProductOption[] = [];
   extras: ProductOption[] = [];
@@ -80,7 +81,7 @@ export class ProductDetailComponent implements OnInit {
     if (this.product && this.isLoggedIn) {
       this.isFavorite$ = this.userService.isFavorite(this.product.id);
     }
-    
+
     // Escuchar cuando el usuario inicie sesión
     window.addEventListener('userLoggedIn', () => {
       this.isLoggedIn = this.authService.isAuthenticated();
@@ -92,13 +93,13 @@ export class ProductDetailComponent implements OnInit {
 
   organizeOptions(): void {
     if (!this.product?.options) return;
-    
+
     // Limpiar arrays antes de organizar
     this.addons = [];
     this.extras = [];
     this.sizes = [];
     this.removals = [];
-    
+
     this.product.options.forEach(option => {
       // Primero verificar si es una opción de eliminación (sin algo)
       if (option.name.toLowerCase().includes('sin')) {
@@ -113,7 +114,7 @@ export class ProductDetailComponent implements OnInit {
           this.sizes.push(option);
         }
       }
-      
+
       this.selectedOptions.set(option.id, false);
     });
   }
@@ -156,7 +157,7 @@ export class ProductDetailComponent implements OnInit {
 
   addToCart(): void {
     if (!this.product) return;
-    
+
     const selectedOptionsList: ProductOption[] = [];
     this.selectedOptions.forEach((checked, optionId) => {
       if (checked) {
@@ -191,10 +192,10 @@ export class ProductDetailComponent implements OnInit {
 
   toggleFavorite(): void {
     if (!this.product) return;
-    
+
     // Verificar el estado de autenticación en tiempo real
     this.isLoggedIn = this.authService.isAuthenticated();
-    
+
     if (!this.isLoggedIn) {
       // Redirigir a la página de login
       this.router.navigate(['/login']);

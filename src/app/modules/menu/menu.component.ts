@@ -1,8 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { MenuService, MenuCategory } from '../../core/services/menu.service';
+import { MenuService} from '../../core/services/menu.service';
 import { Observable } from 'rxjs';
+import { MenuCategory } from '../../core/models/MenuCategory';
 
 @Component({
   selector: 'app-menu',

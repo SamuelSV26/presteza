@@ -2,9 +2,11 @@ import { MenuItemComponent } from '../menu-item/menu-item.component';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MenuService, MenuItem, MenuCategory } from '../../../../core/services/menu.service';
 import { Observable } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
+import { MenuCategory } from '../../../../core/models/MenuCategory';
+import { MenuItem } from '../../../../core/models/MenuItem';
+import { MenuService } from '../../../../core/services/menu.service';
 
 @Component({
   selector: 'app-menu-category',

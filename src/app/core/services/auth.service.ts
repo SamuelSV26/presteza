@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, BehaviorSubject, throwError } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
 import { Router } from '@angular/router';
+import { UserInfo } from '../models/userInfo';
 
 export interface LoginResponse {
   token?: string;
@@ -24,12 +25,7 @@ export interface RegisterResponse {
   userId: string;
 }
 
-export interface UserInfo {
-  userId: string;
-  email: string;
-  name: string;
-  role: string;
-}
+
 
 @Injectable({
   providedIn: 'root'

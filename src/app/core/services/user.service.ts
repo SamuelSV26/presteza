@@ -1,58 +1,10 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
-
-export interface UserProfile {
-  id: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  avatar?: string;
-  memberSince: Date;
-  preferences: UserPreferences;
-}
-
-export interface UserPreferences {
-  notifications: boolean;
-  emailNotifications: boolean;
-  smsNotifications: boolean;
-  favoriteCategories: string[];
-}
-
-export interface Order {
-  id: string;
-  date: Date;
-  items: OrderItem[];
-  total: number;
-  status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
-  deliveryAddress?: string;
-}
-
-export interface OrderItem {
-  id: number;
-  name: string;
-  quantity: number;
-  price: number;
-}
-
-export interface Address {
-  id: string;
-  title: string;
-  address: string;
-  neighborhood?: string; // Barrio
-  city: string;
-  postalCode: string;
-  isDefault: boolean;
-}
-
-export interface PaymentMethod {
-  id: string;
-  type: 'card' | 'cash';
-  last4?: string;
-  brand?: string;
-  isDefault: boolean;
-}
-
+import { UserProfile } from '../models/UserProfile';
+import { Order } from '../models/Order';
+import { Address } from '../models/Address';
+import { PaymentMethod } from '../models/PaymentMethod';
 @Injectable({
   providedIn: 'root'
 })
@@ -71,11 +23,11 @@ export class UserService {
       this.userProfileSubject.next(null);
       return;
     }
-    
+
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      
+
       // Cargar perfil desde localStorage asociado al usuario actual
       const storedProfile = localStorage.getItem(`userProfile_${userId}`);
       if (storedProfile) {
@@ -84,7 +36,7 @@ export class UserService {
         // Validar que el perfil pertenezca al usuario actual
         if (profile.email === userInfo.email || profile.id === userId) {
           // Asegurar que la fecha de registro se preserve desde localStorage
-          const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) || 
+          const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
                                localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
           if (savedDateStr) {
             try {
@@ -96,17 +48,17 @@ export class UserService {
               console.error('Error al actualizar fecha de registro en perfil guardado:', e);
             }
           }
-          
+
           this.userProfileSubject.next(profile);
           return;
         }
       }
-      
+
       // Obtener fecha de registro guardada
       let registrationDate: Date = new Date(); // Por defecto fecha actual
-      const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) || 
+      const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
                            localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
-      
+
       if (savedDateStr) {
         try {
           registrationDate = new Date(savedDateStr);
@@ -123,7 +75,7 @@ export class UserService {
         localStorage.setItem(`userRegistrationDate_${userId}`, registrationDate.toISOString());
         localStorage.setItem(`userRegistrationDate_${userInfo.email}`, registrationDate.toISOString());
       }
-      
+
       // Si no hay perfil guardado, crear uno por defecto con datos del token
       const defaultProfile: UserProfile = {
         id: userId,
@@ -161,19 +113,19 @@ export class UserService {
 
   updateUserProfile(updates: Partial<UserProfile>): void {
     let currentProfile = this.userProfileSubject.value;
-    
+
     // Si no existe un perfil, crear uno nuevo con los datos proporcionados
     if (!currentProfile) {
       const userInfoStr = localStorage.getItem('userInfo');
       let userId: string | null = null;
       let registrationDate: Date = new Date();
-      
+
       if (userInfoStr) {
         try {
           const userInfo = JSON.parse(userInfoStr);
           userId = userInfo.userId || userInfo.email;
           // Intentar obtener fecha de registro guardada
-          const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) || 
+          const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
                                localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
           if (savedDateStr) {
             try {
@@ -189,11 +141,11 @@ export class UserService {
           console.error('Error al obtener userId:', e);
         }
       }
-      
+
       const userName = localStorage.getItem('userName');
       const userEmail = localStorage.getItem('userEmail');
       const userPhone = localStorage.getItem('userPhone');
-      
+
       currentProfile = {
         id: userId || 'user_' + Date.now(),
         fullName: updates.fullName || userName || 'Usuario',
@@ -208,10 +160,10 @@ export class UserService {
         }
       };
     }
-    
+
     // Actualizar el perfil con los nuevos datos, pero preservar la fecha de registro original
-    const updatedProfile = { 
-      ...currentProfile, 
+    const updatedProfile = {
+      ...currentProfile,
       ...updates,
       memberSince: currentProfile.memberSince // Preservar la fecha de registro original
     };
@@ -223,7 +175,7 @@ export class UserService {
     // Obtener userId del usuario actual
     const userInfoStr = localStorage.getItem('userInfo');
     let userId: string | null = null;
-    
+
     if (userInfoStr) {
       try {
         const userInfo = JSON.parse(userInfoStr);
@@ -232,7 +184,7 @@ export class UserService {
         console.error('Error al obtener userId:', e);
       }
     }
-    
+
     if (userId) {
       // Guardar perfil asociado al userId del usuario actual
       localStorage.setItem(`userProfile_${userId}`, JSON.stringify(profile));
@@ -240,7 +192,7 @@ export class UserService {
       // Fallback: guardar sin userId (compatibilidad)
       localStorage.setItem('userProfile', JSON.stringify(profile));
     }
-    
+
     // Actualizar datos básicos en localStorage
     localStorage.setItem('userName', profile.fullName);
     if (profile.email) {
@@ -277,11 +229,11 @@ export class UserService {
     if (!userInfoStr) {
       return of([]);
     }
-    
+
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      
+
       // Retornar direcciones asociadas al usuario actual
       const storedAddresses = localStorage.getItem(`userAddresses_${userId}`);
       if (storedAddresses) {
@@ -290,18 +242,18 @@ export class UserService {
     } catch (e) {
       console.error('Error al obtener direcciones del usuario:', e);
     }
-    
+
     return of([]);
   }
 
   saveAddress(address: Address): void {
     const userInfoStr = localStorage.getItem('userInfo');
     if (!userInfoStr) return;
-    
+
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      
+
       this.getAddresses().subscribe(addresses => {
         const updatedAddresses = [...addresses, address];
         localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(updatedAddresses));
@@ -314,11 +266,11 @@ export class UserService {
   updateAddress(address: Address): void {
     const userInfoStr = localStorage.getItem('userInfo');
     if (!userInfoStr) return;
-    
+
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      
+
       this.getAddresses().subscribe(addresses => {
         const index = addresses.findIndex(a => a.id === address.id);
         if (index !== -1) {
@@ -356,11 +308,11 @@ export class UserService {
     if (!userInfoStr) {
       return of([]);
     }
-    
+
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email; // Usar userId o email como identificador
-      
+
       // Retornar IDs de platos favoritos asociados al usuario actual
       const storedFavorites = localStorage.getItem(`userFavoriteDishes_${userId}`);
       if (storedFavorites) {
@@ -369,18 +321,18 @@ export class UserService {
     } catch (e) {
       console.error('Error al obtener favoritos del usuario:', e);
     }
-    
+
     return of([]);
   }
 
   addFavoriteDish(dishId: number): void {
     const userInfoStr = localStorage.getItem('userInfo');
     if (!userInfoStr) return;
-    
+
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      
+
       this.getFavoriteDishes().subscribe(favorites => {
         if (!favorites.includes(dishId)) {
           const updatedFavorites = [...favorites, dishId];
@@ -397,11 +349,11 @@ export class UserService {
   removeFavoriteDish(dishId: number): void {
     const userInfoStr = localStorage.getItem('userInfo');
     if (!userInfoStr) return;
-    
+
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      
+
       this.getFavoriteDishes().subscribe(favorites => {
         const updatedFavorites = favorites.filter(id => id !== dishId);
         localStorage.setItem(`userFavoriteDishes_${userId}`, JSON.stringify(updatedFavorites));

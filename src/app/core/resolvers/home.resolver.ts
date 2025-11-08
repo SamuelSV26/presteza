@@ -2,7 +2,10 @@ import { inject } from '@angular/core';
 import { ResolveFn } from '@angular/router';
 import { Observable, forkJoin, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
-import { MenuService, MenuCategory, MenuItem } from '../services/menu.service';
+import { MenuCategory } from '../models/MenuCategory';
+import { MenuItem } from '../models/MenuItem';
+import { MenuService } from '../services/menu.service';
+
 
 export interface HomeData {
   categories: MenuCategory[];

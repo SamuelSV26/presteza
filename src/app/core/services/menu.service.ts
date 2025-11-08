@@ -1,30 +1,11 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
+import { MenuCategory } from '../models/MenuCategory';
+import { MenuItem } from '../models/MenuItem';
 
-export interface MenuCategory {
-  id: string;
-  name: string;
-  description: string;
-  icon?: string;
-}
 
-export interface ProductOption {
-  id: string;
-  name: string;
-  price: number;
-  type: 'addon' | 'size' | 'extra';
-}
 
-export interface MenuItem {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl?: string;
-  available: boolean;
-  categoryId: string;
-  options?: ProductOption[];
-}
+
 
 @Injectable({
   providedIn: 'root'
@@ -484,7 +465,7 @@ export class MenuService {
   getFeaturedItems(): Observable<MenuItem[]> {
     // Retornar productos destacados/populares
     const featuredIds = [1, 6, 30]; // Bandeja Paisa, Hamburguesa Presteza, Cazuela de Mariscos
-    const featured = this.menuItems.filter(item => 
+    const featured = this.menuItems.filter(item =>
       featuredIds.includes(item.id) && item.available
     );
     return of(featured);

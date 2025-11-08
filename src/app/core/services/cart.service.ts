@@ -1,23 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { CartItem, CartItemOption } from '../models/CartItem';
 
-export interface CartItemOption {
-  id: string;
-  name: string;
-  price: number;
-}
-
-export interface CartItem {
-  id: string;
-  productId: number;
-  productName: string;
-  productDescription: string;
-  basePrice: number;
-  selectedOptions: CartItemOption[];
-  quantity: number;
-  totalPrice: number;
-  imageUrl?: string;
-}
 
 @Injectable({
   providedIn: 'root'
@@ -26,6 +10,7 @@ export class CartService {
   private cartItemsSubject = new BehaviorSubject<CartItem[]>([]);
   public cartItems$ = this.cartItemsSubject.asObservable();
 
+
   private get cartItems(): CartItem[] {
     return this.cartItemsSubject.value;
   }
@@ -33,7 +18,7 @@ export class CartService {
   addItem(item: Omit<CartItem, 'id' | 'totalPrice'>): void {
     const id = `${item.productId}-${Date.now()}-${Math.random()}`;
     const totalPrice = this.calculateTotalPrice(item.basePrice, item.selectedOptions) * item.quantity;
-    
+
     const cartItem: CartItem = {
       ...item,
       id,
