@@ -287,27 +287,118 @@
             <div *ngFor="let order of orders" class="order-card">
               <div class="order-header">
                 <div class="order-info">
-                  <span class="order-id">Pedido #{{ order.id }}</span>
+                  <div class="order-id-row">
+                    <span class="order-id">Pedido #{{ order.id.slice(-8) }}</span>
+                    <span class="tracking-code" *ngIf="order.trackingCode">
+                      <i class="bi bi-qr-code me-1"></i>
+                      {{ getTrackingCode(order) }}
+                    </span>
+                  </div>
                   <span class="order-date">{{ formatDate(order.date) }}</span>
+                  <div class="order-meta" *ngIf="order.estimatedDeliveryTime">
+                    <i class="bi bi-clock me-1"></i>
+                    <span>{{ formatEstimatedTime(order) }}</span>
+                  </div>
                 </div>
                 <span class="order-status" [ngClass]="getOrderStatusClass(order.status)">
                   <i [class]="'bi ' + getOrderStatusIcon(order.status)"></i>
                   {{ getOrderStatusText(order.status) }}
                 </span>
               </div>
-              <div class="order-items">
-                <div *ngFor="let item of order.items" class="order-item">
-                  <span class="item-name">{{ item.name }}</span>
-                  <span class="item-quantity">x{{ item.quantity }}</span>
-                  <span class="item-price">${{ (item.price * item.quantity) | number }}</span>
+              
+              <!-- Tracking Timeline -->
+              <div class="order-tracking" *ngIf="order.status !== 'cancelled'">
+                <div class="tracking-steps">
+                  <div *ngFor="let step of getOrderStatusSteps(order)" class="tracking-step" 
+                       [class.completed]="step.completed" 
+                       [class.current]="step.current">
+                    <div class="step-icon">
+                      <i [class]="'bi ' + step.icon"></i>
+                    </div>
+                    <div class="step-label">{{ step.label }}</div>
+                  </div>
                 </div>
               </div>
+              
+              <div class="order-items">
+                <div *ngFor="let item of order.items" class="order-item">
+                  <div class="item-main">
+                    <span class="item-name">{{ item.name }}</span>
+                    <span class="item-quantity">x{{ item.quantity }}</span>
+                    <span class="item-price">${{ (item.price * item.quantity) | number }}</span>
+                  </div>
+                  <div class="item-options" *ngIf="item.selectedOptions && item.selectedOptions.length > 0">
+                    <small *ngFor="let option of item.selectedOptions" class="option-tag">
+                      {{ option.name }}
+                    </small>
+                  </div>
+                  <div class="item-notes" *ngIf="item.notes">
+                    <small><i class="bi bi-chat-left-text me-1"></i>{{ item.notes }}</small>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Order Details (Expandible) -->
+              <div class="order-details-toggle" (click)="expandOrderDetails(order)">
+                <i class="bi" [ngClass]="isOrderExpanded(order) ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                <span>{{ isOrderExpanded(order) ? 'Ocultar' : 'Ver' }} detalles</span>
+              </div>
+              
+              <div class="order-details" *ngIf="isOrderExpanded(order)">
+                <div class="detail-row" *ngIf="order.orderType">
+                  <span class="detail-label">Tipo de pedido:</span>
+                  <span class="detail-value">{{ order.orderType === 'delivery' ? 'Entrega a Domicilio' : 'Recoger en Restaurante' }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.deliveryAddress">
+                  <span class="detail-label">Dirección:</span>
+                  <span class="detail-value">{{ order.deliveryAddress }}, {{ order.deliveryNeighborhood || '' }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.deliveryPhone">
+                  <span class="detail-label">Teléfono:</span>
+                  <span class="detail-value">{{ order.deliveryPhone }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.deliveryInstructions">
+                  <span class="detail-label">Instrucciones:</span>
+                  <span class="detail-value">{{ order.deliveryInstructions }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.paymentMethod">
+                  <span class="detail-label">Método de pago:</span>
+                  <span class="detail-value">{{ getPaymentMethodName(order.paymentMethod) }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.subtotal">
+                  <span class="detail-label">Subtotal:</span>
+                  <span class="detail-value">${{ order.subtotal | number }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.additionalFees">
+                  <span class="detail-label">Costos adicionales:</span>
+                  <span class="detail-value">${{ order.additionalFees | number }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.estimatedPrepTime">
+                  <span class="detail-label">Tiempo estimado de preparación:</span>
+                  <span class="detail-value">{{ order.estimatedPrepTime }} minutos</span>
+                </div>
+              </div>
+              
               <div class="order-footer">
-                <span class="order-total">Total: ${{ order.total | number }}</span>
-                <button class="btn-outline" *ngIf="order.status === 'ready'">
-                  <i class="bi bi-check-lg me-2"></i>
-                  Confirmar Recepción
-                </button>
+                <div class="order-total-section">
+                  <span class="order-total-label">Total:</span>
+                  <span class="order-total">${{ order.total | number }}</span>
+                </div>
+                <div class="order-actions">
+                  <button class="btn-outline btn-sm" (click)="reorder(order)" title="Volver a pedir">
+                    <i class="bi bi-arrow-repeat me-2"></i>
+                    Re-pedir
+                  </button>
+                  <button class="btn-danger btn-sm" *ngIf="order.canCancel && order.status === 'pending'" 
+                          (click)="cancelOrder(order)" title="Cancelar pedido">
+                    <i class="bi bi-x-circle me-2"></i>
+                    Cancelar
+                  </button>
+                  <button class="btn-outline btn-sm" *ngIf="order.status === 'ready'">
+                    <i class="bi bi-check-lg me-2"></i>
+                    Confirmar Recepción
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -387,7 +478,7 @@
               <i class="bi bi-credit-card me-2"></i>
               Métodos de Pago
             </h2>
-            <button class="btn-primary">
+            <button class="btn-primary" (click)="openPaymentMethodModal()">
               <i class="bi bi-plus-lg me-2"></i>
               Agregar Método
             </button>
@@ -411,15 +502,140 @@
                 <span class="payment-badge" *ngIf="method.isDefault">Principal</span>
               </div>
               <div class="payment-actions">
-                <button class="btn-icon" title="Editar">
+                <button class="btn-icon" title="Editar" (click)="editPaymentMethod(method)">
                   <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn-icon" title="Eliminar">
+                <button class="btn-icon" title="Eliminar" (click)="deletePaymentMethod(method)">
                   <i class="bi bi-trash"></i>
                 </button>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Modal: Agregar/Editar Método de Pago -->
+      <div *ngIf="showPaymentMethodModal" class="modal-overlay" (click)="closePaymentMethodModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3 class="modal-title">
+              <i class="bi bi-credit-card me-2"></i>
+              {{ editingPaymentMethod ? 'Editar' : 'Agregar' }} Método de Pago
+            </h3>
+            <button class="btn-close-modal" (click)="closePaymentMethodModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <form [formGroup]="paymentMethodForm" (ngSubmit)="onPaymentMethodSubmit()" class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Tipo de Método</label>
+              <select formControlName="type" class="form-control">
+                <option value="card">Tarjeta de Crédito/Débito</option>
+                <option value="cash">Efectivo</option>
+              </select>
+            </div>
+
+            <div *ngIf="paymentMethodForm.get('type')?.value === 'card'" class="card-form-fields">
+              <div class="form-group">
+                <label class="form-label">Número de Tarjeta *</label>
+                <input
+                  type="text"
+                  formControlName="cardNumber"
+                  class="form-control"
+                  placeholder="1234 5678 9012 3456"
+                  maxlength="19"
+                  (input)="formatCardNumber($event)"
+                  [class.is-invalid]="submitted && paymentMethodForm.get('cardNumber')?.errors"
+                />
+                <div *ngIf="submitted && paymentMethodForm.get('cardNumber')?.errors" class="invalid-feedback">
+                  Ingresa un número de tarjeta válido
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Titular de la Tarjeta *</label>
+                <input
+                  type="text"
+                  formControlName="cardHolder"
+                  class="form-control"
+                  placeholder="Nombre completo"
+                  [class.is-invalid]="submitted && paymentMethodForm.get('cardHolder')?.errors"
+                />
+                <div *ngIf="submitted && paymentMethodForm.get('cardHolder')?.errors" class="invalid-feedback">
+                  El nombre del titular es requerido
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label class="form-label">Mes *</label>
+                    <input
+                      type="text"
+                      formControlName="expiryMonth"
+                      class="form-control"
+                      placeholder="MM"
+                      maxlength="2"
+                      [class.is-invalid]="submitted && paymentMethodForm.get('expiryMonth')?.errors"
+                    />
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label class="form-label">Año *</label>
+                    <input
+                      type="text"
+                      formControlName="expiryYear"
+                      class="form-control"
+                      placeholder="AA"
+                      maxlength="2"
+                      [class.is-invalid]="submitted && paymentMethodForm.get('expiryYear')?.errors"
+                    />
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label class="form-label">CVV *</label>
+                    <input
+                      type="text"
+                      formControlName="cvv"
+                      class="form-control"
+                      placeholder="123"
+                      maxlength="4"
+                      [class.is-invalid]="submitted && paymentMethodForm.get('cvv')?.errors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Marca de Tarjeta *</label>
+                <select formControlName="brand" class="form-control">
+                  <option value="Visa">Visa</option>
+                  <option value="Mastercard">Mastercard</option>
+                  <option value="American Express">American Express</option>
+                  <option value="Diners Club">Diners Club</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="isDefault" />
+                <span>Marcar como método de pago principal</span>
+              </label>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn-secondary" (click)="closePaymentMethodModal()">
+                Cancelar
+              </button>
+              <button type="submit" class="btn-primary">
+                <i class="bi bi-check-lg me-2"></i>
+                {{ editingPaymentMethod ? 'Actualizar' : 'Agregar' }}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 

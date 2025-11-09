@@ -44,6 +44,60 @@ export class LoginComponent implements OnInit {
         this.router.navigate(['/perfil']);
       }
     }
+
+    // Escuchar el evento de login exitoso como fallback
+    const handleUserLoggedIn = (event: Event) => {
+      console.log('🎧 Evento userLoggedIn capturado en LoginComponent');
+      console.log('🎧 Event detail:', (event as CustomEvent).detail);
+      setTimeout(() => {
+        this.handlePostLoginRedirect();
+      }, 300);
+    };
+    
+    window.addEventListener('userLoggedIn', handleUserLoggedIn);
+    console.log('👂 Listener de userLoggedIn configurado en LoginComponent');
+  }
+
+  private handlePostLoginRedirect() {
+    console.log('🎯 handlePostLoginRedirect ejecutado');
+    const token = this.authService.getToken();
+    
+    if (!token) {
+      console.log('⚠️ No hay token, esperando...');
+      setTimeout(() => this.handlePostLoginRedirect(), 200);
+      return;
+    }
+
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      const payload = JSON.parse(jsonPayload);
+      
+      const userRole = payload?.role || payload?.userRole || payload?.rol || payload?.type || 'client';
+      const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : 'client';
+      
+      console.log('🎯 Rol detectado desde evento:', normalizedRole);
+      
+      if (normalizedRole === 'admin') {
+        console.log('🎯 Redirigiendo a /admin desde evento');
+        this.router.navigateByUrl('/admin');
+      } else {
+        console.log('🎯 Redirigiendo a /perfil desde evento');
+        this.router.navigateByUrl('/perfil').then(success => {
+          if (!success) {
+            console.log('🎯 Fallback: usando window.location.href');
+            window.location.href = '/perfil';
+          }
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error al procesar redirección desde evento:', error);
+      // Redirigir a perfil por defecto
+      this.router.navigateByUrl('/perfil');
+    }
   }
 
   onLoginSubmit() {
@@ -58,29 +112,122 @@ export class LoginComponent implements OnInit {
     // Obtener el returnUrl de los query params o sessionStorage
     const returnUrl = this.route.snapshot.queryParams['returnUrl'] || sessionStorage.getItem('returnUrl');
 
+    console.log('🔄 Iniciando proceso de login...');
+    console.log('📧 Email:', this.loginEmail);
+    console.log('🔑 Password:', this.loginPassword ? '***' : 'vacío');
+    
     this.authService.login(this.loginEmail, this.loginPassword, this.rememberMe).subscribe({
-      next: () => {
+      next: (response) => {
+        console.log('📥 ===== CALLBACK NEXT() EJECUTADO EN LOGINCOMPONENT =====');
+        console.log('📥 Respuesta del login:', response);
         this.isLoading = false;
         
-        // Limpiar el returnUrl de sessionStorage
-        if (returnUrl) {
-          sessionStorage.removeItem('returnUrl');
-          this.router.navigateByUrl(returnUrl);
-        } else {
-          // Si no hay returnUrl, redirigir según el rol del usuario
-          const userRole = this.authService.getRole();
-          const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : null;
+        console.log('✅ Login exitoso, iniciando redirección...');
+        
+        // Función para realizar la redirección
+        const performRedirect = () => {
+          console.log('🚀 Ejecutando performRedirect...');
+          // Obtener el rol directamente del token decodificado para mayor confiabilidad
+          const token = this.authService.getToken();
+          console.log('🔑 Token obtenido en performRedirect:', token ? 'Sí' : 'No');
+          console.log('🔑 Token desde localStorage:', localStorage.getItem('authToken') ? 'Sí' : 'No');
+          console.log('🔑 Token desde sessionStorage:', sessionStorage.getItem('authToken') ? 'Sí' : 'No');
           
-          if (normalizedRole === 'admin') {
-            this.router.navigate(['/admin']);
+          if (token) {
+            try {
+              const base64Url = token.split('.')[1];
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+              }).join(''));
+              const payload = JSON.parse(jsonPayload);
+              
+              console.log('📋 Payload completo:', payload);
+              
+              const userRole = payload?.role || payload?.userRole || payload?.rol || payload?.type || 'client';
+              const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : 'client';
+              
+              console.log('🔍 Rol obtenido del token después del login:', normalizedRole);
+              
+              // Limpiar el returnUrl de sessionStorage
+              if (returnUrl) {
+                console.log('📍 Redirigiendo a returnUrl:', returnUrl);
+                sessionStorage.removeItem('returnUrl');
+                this.router.navigateByUrl(returnUrl).then(success => {
+                  console.log('✅ Navegación a returnUrl:', success ? 'exitosa' : 'fallida');
+                });
+              } else {
+                // Redirigir según el rol
+                if (normalizedRole === 'admin') {
+                  console.log('✅ Redirigiendo a /admin');
+                  this.router.navigateByUrl('/admin').then(success => {
+                    console.log('✅ Navegación a /admin:', success ? 'exitosa' : 'fallida');
+                    if (!success) {
+                      console.error('❌ Error al navegar a /admin');
+                    }
+                  }).catch(err => {
+                    console.error('❌ Excepción al navegar a /admin:', err);
+                  });
+                } else {
+                  // Para clientes, redirigir siempre a /perfil
+                  console.log('✅ Usuario es CLIENTE - Redirigiendo a /perfil');
+                  console.log('🔑 Token disponible antes de navegar:', this.authService.getToken() ? 'Sí' : 'No');
+                  console.log('🔒 Usuario autenticado antes de navegar:', this.authService.isAuthenticated());
+                  
+                  // Forzar navegación con location.href como fallback
+                  this.router.navigateByUrl('/perfil').then(success => {
+                    console.log('✅ Navegación a /perfil:', success ? 'exitosa' : 'fallida');
+                    if (!success) {
+                      console.error('❌ Error al navegar a /perfil, usando location.href como fallback');
+                      window.location.href = '/perfil';
+                    }
+                  }).catch(err => {
+                    console.error('❌ Excepción al navegar a /perfil:', err);
+                    console.log('🔄 Usando location.href como fallback');
+                    window.location.href = '/perfil';
+                  });
+                }
+              }
+            } catch (error) {
+              console.error('❌ Error al decodificar token para obtener rol:', error);
+              // Fallback: usar el método del servicio
+              const userInfo = this.authService.getUserInfo();
+              console.log('📋 UserInfo obtenido del servicio:', userInfo);
+              const userRole = userInfo?.role || this.authService.getRole();
+              const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : 'client';
+              
+              console.log('🔍 Rol obtenido del servicio:', normalizedRole);
+              
+              if (normalizedRole === 'admin') {
+                console.log('✅ Redirigiendo a /admin (fallback)');
+                this.router.navigateByUrl('/admin');
+              } else {
+                console.log('✅ Redirigiendo a /perfil (fallback)');
+                this.router.navigateByUrl('/perfil');
+              }
+            }
           } else {
-            this.router.navigate(['/perfil']);
+            console.error('❌ No se encontró token después del login');
+            // Redirigir a perfil por defecto si no hay token
+            console.log('✅ Redirigiendo a /perfil (sin token)');
+            this.router.navigateByUrl('/perfil');
           }
-        }
+        };
+        
+        // Redirigir inmediatamente - el token ya está guardado en el AuthService
+        // Usar setTimeout para asegurar que Angular haya procesado el cambio
+        setTimeout(() => {
+          console.log('⏰ Timeout ejecutado, llamando performRedirect...');
+          performRedirect();
+        }, 300);
       },
       error: (error) => {
+        console.error('❌ Error en el subscribe del login:', error);
         this.isLoading = false;
         this.loginError = error.message || 'Error al iniciar sesión. Verifica tus credenciales.';
+      },
+      complete: () => {
+        console.log('✅ Observable de login completado');
       }
     });
   }

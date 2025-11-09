@@ -62,4 +62,8 @@ export class NotificationComponent implements OnInit, OnDestroy {
         return 'bi-info-circle-fill';
     }
   }
+
+  trackByNotificationId(index: number, notification: Notification): string {
+    return notification.id;
+  }
 }

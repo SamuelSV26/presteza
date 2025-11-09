@@ -5,6 +5,7 @@ import { MenuService, MenuItem, ProductOption } from '../../../../core/services/
 import { UserService } from '../../../../core/services/user.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { NotificationService } from '../../../../core/services/notification.service';
+import { CartService } from '../../../../core/services/cart.service';
 import { Observable } from 'rxjs';
 
 interface SelectedOption {
@@ -47,7 +48,8 @@ export class ProductDetailComponent implements OnInit {
     private menuService: MenuService,
     private userService: UserService,
     private authService: AuthService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private cartService: CartService
   ) {}
 
   ngOnInit(): void {
@@ -157,28 +159,48 @@ export class ProductDetailComponent implements OnInit {
   addToCart(): void {
     if (!this.product) return;
     
-    const selectedOptionsList: ProductOption[] = [];
+    // Convertir las opciones seleccionadas al formato del carrito
+    const selectedOptionsList: Array<{ id: string; name: string; price: number }> = [];
     this.selectedOptions.forEach((checked, optionId) => {
       if (checked) {
         const option = this.product?.options?.find(opt => opt.id === optionId);
         if (option) {
-          selectedOptionsList.push(option);
+          selectedOptionsList.push({
+            id: option.id,
+            name: option.name,
+            price: option.price || 0
+          });
         }
       }
     });
 
-    console.log('Producto agregado al carrito:', {
-      product: this.product,
-      quantity: this.quantity,
+    // Agregar al carrito usando el servicio
+    this.cartService.addItem({
+      productId: this.product.id,
+      productName: this.product.name,
+      productDescription: this.product.description || '',
+      basePrice: this.basePrice,
       selectedOptions: selectedOptionsList,
+      quantity: this.quantity,
+      imageUrl: this.product.imageUrl
+    });
+
+    console.log('✅ Producto agregado al carrito:', {
+      product: this.product.name,
+      quantity: this.quantity,
+      selectedOptions: selectedOptionsList.length,
       totalPrice: this.totalPrice
     });
 
-    // Aquí iría la lógica para agregar al carrito
-    this.notificationService.showSuccess('Producto agregado al carrito', '¡Éxito!');
+    this.notificationService.showSuccess(
+      `${this.product.name} agregado al carrito`,
+      '¡Éxito!'
+    );
+    
+    // Opcional: navegar al menú después de un breve delay
     setTimeout(() => {
       this.router.navigate(['/menu']);
-    }, 1000);
+    }, 1500);
   }
 
   goBack(): void {
