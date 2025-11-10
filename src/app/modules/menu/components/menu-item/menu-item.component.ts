@@ -18,8 +18,8 @@ export class MenuItemComponent implements OnInit, OnChanges {
   @Input() price: number = 0;
   @Input() imageUrl: string | undefined = '';
   @Input() available: boolean = true;
-  @Input() dishId: number = 0;
-  @Output() favoriteClick = new EventEmitter<{ dishId: number; action: 'add' | 'remove' | 'login' }>();
+  @Input() dishId: number | string = 0;
+  @Output() favoriteClick = new EventEmitter<{ dishId: number | string; action: 'add' | 'remove' | 'login' }>();
   
   isFavorite$: Observable<boolean> = new Observable();
   isLoggedIn: boolean = false;

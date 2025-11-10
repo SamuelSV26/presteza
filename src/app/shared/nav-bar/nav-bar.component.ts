@@ -26,6 +26,7 @@ export class NavbarComponent implements OnInit {
   rememberMe = false;
   loginError: string | null = null;
   isLoading = false;
+  isNavbarCollapsed = true;
 
   constructor(
     private router: Router, 
@@ -122,6 +123,16 @@ export class NavbarComponent implements OnInit {
 
   navigateTo(path: string) {
     this.router.navigate([path]);
+    // Cerrar el navbar en móviles después de navegar
+    this.isNavbarCollapsed = true;
+  }
+
+  toggleNavbar() {
+    this.isNavbarCollapsed = !this.isNavbarCollapsed;
+  }
+
+  closeNavbar() {
+    this.isNavbarCollapsed = true;
   }
 
   onAccountClick(event: Event) {
@@ -195,7 +206,19 @@ export class NavbarComponent implements OnInit {
           this.userName = userInfo.name;
         }
         
-        // La redirección se maneja automáticamente en el AuthService según el rol
+        // Redirigir según el rol
+        setTimeout(() => {
+          const role = this.authService.getRole();
+          const normalizedRole = role ? role.toString().toLowerCase().trim() : 'client';
+          
+          if (normalizedRole === 'admin') {
+            this.router.navigate(['/admin']);
+          } else {
+            // Para clientes, siempre redirigir a /perfil
+            sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
+            this.router.navigate(['/perfil']);
+          }
+        }, 300);
       },
       error: (error) => {
         this.isLoading = false;

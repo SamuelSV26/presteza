@@ -36,12 +36,17 @@ export const homeResolver: ResolveFn<HomeData> = (route, state): Observable<Home
       })
     )
   }).pipe(
-    map(({ categories, featuredItems }) => ({
-      categories: categories.slice(0, 6), // Limitar a 6 categorías
-      featuredProducts: featuredItems,
-      loading: false,
-      error: null
-    })),
+    map(({ categories, featuredItems }) => {
+      // Priorizar categorías con icono, pero si no hay ninguna, mostrar todas
+      const categoriesWithIcon = categories.filter((cat: any) => cat.icon && cat.icon.trim() !== '');
+      const categoriesToShow = categoriesWithIcon.length > 0 ? categoriesWithIcon : categories;
+      return {
+        categories: categoriesToShow.slice(0, 5), // Limitar a 5 categorías
+        featuredProducts: featuredItems,
+        loading: false,
+        error: null
+      };
+    }),
     catchError(error => {
       console.error('Error in home resolver:', error);
       return of({

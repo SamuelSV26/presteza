@@ -36,6 +36,11 @@ export class AdminDashboardComponent implements OnInit {
   showProductModal = false;
   productForm: FormGroup;
 
+  // Categorías
+  selectedCategory: MenuCategory | null = null;
+  showCategoryModal = false;
+  categoryForm: FormGroup;
+
   // Pedidos
   orders: Order[] = [];
   selectedOrder: Order | null = null;
@@ -79,6 +84,7 @@ export class AdminDashboardComponent implements OnInit {
       description: ['', [Validators.required, Validators.minLength(10)]],
       price: [0, [Validators.required, Validators.min(1)]],
       categoryId: ['', Validators.required],
+      imageUrl: [''], // Campo opcional - sin Validators.required
       available: [true]
     });
 
@@ -96,6 +102,11 @@ export class AdminDashboardComponent implements OnInit {
       deliveryFee: [3000, [Validators.required, Validators.min(0)]],
       maxDeliveryDistance: [10, [Validators.required, Validators.min(1)]]
     });
+
+    this.categoryForm = this.fb.group({
+      name: ['', [Validators.required, Validators.minLength(2)]],
+      description: ['', [Validators.required, Validators.minLength(5)]]
+    });
   }
 
   ngOnInit(): void {
@@ -104,9 +115,7 @@ export class AdminDashboardComponent implements OnInit {
 
   loadDashboardData(): void {
     // Cargar categorías
-    this.menuService.getCategories().subscribe(categories => {
-      this.categories = categories;
-    });
+    this.loadCategories();
 
     // Cargar todos los productos
     this.loadAllProducts();
@@ -118,15 +127,35 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  loadAllProducts(): void {
+  loadCategories(): void {
     this.menuService.getCategories().subscribe(categories => {
-      this.products = [];
-      categories.forEach(category => {
-        this.menuService.getItemsByCategory(category.id).subscribe(items => {
-          this.products = [...this.products, ...items];
-          this.stats.totalProducts = this.products.length;
+      this.categories = categories;
+    });
+  }
+
+  loadAllProducts(): void {
+    console.log('🔍 Cargando todos los productos desde el backend...');
+
+    // Usar getAllDishes() que obtiene todos los productos de una sola vez
+    this.menuService.getAllDishes().subscribe({
+      next: (products) => {
+        console.log(`✅ Productos cargados: ${products.length} productos`);
+
+        // Agregar logs detallados para debug
+        products.forEach((product, index) => {
+          console.log(`  ${index + 1}. ${product.name} (ID: ${product.id}, Categoría: ${product.categoryId})`);
         });
-      });
+
+        this.products = products;
+        this.stats.totalProducts = products.length;
+
+        console.log(`📊 Total de productos en el sistema: ${this.stats.totalProducts}`);
+      },
+      error: (error) => {
+        console.error('❌ Error al cargar productos:', error);
+        this.products = [];
+        this.stats.totalProducts = 0;
+      }
     });
   }
 
@@ -152,6 +181,7 @@ export class AdminDashboardComponent implements OnInit {
         description: product.description,
         price: product.price,
         categoryId: product.categoryId,
+        imageUrl: product.imageUrl || '',
         available: product.available
       });
     } else {
@@ -170,29 +200,139 @@ export class AdminDashboardComponent implements OnInit {
 
   saveProduct(): void {
     if (this.productForm.valid) {
-      console.log('Guardar producto:', this.productForm.value);
-      this.notificationService.showSuccess('Producto guardado correctamente');
-      this.closeProductModal();
-      this.loadAllProducts();
+      const formValue = this.productForm.value;
+
+      // Validar que categoryId esté seleccionado
+      if (!formValue.categoryId) {
+        this.notificationService.showError('Por favor, selecciona una categoría');
+        return;
+      }
+
+      const productData = {
+        name: formValue.name.trim(),
+        description: formValue.description.trim(),
+        price: Number(formValue.price), // Asegurar que sea un número
+        categoryId: formValue.categoryId,
+        imageUrl: (formValue.imageUrl && formValue.imageUrl.trim()) || '', // Enviar string vacío si no hay imagen
+        available: formValue.available !== false
+      };
+
+      if (this.selectedProduct) {
+        // Actualizar producto existente
+        console.log('📤 Datos del producto a actualizar:', productData);
+        console.log('📤 ID del producto:', this.selectedProduct.id);
+        this.menuService.updateDish(this.selectedProduct.id, productData).subscribe({
+          next: (updatedProduct) => {
+            console.log('✅ Producto actualizado:', updatedProduct);
+            this.notificationService.showSuccess('Producto actualizado correctamente');
+            this.closeProductModal();
+            this.loadAllProducts();
+            // Disparar evento para que los componentes del cliente recarguen datos
+            window.dispatchEvent(new CustomEvent('productsUpdated'));
+          },
+          error: (error) => {
+            console.error('❌ Error al actualizar producto:', error);
+            console.error('❌ Detalles del error:', {
+              status: error.status,
+              statusText: error.statusText,
+              message: error.message,
+              error: error.error
+            });
+
+            // Mostrar mensaje de error más detallado
+            let errorMessage = 'Error al actualizar el producto. Por favor, intenta nuevamente.';
+            if (error.error && error.error.message) {
+              errorMessage = `Error: ${error.error.message}`;
+            } else if (error.error && typeof error.error === 'string') {
+              errorMessage = `Error: ${error.error}`;
+            } else if (error.message) {
+              errorMessage = `Error: ${error.message}`;
+            }
+
+            this.notificationService.showError(errorMessage);
+          }
+        });
+      } else {
+        // Crear nuevo producto
+        console.log('📤 Datos del producto a enviar:', productData);
+        this.menuService.createDish(productData).subscribe({
+          next: (newProduct) => {
+            console.log('✅ Producto creado:', newProduct);
+            this.notificationService.showSuccess('Producto creado correctamente');
+            this.closeProductModal();
+            this.loadAllProducts();
+            // Disparar evento para que los componentes del cliente recarguen datos
+            window.dispatchEvent(new CustomEvent('productsUpdated'));
+          },
+          error: (error) => {
+            console.error('❌ Error al crear producto:', error);
+            console.error('❌ Detalles del error:', {
+              status: error.status,
+              statusText: error.statusText,
+              message: error.message,
+              error: error.error
+            });
+
+            // Mostrar mensaje de error más detallado
+            let errorMessage = 'Error al crear el producto. Por favor, intenta nuevamente.';
+            if (error.error && error.error.message) {
+              errorMessage = `Error: ${error.error.message}`;
+            } else if (error.error && typeof error.error === 'string') {
+              errorMessage = `Error: ${error.error}`;
+            } else if (error.message) {
+              errorMessage = `Error: ${error.message}`;
+            }
+
+            this.notificationService.showError(errorMessage);
+          }
+        });
+      }
     }
   }
 
-  async deleteProduct(productId: number): Promise<void> {
+  async deleteProduct(productId: number | string): Promise<void> {
     const confirmed = await this.notificationService.confirm(
       'Eliminar Producto',
       '¿Estás seguro de que deseas eliminar este producto?'
     );
 
     if (confirmed) {
-      console.log('Eliminar producto:', productId);
-      this.notificationService.showSuccess('Producto eliminado correctamente');
-      this.loadAllProducts();
+      this.menuService.deleteDish(productId).subscribe({
+        next: () => {
+          console.log('✅ Producto eliminado:', productId);
+          this.notificationService.showSuccess('Producto eliminado correctamente');
+          this.loadAllProducts();
+          // Disparar evento para que los componentes del cliente recarguen datos
+          window.dispatchEvent(new CustomEvent('productsUpdated'));
+        },
+        error: (error) => {
+          console.error('❌ Error al eliminar producto:', error);
+          this.notificationService.showError('Error al eliminar el producto. Por favor, intenta nuevamente.');
+        }
+      });
     }
   }
 
   toggleProductAvailability(product: MenuItem): void {
-    product.available = !product.available;
-    console.log('Cambiar disponibilidad:', product);
+    const newAvailability = !product.available;
+    this.menuService.updateDishAvailability(product.id, newAvailability).subscribe({
+      next: (updatedProduct) => {
+        console.log('✅ Disponibilidad actualizada:', updatedProduct);
+        product.available = updatedProduct.available;
+        this.notificationService.showSuccess(
+          `Producto ${updatedProduct.available ? 'activado' : 'desactivado'} correctamente`
+        );
+        this.loadAllProducts();
+        // Disparar evento para que los componentes del cliente recarguen datos
+        window.dispatchEvent(new CustomEvent('productsUpdated'));
+      },
+      error: (error) => {
+        console.error('❌ Error al actualizar disponibilidad:', error);
+        // Revertir el cambio visual si falla
+        product.available = !newAvailability;
+        this.notificationService.showError('Error al actualizar la disponibilidad. Por favor, intenta nuevamente.');
+      }
+    });
   }
 
   toggleProductView(): void {
@@ -277,6 +417,106 @@ export class AdminDashboardComponent implements OnInit {
       console.log('Guardar configuración:', this.settingsForm.value);
       this.notificationService.showSuccess('Configuración guardada correctamente');
       // Aquí iría la lógica para guardar en el backend
+    }
+  }
+
+  // Gestión de Categorías
+  openCategoryModal(category?: MenuCategory): void {
+    this.selectedCategory = category || null;
+    if (category) {
+      this.categoryForm.patchValue({
+        name: category.name,
+        description: category.description
+      });
+    } else {
+      this.categoryForm.reset();
+    }
+    this.showCategoryModal = true;
+  }
+
+  closeCategoryModal(): void {
+    this.showCategoryModal = false;
+    this.selectedCategory = null;
+    this.categoryForm.reset();
+  }
+
+  saveCategory(): void {
+    if (this.categoryForm.valid) {
+      const formValue = this.categoryForm.value;
+      const categoryData = {
+        name: formValue.name.trim(),
+        description: formValue.description.trim()
+      };
+
+      if (this.selectedCategory) {
+        // Actualizar categoría existente
+        console.log('📤 Actualizando categoría:', categoryData);
+        this.menuService.updateCategory(this.selectedCategory.id, categoryData).subscribe({
+          next: (updatedCategory) => {
+            console.log('✅ Categoría actualizada:', updatedCategory);
+            this.notificationService.showSuccess('Categoría actualizada correctamente');
+            this.closeCategoryModal();
+            this.loadCategories();
+            // Disparar evento para que los componentes recarguen datos
+            window.dispatchEvent(new CustomEvent('categoriesUpdated'));
+          },
+          error: (error) => {
+            console.error('❌ Error al actualizar categoría:', error);
+            let errorMessage = 'Error al actualizar la categoría. Por favor, intenta nuevamente.';
+            if (error.error && error.error.message) {
+              errorMessage = `Error: ${error.error.message}`;
+            }
+            this.notificationService.showError(errorMessage);
+          }
+        });
+      } else {
+        // Crear nueva categoría
+        console.log('📤 Creando categoría:', categoryData);
+        this.menuService.createCategory(categoryData).subscribe({
+          next: (newCategory) => {
+            console.log('✅ Categoría creada:', newCategory);
+            this.notificationService.showSuccess('Categoría creada correctamente');
+            this.closeCategoryModal();
+            this.loadCategories();
+            // Disparar evento para que los componentes recarguen datos
+            window.dispatchEvent(new CustomEvent('categoriesUpdated'));
+          },
+          error: (error) => {
+            console.error('❌ Error al crear categoría:', error);
+            let errorMessage = 'Error al crear la categoría. Por favor, intenta nuevamente.';
+            if (error.error && error.error.message) {
+              errorMessage = `Error: ${error.error.message}`;
+            }
+            this.notificationService.showError(errorMessage);
+          }
+        });
+      }
+    }
+  }
+
+  async deleteCategory(categoryId: string): Promise<void> {
+    const confirmed = await this.notificationService.confirm(
+      '¿Estás seguro de que deseas eliminar esta categoría?',
+      'Esta acción no se puede deshacer.'
+    );
+
+    if (confirmed) {
+      this.menuService.deleteCategory(categoryId).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Categoría eliminada correctamente');
+          this.loadCategories();
+          // Disparar evento para que los componentes recarguen datos
+          window.dispatchEvent(new CustomEvent('categoriesUpdated'));
+        },
+        error: (error) => {
+          console.error('❌ Error al eliminar categoría:', error);
+          let errorMessage = 'Error al eliminar la categoría. Por favor, intenta nuevamente.';
+          if (error.error && error.error.message) {
+            errorMessage = `Error: ${error.error.message}`;
+          }
+          this.notificationService.showError(errorMessage);
+        }
+      });
     }
   }
 

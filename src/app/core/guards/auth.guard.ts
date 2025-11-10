@@ -13,16 +13,19 @@ export const authGuard: CanActivateFn = (route, state) => {
   const notificationService = inject(NotificationService);
 
   // Verificar si el usuario está autenticado
+  const token = authService.getToken();
   const isAuthenticated = authService.isAuthenticated();
+  
   console.log('🔒 authGuard - Verificando autenticación para:', state.url);
+  console.log('🔒 authGuard - Token disponible:', token ? 'Sí' : 'No');
   console.log('🔒 authGuard - Usuario autenticado:', isAuthenticated);
   
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !token) {
     console.log('❌ authGuard - Usuario no autenticado, redirigiendo a login');
-    notificationService.showWarning('Debes iniciar sesión para acceder a esta sección');
     // Guardar el returnUrl en sessionStorage para que esté disponible después del login
     sessionStorage.setItem('returnUrl', state.url);
-    router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
+    // Usar navigateByUrl para forzar la redirección sin mostrar mensaje
+    router.navigateByUrl('/login?returnUrl=' + encodeURIComponent(state.url));
     return false;
   }
 

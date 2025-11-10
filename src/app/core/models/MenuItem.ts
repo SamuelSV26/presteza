@@ -7,7 +7,7 @@ export interface ProductOption {
 
 
 export interface MenuItem {
-  id: number;
+  id: number | string; // Puede ser número (datos locales) o string (MongoDB ObjectId)
   name: string;
   description: string;
   price: number;

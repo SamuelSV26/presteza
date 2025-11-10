@@ -7,7 +7,10 @@ import { Observable, Subject, combineLatest } from 'rxjs';
 import { takeUntil, map } from 'rxjs/operators';
 import { NotificationService } from '../../core/services/notification.service';
 import { AuthService } from '../../core/services/auth.service';
-import { UserService, PaymentMethod as SavedPaymentMethod, Address, Order } from '../../core/services/user.service';
+import { UserService } from '../../core/services/user.service';
+import { PaymentMethod as SavedPaymentMethod } from '../../core/models/PaymentMethod';
+import { Address } from '../../core/models/Address';
+import { Order } from '../../core/models/Order';
 
 export type OrderType = 'pickup' | 'delivery';
 export type PaymentMethod = 'card' | 'cash' | 'nequi' | 'daviplata' | 'transfer';
@@ -23,38 +26,38 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   cartItems$!: Observable<CartItem[]>;
   subtotal$!: Observable<number>;
   private destroy$ = new Subject<void>();
-  
+
   orderType: OrderType = 'pickup';
   paymentMethod: PaymentMethod = 'cash';
-  
+
   // Costos adicionales
   readonly DISPOSABLES_FEE = 1000; // Para recoger en restaurante
   readonly DELIVERY_FEE = 4000; // Para entrega a domicilio
-  
+
   // Totales
   subtotal = 0;
   additionalFees = 0;
   total = 0;
-  
+
   // Formularios
   deliveryForm: FormGroup;
   paymentForm: FormGroup;
-  
+
   isLoading = false;
   showPaymentModal = false;
-  
+
   // Información de pago digital
   paymentLink: string = '';
   paymentCode: string = '';
   paymentReference: string = '';
   bankAccount: any = null;
   showPaymentInfo = false;
-  
+
   // Métodos de pago guardados
   savedPaymentMethods: SavedPaymentMethod[] = [];
   selectedSavedMethod: string | null = null;
   useSavedCard = false;
-  
+
   // Direcciones guardadas
   savedAddresses: Address[] = [];
   selectedSavedAddress: string | null = null;
@@ -98,15 +101,20 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     // Verificar que haya items en el carrito
     this.cartItems$ = this.cartService.cartItems$;
     this.cartItems$.pipe(takeUntil(this.destroy$)).subscribe(items => {
-      if (items.length === 0) {
+      // No mostrar alerta si el carrito se vació por un pago exitoso reciente
+      const orderJustPlaced = sessionStorage.getItem('orderJustPlaced');
+      if (items.length === 0 && !orderJustPlaced) {
         this.notificationService.showWarning('Tu carrito está vacío');
         this.router.navigate(['/menu']);
+      } else if (orderJustPlaced) {
+        // Limpiar la bandera después de usarla
+        sessionStorage.removeItem('orderJustPlaced');
       }
     });
 
     // Calcular subtotal
     this.subtotal$ = this.cartService.getTotalPrice();
-    
+
     // Calcular totales
     combineLatest([
       this.cartService.getTotalPrice(),
@@ -127,14 +135,14 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         phone: userPhone
       });
     }
-    
+
     // Cargar métodos de pago guardados
     this.loadSavedPaymentMethods();
-    
+
     // Cargar direcciones guardadas
     this.loadSavedAddresses();
   }
-  
+
   loadSavedPaymentMethods(): void {
     this.userService.getPaymentMethods().pipe(takeUntil(this.destroy$)).subscribe(methods => {
       this.savedPaymentMethods = methods;
@@ -150,7 +158,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       }
     });
   }
-  
+
   loadSavedCardData(method: SavedPaymentMethod): void {
     if (method.type === 'card' && method.last4) {
       // Pre-llenar el formulario con los datos de la tarjeta guardada
@@ -167,7 +175,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.paymentForm.updateValueAndValidity();
     }
   }
-  
+
   onSavedMethodSelect(methodId: string): void {
     const method = this.savedPaymentMethods.find(m => m.id === methodId);
     if (method) {
@@ -182,7 +190,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       }
     }
   }
-  
+
   useNewCard(): void {
     this.useSavedCard = false;
     this.selectedSavedMethod = null;
@@ -194,7 +202,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.paymentForm.get('cvv')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{3,4}$/)]);
     this.paymentForm.updateValueAndValidity();
   }
-  
+
   getSelectedSavedCardInfo(): string {
     if (!this.selectedSavedMethod) return '';
     const method = this.savedPaymentMethods.find(m => m.id === this.selectedSavedMethod);
@@ -203,7 +211,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     }
     return '';
   }
-  
+
   loadSavedAddresses(): void {
     this.userService.getAddresses().pipe(takeUntil(this.destroy$)).subscribe(addresses => {
       this.savedAddresses = addresses;
@@ -216,7 +224,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       }
     });
   }
-  
+
   loadSavedAddressData(address: Address): void {
     this.deliveryForm.patchValue({
       address: address.address,
@@ -231,7 +239,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.deliveryForm.get('address')?.updateValueAndValidity();
     this.deliveryForm.get('neighborhood')?.updateValueAndValidity();
   }
-  
+
   onSavedAddressSelect(addressId: string): void {
     const address = this.savedAddresses.find(a => a.id === addressId);
     if (address) {
@@ -240,7 +248,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.loadSavedAddressData(address);
     }
   }
-  
+
   useNewAddress(): void {
     this.useSavedAddress = false;
     this.selectedSavedAddress = null;
@@ -256,7 +264,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.deliveryForm.get('address')?.updateValueAndValidity();
     this.deliveryForm.get('neighborhood')?.updateValueAndValidity();
   }
-  
+
   getSelectedSavedAddressInfo(): string {
     if (!this.selectedSavedAddress) return '';
     const address = this.savedAddresses.find(a => a.id === this.selectedSavedAddress);
@@ -275,7 +283,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.orderType = type;
     this.calculateAdditionalFees();
     this.calculateTotal();
-    
+
     // Limpiar validaciones según el tipo
     if (type === 'pickup') {
       this.useSavedAddress = false;
@@ -315,7 +323,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.paymentMethod = method;
     this.useSavedCard = false;
     this.selectedSavedMethod = null;
-    
+
     // Si es Nequi, Daviplata o Transferencia, generar la información inmediatamente
     if (method === 'nequi' || method === 'daviplata' || method === 'transfer') {
       this.generatePaymentInfo();
@@ -334,7 +342,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.paymentReference = '';
       this.bankAccount = null;
     }
-    
+
     // Si cambia a tarjeta, restaurar validadores si no usa tarjeta guardada
     if (method === 'card' && !this.useSavedCard) {
       this.paymentForm.get('cardNumber')?.setValidators([Validators.required, Validators.pattern(/^[0-9\s]{16,19}$/)]);
@@ -350,11 +358,11 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.paymentForm.updateValueAndValidity();
     }
   }
-  
+
   generatePaymentInfo(): void {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
-    
+
     if (this.paymentMethod === 'nequi') {
       // Generar enlace de pago Nequi
       this.paymentLink = `https://nequi.com/pago/${timestamp}-${random}`;
@@ -376,10 +384,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         reference: `REF-${timestamp}-${random}`
       };
     }
-    
+
     this.showPaymentInfo = true;
   }
-  
+
   copyToClipboard(text: string, type: string): void {
     navigator.clipboard.writeText(text).then(() => {
       this.notificationService.showSuccess(`${type} copiado al portapapeles`, '¡Copiado!');
@@ -387,7 +395,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.notificationService.showError('No se pudo copiar al portapapeles');
     });
   }
-  
+
   openPaymentLink(): void {
     if (this.paymentLink) {
       window.open(this.paymentLink, '_blank');
@@ -453,7 +461,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
           paymentInfoElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }, 300);
-      
+
       // Mostrar notificación informando que la información está disponible
       this.notificationService.showInfo(
         'Revisa la información de pago abajo. Cuando estés listo, confirma nuevamente.',
@@ -477,10 +485,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       items = cartItems;
     });
     subscription.unsubscribe();
-    
+
     // Preparar información de pago según el método
     let paymentInfo: any = null;
-    
+
     if (this.paymentMethod === 'card') {
       paymentInfo = {
         cardNumber: this.paymentForm.value.cardNumber.replace(/\s/g, '').substring(this.paymentForm.value.cardNumber.replace(/\s/g, '').length - 4),
@@ -536,7 +544,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     // Mostrar confirmación según el método de pago
     let successMessage = '';
     let successTitle = '';
-    
+
     if (this.paymentMethod === 'nequi' || this.paymentMethod === 'daviplata') {
       successTitle = '¡Pago Confirmado!';
       successMessage = `Tu pedido ha sido confirmado. Total: ${this.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}. Recibirás un correo con los detalles de tu pedido.`;
@@ -549,6 +557,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     }
 
     this.notificationService.showSuccess(successMessage, successTitle);
+
+    // Marcar que se acaba de realizar un pago exitoso para evitar mostrar alerta de carrito vacío
+    sessionStorage.setItem('orderJustPlaced', 'true');
 
     // Limpiar carrito
     this.cartService.clearCart();
@@ -563,10 +574,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     // Guardar en localStorage (en producción esto se enviaría al backend)
     const userInfo = this.authService.getUserInfo();
     const userId = userInfo?.userId || userInfo?.email || 'guest';
-    
+
     // Generar código de seguimiento único
     const trackingCode = this.generateTrackingCode();
-    
+
     // Calcular tiempo estimado
     const estimatedPrepTime = this.calculateEstimatedPrepTime(orderData.items);
     const estimatedDeliveryTime = new Date();
@@ -574,14 +585,14 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     if (this.orderType === 'delivery') {
       estimatedDeliveryTime.setMinutes(estimatedDeliveryTime.getMinutes() + 20); // +20 min para entrega
     }
-    
+
     // Crear historial de estados inicial
     const statusHistory: any[] = [{
       status: 'pending',
       timestamp: new Date(),
       message: 'Pedido recibido y confirmado'
     }];
-    
+
     const newOrder: Order = {
       id: `order_${Date.now()}`,
       trackingCode: trackingCode,
@@ -610,23 +621,23 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       statusHistory: statusHistory,
       canCancel: true // Puede cancelarse durante los primeros 5 minutos
     };
-    
+
     const orders = JSON.parse(localStorage.getItem(`userOrders_${userId}`) || '[]');
     orders.unshift(newOrder); // Agregar al inicio
-    
+
     localStorage.setItem(`userOrders_${userId}`, JSON.stringify(orders));
-    
+
     // Guardar también en el servicio de usuarios
     this.userService.saveOrder(newOrder);
   }
-  
+
   generateTrackingCode(): string {
     // Generar código único: PRE + timestamp + random
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     return `PRE${timestamp}${random}`.toUpperCase();
   }
-  
+
   calculateEstimatedPrepTime(items: any[]): number {
     // Calcular tiempo estimado basado en cantidad de items
     // Base: 15 minutos, +5 por cada item adicional

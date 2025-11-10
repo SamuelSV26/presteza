@@ -5,8 +5,22 @@
       PRESTEZA
     </a>
 
+    <!-- Botón toggler para móviles -->
+    <button 
+      class="navbar-toggler" 
+      type="button" 
+      (click)="toggleNavbar()"
+      [attr.aria-expanded]="!isNavbarCollapsed"
+      aria-controls="navbarNav" 
+      aria-label="Toggle navigation">
+      <i class="bi bi-list"></i>
+    </button>
+
     <!-- Contenido colapsable -->
-    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+    <div class="navbar-collapse justify-content-end" 
+         [class.show]="!isNavbarCollapsed"
+         [class.collapse]="isNavbarCollapsed"
+         id="navbarNav">
       <ul class="navbar-nav align-items-center gap-4">
         <li class="nav-item">
           <a class="nav-link" role="button" (click)="navigateTo('/')">INICIO</a>

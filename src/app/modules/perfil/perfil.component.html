@@ -1,19 +1,19 @@
 <section class="perfil-page">
   <!-- Hero Section -->
   <div class="hero-section">
-    <div class="hero-overlay"></div>
-    <div class="hero-content">
+    <div class="hero-content-wrapper">
       <div class="profile-avatar-large">
         <div class="avatar-circle-large">
-          <span *ngIf="userProfile">{{ getInitials(userProfile.fullName) }}</span>
-          <span *ngIf="!userProfile">?</span>
+          <img [src]="getAvatarImage()" [alt]="userProfile?.fullName || 'Usuario'" class="avatar-image" />
         </div>
       </div>
-      <h1 class="hero-title">{{ userProfile?.fullName || 'Mi Perfil' }}</h1>
-      <p class="hero-subtitle">Gestiona tu cuenta y preferencias</p>
-      <div *ngIf="!userProfile" class="alert alert-info mt-3" style="max-width: 500px; margin: 1rem auto; background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">
-        <i class="bi bi-info-circle me-2"></i>
-        <strong>Modo de demostración:</strong> Mostrando datos de prueba
+      <div class="hero-content">
+        <h1 class="hero-title">{{ userProfile?.fullName || 'Mi Perfil' }}</h1>
+        <p class="hero-subtitle">Gestiona tu cuenta y preferencias</p>
+        <div *ngIf="!userProfile" class="alert alert-info mt-3">
+          <i class="bi bi-info-circle me-2"></i>
+          <strong>Modo de demostración:</strong> Mostrando datos de prueba
+        </div>
       </div>
     </div>
   </div>
@@ -189,7 +189,7 @@
             </button>
           </div>
           <div class="dishes-grid">
-            <div *ngFor="let dish of recommendedDishes" class="dish-card" (click)="router.navigate(['/menu'])">
+            <div *ngFor="let dish of recommendedDishes" class="dish-card" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
               <div class="dish-image-wrapper">
                 <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'" 
                      [alt]="dish.name" 
@@ -203,7 +203,7 @@
                 <p class="dish-description">{{ dish.description }}</p>
                 <div class="dish-footer">
                   <span class="dish-price">${{ dish.price | number }}</span>
-                  <button class="dish-btn" (click)="router.navigate(['/menu']); $event.stopPropagation()">
+                  <button class="dish-btn" (click)="navigateToProductDetail(dish.id, dish.categoryId); $event.stopPropagation()">
                     <i class="bi bi-cart-plus"></i>
                   </button>
                 </div>
@@ -229,7 +229,7 @@
             </button>
           </div>
           <div class="dishes-grid">
-            <div *ngFor="let dish of favoriteDishes" class="dish-card" (click)="router.navigate(['/menu'])">
+            <div *ngFor="let dish of favoriteDishes" class="dish-card" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
               <div class="dish-image-wrapper">
                 <div class="favorite-badge">
                   <i class="bi bi-heart-fill"></i>
@@ -246,7 +246,7 @@
                 <p class="dish-description">{{ dish.description }}</p>
                 <div class="dish-footer">
                   <span class="dish-price">${{ dish.price | number }}</span>
-                  <button class="dish-btn" (click)="router.navigate(['/menu']); $event.stopPropagation()">
+                  <button class="dish-btn" (click)="navigateToProductDetail(dish.id, dish.categoryId); $event.stopPropagation()">
                     <i class="bi bi-cart-plus"></i>
                   </button>
                 </div>

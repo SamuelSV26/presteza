@@ -4,38 +4,38 @@
     <!-- Sidebar de Navegación -->
     <div class="admin-sidebar">
       <nav class="admin-nav">
-        <button 
-          class="nav-item" 
+        <button
+          class="nav-item"
           [class.active]="activeTab === 'dashboard'"
           (click)="setActiveTab('dashboard')">
           <i class="bi bi-speedometer2"></i>
           <span>Dashboard</span>
         </button>
-        <button 
-          class="nav-item" 
+        <button
+          class="nav-item"
           [class.active]="activeTab === 'products'"
           (click)="setActiveTab('products')">
           <i class="bi bi-box-seam"></i>
           <span>Productos</span>
           <span class="badge">{{ stats.totalProducts }}</span>
         </button>
-        <button 
-          class="nav-item" 
+        <button
+          class="nav-item"
           [class.active]="activeTab === 'orders'"
           (click)="setActiveTab('orders')">
           <i class="bi bi-receipt-cutoff"></i>
           <span>Pedidos</span>
           <span class="badge badge-warning" *ngIf="stats.pendingOrders > 0">{{ stats.pendingOrders }}</span>
         </button>
-        <button 
-          class="nav-item" 
+        <button
+          class="nav-item"
           [class.active]="activeTab === 'categories'"
           (click)="setActiveTab('categories')">
           <i class="bi bi-folder"></i>
           <span>Categorías</span>
         </button>
-        <button 
-          class="nav-item" 
+        <button
+          class="nav-item"
           [class.active]="activeTab === 'settings'"
           (click)="setActiveTab('settings')">
           <i class="bi bi-gear"></i>
@@ -64,7 +64,7 @@
       <!-- Tab: Dashboard -->
       <div *ngIf="activeTab === 'dashboard'" class="tab-content">
         <h2 class="section-title">Resumen General</h2>
-        
+
         <!-- Tarjetas de Estadísticas -->
         <div class="stats-grid">
           <div class="stat-card stat-primary">
@@ -76,7 +76,7 @@
               <p class="stat-label">Total Pedidos</p>
             </div>
           </div>
-          
+
           <div class="stat-card stat-warning">
             <div class="stat-icon">
               <i class="bi bi-hourglass-split"></i>
@@ -86,7 +86,7 @@
               <p class="stat-label">Pedidos Pendientes</p>
             </div>
           </div>
-          
+
           <div class="stat-card stat-success">
             <div class="stat-icon">
               <i class="bi bi-currency-dollar"></i>
@@ -96,7 +96,7 @@
               <p class="stat-label">Ingresos Totales</p>
             </div>
           </div>
-          
+
           <div class="stat-card stat-info">
             <div class="stat-icon">
               <i class="bi bi-box-seam"></i>
@@ -155,15 +155,15 @@
           <h2 class="section-title">Gestión de Productos</h2>
           <div class="header-actions">
             <div class="view-toggle">
-              <button 
-                class="view-toggle-btn" 
+              <button
+                class="view-toggle-btn"
                 [class.active]="productViewMode === 'list'"
                 (click)="productViewMode = 'list'"
                 title="Vista de lista">
                 <i class="bi bi-list-ul"></i>
               </button>
-              <button 
-                class="view-toggle-btn" 
+              <button
+                class="view-toggle-btn"
                 [class.active]="productViewMode === 'grid'"
                 (click)="productViewMode = 'grid'"
                 title="Vista de cuadrícula">
@@ -179,9 +179,9 @@
 
         <!-- Filtros y Búsqueda -->
         <div class="filters-section">
-          <input 
-            type="text" 
-            class="search-input" 
+          <input
+            type="text"
+            class="search-input"
             placeholder="Buscar productos..."
             [(ngModel)]="searchTerm" />
           <select class="filter-select" [(ngModel)]="categoryFilter">
@@ -219,7 +219,7 @@
                     <button class="btn-icon-small" (click)="openProductModal(product)" title="Editar">
                       <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn-icon-small" (click)="toggleProductAvailability(product)" 
+                    <button class="btn-icon-small" (click)="toggleProductAvailability(product)"
                             [title]="product.available ? 'Desactivar' : 'Activar'">
                       <i class="bi" [class.bi-toggle-on]="product.available" [class.bi-toggle-off]="!product.available"></i>
                     </button>
@@ -238,8 +238,8 @@
           <div class="products-grid">
             <div *ngFor="let product of getFilteredProducts()" class="product-card-grid">
               <div class="product-card-image">
-                <img [src]="product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80'" 
-                     [alt]="product.name" 
+                <img [src]="product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80'"
+                     [alt]="product.name"
                      class="product-image" />
                 <div class="product-card-overlay">
                   <span class="status-badge" [class.status-success]="product.available" [class.status-danger]="!product.available">
@@ -262,7 +262,7 @@
                   <button class="btn-icon-small" (click)="openProductModal(product)" title="Editar">
                     <i class="bi bi-pencil"></i>
                   </button>
-                  <button class="btn-icon-small" (click)="toggleProductAvailability(product)" 
+                  <button class="btn-icon-small" (click)="toggleProductAvailability(product)"
                           [title]="product.available ? 'Desactivar' : 'Activar'">
                     <i class="bi" [class.bi-toggle-on]="product.available" [class.bi-toggle-off]="!product.available"></i>
                   </button>
@@ -301,9 +301,9 @@
               Entregados ({{ deliveredOrdersCount }})
             </button>
           </div>
-          <input 
-            type="text" 
-            class="search-input" 
+          <input
+            type="text"
+            class="search-input"
             placeholder="Buscar pedidos..."
             [(ngModel)]="searchTerm" />
         </div>
@@ -320,7 +320,7 @@
                 {{ getOrderStatusText(order.status) }}
               </span>
             </div>
-            
+
             <div class="order-items-admin">
               <div *ngFor="let item of order.items" class="order-item-admin">
                 <span class="item-name-admin">{{ item.name }}</span>
@@ -328,14 +328,14 @@
                 <span class="item-price-admin">${{ (item.price * item.quantity) | number }}</span>
               </div>
             </div>
-            
+
             <div class="order-footer-admin">
               <div class="order-total-admin">
                 <span class="total-label">Total:</span>
                 <span class="total-value">${{ order.total | number }}</span>
               </div>
               <div class="order-actions-admin">
-                <select class="status-select" [value]="order.status" 
+                <select class="status-select" [value]="order.status"
                         (change)="updateOrderStatus(order, $any($event.target).value)">
                   <option value="pending">Pendiente</option>
                   <option value="preparing">Preparando</option>
@@ -353,6 +353,12 @@
       <div *ngIf="activeTab === 'categories'" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">Gestión de Categorías</h2>
+          <div class="header-actions">
+            <button class="btn-primary" (click)="openCategoryModal()">
+              <i class="bi bi-plus-lg"></i>
+              Agregar Categoría
+            </button>
+          </div>
         </div>
 
         <div class="categories-grid">
@@ -363,10 +369,10 @@
             <h3 class="category-name-admin">{{ category.name }}</h3>
             <p class="category-description-admin">{{ category.description }}</p>
             <div class="category-actions">
-              <button class="btn-icon-small">
+              <button class="btn-icon-small" (click)="openCategoryModal(category)" title="Editar">
                 <i class="bi bi-pencil"></i>
               </button>
-              <button class="btn-icon-small btn-danger">
+              <button class="btn-icon-small btn-danger" (click)="deleteCategory(category.id)" title="Eliminar">
                 <i class="bi bi-trash"></i>
               </button>
             </div>
@@ -377,7 +383,7 @@
       <!-- Tab: Configuración -->
       <div *ngIf="activeTab === 'settings'" class="tab-content">
         <h2 class="section-title">Configuración</h2>
-        
+
         <form [formGroup]="settingsForm" (ngSubmit)="onSettingsSubmit()" class="settings-form">
           <!-- Información General -->
           <div class="settings-section">
@@ -491,7 +497,7 @@
   <div *ngIf="showProductModal" class="modal-overlay" (click)="closeProductModal()">
     <div class="modal-content modal-large" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h3>{{ selectedProduct ? 'Editar Producto' : 'Agregar Nuevo Producto' }}</h3>
+        <h3 class="modal-title">{{ selectedProduct ? 'Editar Producto' : 'Agregar Nuevo Producto' }}</h3>
         <button class="modal-close" (click)="closeProductModal()">
           <i class="bi bi-x-lg"></i>
         </button>
@@ -504,6 +510,11 @@
         <div class="form-group">
           <label class="form-label">Descripción</label>
           <textarea formControlName="description" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">URL de la Imagen</label>
+          <input type="url" formControlName="imageUrl" class="form-control" placeholder="https://ejemplo.com/imagen.jpg" />
+          <small class="form-text text-muted">Ingresa la URL completa de la imagen del producto</small>
         </div>
         <div class="row g-3">
           <div class="col-md-6">
@@ -535,6 +546,32 @@
       </form>
     </div>
   </div>
+  </div>
+
+  <!-- Modal: Categoría -->
+  <div *ngIf="showCategoryModal" class="modal-overlay" (click)="closeCategoryModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">{{ selectedCategory ? 'Editar Categoría' : 'Agregar Nueva Categoría' }}</h3>
+        <button class="modal-close" (click)="closeCategoryModal()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()">
+        <div class="form-group">
+          <label class="form-label">Nombre de la Categoría</label>
+          <input type="text" formControlName="name" class="form-control" placeholder="Ej: Hamburguesas" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción</label>
+          <textarea formControlName="description" class="form-control" rows="3" placeholder="Descripción de la categoría"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-outline" (click)="closeCategoryModal()">Cancelar</button>
+          <button type="submit" class="btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
   </div>
 </section>
 

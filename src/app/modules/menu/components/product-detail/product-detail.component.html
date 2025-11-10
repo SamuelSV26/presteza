@@ -15,12 +15,12 @@
       <!-- Columna Izquierda: Imagen -->
       <div class="product-image-section">
         <div class="product-image-wrapper">
-          <img 
-            [src]="product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80'" 
+          <img
+            [src]="product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80'"
             [alt]="product.name"
             class="product-image" />
           <button class="favorite-btn-large" (click)="toggleFavorite()" [title]="isLoggedIn ? 'Agregar a favoritos' : 'Inicia sesión para agregar favoritos'">
-            <i class="bi" [class.bi-heart]="!(isFavorite$ | async)" [class.bi-heart-fill]="isFavorite$ | async" 
+            <i class="bi" [class.bi-heart]="!(isFavorite$ | async)" [class.bi-heart-fill]="isFavorite$ | async"
                [class.favorite-active]="isFavorite$ | async"></i>
           </button>
         </div>
@@ -32,39 +32,62 @@
         <div class="product-header">
           <h1 class="product-title">{{ product.name }}</h1>
           <p class="product-description">{{ product.description }}</p>
-          
+
           <!-- Rating -->
           <div class="rating-section">
             <div class="stars">
-              <i *ngFor="let star of getStars()" 
-                 class="bi" 
-                 [class.bi-star-fill]="star <= rating" 
+              <i *ngFor="let star of getStars()"
+                 class="bi"
+                 [class.bi-star-fill]="star <= rating"
                  [class.bi-star]="star > rating"
                  [class.filled]="star <= rating"></i>
             </div>
             <span class="rating-value">{{ rating }}</span>
             <span class="reviews-count">({{ totalReviews }} reseñas)</span>
           </div>
-
-          <!-- Precio Base -->
-          <div class="base-price">
-            <span class="price-label">Precio base:</span>
-            <span class="price-value">{{ basePrice | currency:'COP':'symbol':'1.0-0' }}</span>
-          </div>
         </div>
 
         <!-- Opciones de Personalización -->
         <div class="customization-section">
+          <!-- Mensaje cuando no hay opciones -->
+          <div *ngIf="removals.length === 0 && extras.length === 0 && addons.length === 0 && sizes.length === 0"
+               class="no-options-message">
+            <i class="bi bi-info-circle"></i>
+            <p>Este producto no tiene opciones de personalización disponibles</p>
+          </div>
+
+          <!-- Opciones de Eliminación (mostrar primero) -->
+          <div *ngIf="removals.length > 0" class="option-group removal-group">
+            <h3 class="option-group-title removal-title">
+              <i class="bi bi-x-circle"></i>
+              Quitar ingredientes
+            </h3>
+            <p class="removal-description">Selecciona los ingredientes que deseas quitar del plato</p>
+            <div class="options-grid removal-grid">
+              <label *ngFor="let option of removals"
+                     class="option-chip removal-chip"
+                     [class.selected]="selectedOptions.get(option.id)">
+                <input
+                  type="checkbox"
+                  [checked]="selectedOptions.get(option.id)"
+                  (change)="toggleOption(option.id)"
+                  class="option-checkbox-hidden" />
+                <i class="bi bi-x-circle-fill removal-icon"></i>
+                <span class="chip-name">{{ option.name }}</span>
+              </label>
+            </div>
+          </div>
+
           <!-- Adicionales -->
-          <div *ngIf="extras.length > 0" class="option-group">
+          <div *ngIf="extras.length > 0" class="option-group extras-group">
             <h3 class="option-group-title">
               <i class="bi bi-plus-circle"></i>
               Agregar extras
             </h3>
             <div class="options-list">
               <label *ngFor="let option of extras" class="option-item">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   [checked]="selectedOptions.get(option.id)"
                   (change)="toggleOption(option.id)"
                   class="option-checkbox" />
@@ -77,20 +100,23 @@
           </div>
 
           <!-- Adicionar -->
-          <div *ngIf="addons.length > 0" class="option-group">
+          <div *ngIf="addons.length > 0" class="option-group addons-group">
             <h3 class="option-group-title">
               <i class="bi bi-plus-lg"></i>
               Adicionar
             </h3>
-            <div class="options-list">
-              <label *ngFor="let option of addons" class="option-item">
-                <input 
-                  type="checkbox" 
+            <div class="options-grid addons-grid">
+              <label *ngFor="let option of addons"
+                     class="option-chip addon-chip"
+                     [class.selected]="selectedOptions.get(option.id)">
+                <input
+                  type="checkbox"
                   [checked]="selectedOptions.get(option.id)"
                   (change)="toggleOption(option.id)"
-                  class="option-checkbox" />
-                <span class="option-name">{{ option.name }}</span>
-                <span *ngIf="option.price > 0" class="option-price">
+                  class="option-checkbox-hidden" />
+                <i class="bi bi-plus-circle-fill addon-icon"></i>
+                <span class="chip-name">{{ option.name }}</span>
+                <span *ngIf="option.price > 0" class="chip-price">
                   +{{ option.price | currency:'COP':'symbol':'1.0-0' }}
                 </span>
               </label>
@@ -98,15 +124,15 @@
           </div>
 
           <!-- Tamaños -->
-          <div *ngIf="sizes.length > 0" class="option-group">
+          <div *ngIf="sizes.length > 0" class="option-group sizes-group">
             <h3 class="option-group-title">
               <i class="bi bi-arrows-angle-expand"></i>
               Tamaño
             </h3>
             <div class="options-list">
-              <label *ngFor="let option of sizes" class="option-item">
-                <input 
-                  type="radio" 
+              <label *ngFor="let option of sizes" class="option-item size-item">
+                <input
+                  type="radio"
                   [name]="'size-' + product.id"
                   [checked]="selectedOptions.get(option.id)"
                   (change)="toggleOption(option.id)"
@@ -115,24 +141,6 @@
                 <span *ngIf="option.price > 0" class="option-price">
                   +{{ option.price | currency:'COP':'symbol':'1.0-0' }}
                 </span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Opciones de Eliminación -->
-          <div *ngIf="removals.length > 0" class="option-group">
-            <h3 class="option-group-title">
-              <i class="bi bi-dash-circle"></i>
-              Quitar ingredientes
-            </h3>
-            <div class="options-list">
-              <label *ngFor="let option of removals" class="option-item">
-                <input 
-                  type="checkbox" 
-                  [checked]="selectedOptions.get(option.id)"
-                  (change)="toggleOption(option.id)"
-                  class="option-checkbox" />
-                <span class="option-name">{{ option.name }}</span>
               </label>
             </div>
           </div>
@@ -160,8 +168,12 @@
                 <span>{{ basePrice | currency:'COP':'symbol':'1.0-0' }}</span>
               </div>
               <div *ngIf="getSelectedOptionsPrice() > 0" class="price-row">
-                <span>Extras</span>
-                <span>+{{ getSelectedOptionsPrice() | currency:'COP':'symbol':'1.0-0' }}</span>
+                <span>Extras seleccionados</span>
+                <span class="extras-price">+{{ getSelectedOptionsPrice() | currency:'COP':'symbol':'1.0-0' }}</span>
+              </div>
+              <div class="price-row">
+                <span>Cantidad</span>
+                <span>x{{ quantity }}</span>
               </div>
               <div class="price-row total-row">
                 <span>Total</span>

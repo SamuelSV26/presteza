@@ -4,6 +4,7 @@ import { Observable, BehaviorSubject, throwError } from 'rxjs';
 import { catchError, tap, map, finalize } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { UserInfo } from '../models/userInfo';
+import { NotificationService } from './notification.service';
 
 export interface LoginResponse {
   token?: string;
@@ -39,7 +40,8 @@ export class AuthService {
 
   constructor(
     private http: HttpClient,
-    private router: Router
+    private router: Router,
+    private notificationService: NotificationService
   ) {
     this.checkTokenExpiration();
   }
@@ -145,12 +147,23 @@ export class AuthService {
   }
 
   logout(): void {
+    // Obtener el correo antes de limpiar la información
+    const userInfo = this.getUserInfo();
+    const userEmail = userInfo?.email || localStorage.getItem('userEmail') || 'usuario';
+    
+    // Limpiar datos de autenticación
     localStorage.removeItem('authToken');
     sessionStorage.removeItem('authToken');
     localStorage.removeItem('userInfo');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userName');
 
     this.tokenSubject.next(null);
     this.userInfoSubject.next(null);
+    
+    // Mostrar mensaje de cierre de sesión
+    this.notificationService.showInfo(`Has cerrado sesión con el correo ${userEmail}`);
+    
     this.router.navigate(['/']);
   }
 

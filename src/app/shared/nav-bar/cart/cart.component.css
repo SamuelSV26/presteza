@@ -4,7 +4,7 @@
 
 .cart-button {
   background: transparent;
-  color: #ffffff;
+  color: #ffffff !important;
   border: none;
   border-radius: 25px;
   padding: 0.5rem 0.75rem;
@@ -17,6 +17,8 @@
   gap: 0.25rem;
   position: relative;
   min-width: 50px;
+  opacity: 1;
+  visibility: visible;
 }
 
 .cart-button:hover {

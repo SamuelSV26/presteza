@@ -7,6 +7,22 @@
       </button>
     </div>
 
+    <!-- Estado de carga -->
+    <div *ngIf="loading" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <p class="mt-3">Cargando productos...</p>
+    </div>
+
+    <!-- Mensaje de error -->
+    <div *ngIf="error && !loading" class="alert alert-warning text-center" role="alert">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      {{ error }}
+      <br>
+      <small>Revisa la consola del navegador (F12) para más detalles.</small>
+    </div>
+
     <ng-container *ngIf="category$ | async as category">
       <ng-container *ngIf="category">
         <div class="text-center mb-5">
@@ -16,8 +32,92 @@
       </ng-container>
     </ng-container>
 
+    <!-- Panel de búsqueda y filtros -->
+    <ng-container *ngIf="items$ | async as allItems">
+      <div *ngIf="allItems.length > 0" class="filters-panel">
+        <!-- Barra de búsqueda -->
+        <div class="search-section">
+          <div class="search-box">
+            <i class="bi bi-search search-icon"></i>
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Buscar productos..."
+              [(ngModel)]="searchTerm"
+              (input)="onSearchChange()"
+              autocomplete="off" />
+            <button
+              *ngIf="searchTerm"
+              class="clear-btn"
+              (click)="clearFilters()"
+              type="button"
+              title="Limpiar búsqueda">
+              <i class="bi bi-x-circle"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Controles de filtrado y ordenamiento -->
+        <div class="controls-section">
+          <div class="control-group">
+            <label class="control-label">
+              <i class="bi bi-sort-down"></i>
+              Ordenar:
+            </label>
+            <select class="control-select" [(ngModel)]="sortBy" (change)="onSortChange()">
+              <option value="name">Nombre A-Z</option>
+              <option value="price-asc">Precio: Menor a Mayor</option>
+              <option value="price-desc">Precio: Mayor a Menor</option>
+            </select>
+          </div>
+
+          <div class="control-group price-range-group">
+            <label class="control-label">
+              <i class="bi bi-currency-dollar"></i>
+              Precio:
+            </label>
+            <div class="price-inputs">
+              <input
+                type="number"
+                class="price-input"
+                placeholder="Mín"
+                [(ngModel)]="priceRange.min"
+                (input)="onPriceRangeChange()"
+                min="0" />
+              <span class="price-separator">-</span>
+              <input
+                type="number"
+                class="price-input"
+                placeholder="Máx"
+                [(ngModel)]="priceRange.max"
+                (input)="onPriceRangeChange()"
+                min="0" />
+            </div>
+          </div>
+
+          <button
+            *ngIf="searchTerm || priceRange.min || priceRange.max"
+            class="btn-clear-filters"
+            (click)="clearFilters()"
+            type="button">
+            <i class="bi bi-x-circle"></i>
+            Limpiar filtros
+          </button>
+        </div>
+
+        <!-- Contador de resultados -->
+        <div class="results-count">
+          <span class="count-badge">
+            <i class="bi bi-grid"></i>
+            {{ filteredCount }} de {{ totalItems }} productos
+          </span>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- Lista de productos -->
     <div class="row g-4">
-      <ng-container *ngIf="items$ | async as items">
+      <ng-container *ngIf="filteredItems$ | async as items">
         <ng-container *ngIf="items.length > 0; else noItems">
           <div class="col-md-6 col-lg-4" *ngFor="let item of items">
             <div class="product-card" (click)="openProductDetail(item)">
@@ -36,10 +136,14 @@
 
         <ng-template #noItems>
           <div class="col-12">
-            <div class="text-center py-5">
-              <i class="bi bi-inbox" style="font-size: 4rem; color: #6b1d3d; opacity: 0.5;"></i>
-              <p class="mt-3" style="color: #6b1d3d; font-size: 1.2rem;">
-                No hay productos disponibles en esta categoría
+            <div class="text-center py-5 no-results-message">
+              <i class="bi bi-search"></i>
+              <h3>No se encontraron productos</h3>
+              <p *ngIf="searchTerm || priceRange.min || priceRange.max">
+                No hay productos disponibles que coincidan con los filtros aplicados.
+              </p>
+              <p *ngIf="!searchTerm && !priceRange.min && !priceRange.max">
+                No hay productos disponibles en esta categoría.
               </p>
             </div>
           </div>
@@ -47,5 +151,4 @@
       </ng-container>
     </div>
   </div>
-
 </section>

@@ -82,10 +82,14 @@ export class LoginComponent implements OnInit {
       console.log('🎯 Rol detectado desde evento:', normalizedRole);
       
       if (normalizedRole === 'admin') {
-        console.log('🎯 Redirigiendo a /admin desde evento');
+        // Para admins, siempre a /admin, ignorando returnUrl
+        console.log('🎯 Redirigiendo admin a /admin desde evento (ignorando returnUrl)');
+        sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
         this.router.navigateByUrl('/admin');
       } else {
-        console.log('🎯 Redirigiendo a /perfil desde evento');
+        // Para clientes, siempre a /perfil, ignorando returnUrl
+        console.log('🎯 Redirigiendo cliente a /perfil desde evento (ignorando returnUrl)');
+        sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
         this.router.navigateByUrl('/perfil').then(success => {
           if (!success) {
             console.log('🎯 Fallback: usando window.location.href');
@@ -95,7 +99,8 @@ export class LoginComponent implements OnInit {
       }
     } catch (error) {
       console.error('❌ Error al procesar redirección desde evento:', error);
-      // Redirigir a perfil por defecto
+      // Redirigir a perfil por defecto (asumiendo cliente)
+      sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
       this.router.navigateByUrl('/perfil');
     }
   }
@@ -150,43 +155,42 @@ export class LoginComponent implements OnInit {
               console.log('🔍 Rol obtenido del token después del login:', normalizedRole);
               
               // Limpiar el returnUrl de sessionStorage
-              if (returnUrl) {
-                console.log('📍 Redirigiendo a returnUrl:', returnUrl);
-                sessionStorage.removeItem('returnUrl');
-                this.router.navigateByUrl(returnUrl).then(success => {
-                  console.log('✅ Navegación a returnUrl:', success ? 'exitosa' : 'fallida');
+              // Para admins, siempre redirigir a /admin, ignorando returnUrl
+              // Para clientes, siempre redirigir a /perfil, ignorando returnUrl
+              if (normalizedRole === 'admin') {
+                // Para admins, SIEMPRE redirigir a /admin, ignorando returnUrl
+                console.log('✅ Usuario es ADMIN - Redirigiendo a /admin (ignorando returnUrl)');
+                sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
+                this.router.navigateByUrl('/admin').then(success => {
+                  console.log('✅ Navegación a /admin:', success ? 'exitosa' : 'fallida');
+                  if (!success) {
+                    console.error('❌ Error al navegar a /admin, usando location.href como fallback');
+                    window.location.href = '/admin';
+                  }
+                }).catch(err => {
+                  console.error('❌ Excepción al navegar a /admin:', err);
+                  console.log('🔄 Usando location.href como fallback');
+                  window.location.href = '/admin';
                 });
               } else {
-                // Redirigir según el rol
-                if (normalizedRole === 'admin') {
-                  console.log('✅ Redirigiendo a /admin');
-                  this.router.navigateByUrl('/admin').then(success => {
-                    console.log('✅ Navegación a /admin:', success ? 'exitosa' : 'fallida');
-                    if (!success) {
-                      console.error('❌ Error al navegar a /admin');
-                    }
-                  }).catch(err => {
-                    console.error('❌ Excepción al navegar a /admin:', err);
-                  });
-                } else {
-                  // Para clientes, redirigir siempre a /perfil
-                  console.log('✅ Usuario es CLIENTE - Redirigiendo a /perfil');
-                  console.log('🔑 Token disponible antes de navegar:', this.authService.getToken() ? 'Sí' : 'No');
-                  console.log('🔒 Usuario autenticado antes de navegar:', this.authService.isAuthenticated());
-                  
-                  // Forzar navegación con location.href como fallback
-                  this.router.navigateByUrl('/perfil').then(success => {
-                    console.log('✅ Navegación a /perfil:', success ? 'exitosa' : 'fallida');
-                    if (!success) {
-                      console.error('❌ Error al navegar a /perfil, usando location.href como fallback');
-                      window.location.href = '/perfil';
-                    }
-                  }).catch(err => {
-                    console.error('❌ Excepción al navegar a /perfil:', err);
-                    console.log('🔄 Usando location.href como fallback');
+                // Para clientes, SIEMPRE redirigir a /perfil, ignorando returnUrl
+                console.log('✅ Usuario es CLIENTE - Redirigiendo a /perfil (ignorando returnUrl)');
+                sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
+                console.log('🔑 Token disponible antes de navegar:', this.authService.getToken() ? 'Sí' : 'No');
+                console.log('🔒 Usuario autenticado antes de navegar:', this.authService.isAuthenticated());
+                
+                // Forzar navegación con location.href como fallback
+                this.router.navigateByUrl('/perfil').then(success => {
+                  console.log('✅ Navegación a /perfil:', success ? 'exitosa' : 'fallida');
+                  if (!success) {
+                    console.error('❌ Error al navegar a /perfil, usando location.href como fallback');
                     window.location.href = '/perfil';
-                  });
-                }
+                  }
+                }).catch(err => {
+                  console.error('❌ Excepción al navegar a /perfil:', err);
+                  console.log('🔄 Usando location.href como fallback');
+                  window.location.href = '/perfil';
+                });
               }
             } catch (error) {
               console.error('❌ Error al decodificar token para obtener rol:', error);
@@ -199,17 +203,22 @@ export class LoginComponent implements OnInit {
               console.log('🔍 Rol obtenido del servicio:', normalizedRole);
               
               if (normalizedRole === 'admin') {
-                console.log('✅ Redirigiendo a /admin (fallback)');
+                // Para admins, siempre a /admin
+                console.log('✅ Redirigiendo admin a /admin (fallback)');
+                sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
                 this.router.navigateByUrl('/admin');
               } else {
-                console.log('✅ Redirigiendo a /perfil (fallback)');
+                // Para clientes, siempre a /perfil
+                console.log('✅ Redirigiendo cliente a /perfil (fallback)');
+                sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
                 this.router.navigateByUrl('/perfil');
               }
             }
           } else {
             console.error('❌ No se encontró token después del login');
-            // Redirigir a perfil por defecto si no hay token
-            console.log('✅ Redirigiendo a /perfil (sin token)');
+            // Redirigir a perfil por defecto si no hay token (asumiendo que es cliente)
+            console.log('✅ Redirigiendo a /perfil (sin token - asumiendo cliente)');
+            sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
             this.router.navigateByUrl('/perfil');
           }
         };

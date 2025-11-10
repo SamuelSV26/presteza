@@ -5,10 +5,11 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractContro
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { CartService } from '../../core/services/cart.service';
-import { forkJoin, Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { forkJoin, Subject, of } from 'rxjs';
+import { takeUntil, catchError } from 'rxjs/operators';
 import { UserProfile } from '../../core/models/UserProfile';
 import { Order } from '../../core/models/Order';
+import { OrderItem, OrderItemOption } from '../../core/models/OrderItem';
 import { Address } from '../../core/models/Address';
 import { PaymentMethod } from '../../core/models/PaymentMethod';
 import { MenuItem } from '../../core/models/MenuItem';
@@ -134,6 +135,13 @@ export class PerfilComponent implements OnInit, OnDestroy {
       this.loadPaymentMethods();
     });
 
+    // Escuchar eventos de actualización de productos desde el admin
+    window.addEventListener('productsUpdated', () => {
+      console.log('🔄 Productos actualizados, recargando recomendaciones...');
+      this.loadRecommendedDishes();
+      this.loadFavoriteDishes();
+    });
+
     // Cargar platos recomendados y favoritos
     this.loadRecommendedDishes();
     this.loadFavoriteDishes();
@@ -248,9 +256,207 @@ export class PerfilComponent implements OnInit, OnDestroy {
   }
 
   private loadRecommendedDishes() {
-    // Cargar productos destacados como recomendados
-    this.menuService.getFeaturedItems().subscribe(items => {
-      this.recommendedDishes = items.slice(0, 4);
+    // Obtener órdenes del usuario para generar recomendaciones basadas en compras previas
+    this.userService.getOrders().pipe(takeUntil(this.destroy$)).subscribe(orders => {
+      if (!orders || orders.length === 0) {
+        // Si no hay órdenes, mostrar productos destacados
+        this.loadFallbackRecommendedDishes();
+        return;
+      }
+
+      // Extraer IDs únicos de productos comprados
+      const purchasedProductIds = new Set<string | number>();
+      orders.forEach(order => {
+        if (order.items && order.items.length > 0) {
+          order.items.forEach(item => {
+            purchasedProductIds.add(item.id);
+          });
+        }
+      });
+
+      // Obtener información completa de todos los productos comprados para conocer sus categorías
+      const productObservables = Array.from(purchasedProductIds).map(productId =>
+        this.menuService.getItemById(productId).pipe(
+          catchError(() => of(null)) // Manejar errores si el producto ya no existe
+        )
+      );
+
+      if (productObservables.length === 0) {
+        this.loadFallbackRecommendedDishes();
+        return;
+      }
+
+      forkJoin(productObservables).pipe(takeUntil(this.destroy$)).subscribe(products => {
+        // Filtrar productos nulos y obtener sus categorías
+        const validProducts = products.filter(p => p !== null && p !== undefined) as MenuItem[];
+        const categoryFrequency = new Map<string, number>();
+
+        validProducts.forEach(product => {
+          if (product.categoryId) {
+            const count = categoryFrequency.get(product.categoryId) || 0;
+            categoryFrequency.set(product.categoryId, count + 1);
+          }
+        });
+
+        // Generar recomendaciones basadas en las categorías más frecuentes
+        this.generateRecommendationsFromOrders(purchasedProductIds, categoryFrequency);
+      });
+    });
+  }
+
+  private generateRecommendationsFromOrders(
+    purchasedProductIds: Set<string | number>,
+    categoryFrequency: Map<string, number>
+  ) {
+    // Ordenar categorías por frecuencia (más compradas primero)
+    const sortedCategories = Array.from(categoryFrequency.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(entry => entry[0]);
+
+    // Si hay categorías compradas, obtener productos de esas categorías
+    if (sortedCategories.length > 0) {
+      this.getRecommendedProductsFromCategories(sortedCategories, purchasedProductIds);
+    } else {
+      // Si no hay categorías identificadas, usar fallback
+      this.loadFallbackRecommendedDishes();
+    }
+  }
+
+  private getRecommendedProductsFromCategories(
+    categoryIds: string[],
+    purchasedProductIds: Set<string | number>
+  ) {
+    const recommendedProducts: MenuItem[] = [];
+    const maxRecommendations = 4;
+
+    // Obtener productos de las categorías más frecuentes que el usuario NO haya comprado
+    const categoryObservables = categoryIds.map(categoryId =>
+      this.menuService.getItemsByCategory(categoryId).pipe(
+        catchError(error => {
+          console.error(`Error al obtener productos de categoría ${categoryId}:`, error);
+          return of([]); // Retornar array vacío en caso de error
+        })
+      )
+    );
+
+    forkJoin(categoryObservables).pipe(takeUntil(this.destroy$)).subscribe(categoryProductsArrays => {
+      // Combinar todos los productos de las categorías relevantes
+      const allProducts = categoryProductsArrays.flat();
+
+      // Filtrar productos que el usuario NO haya comprado y que estén disponibles
+      // Solo productos que realmente existen en la base de datos (vienen del backend)
+      const newProducts = allProducts.filter(product => {
+        if (!product || !product.available) return false;
+        if (!product.id) return false; // Debe tener ID válido
+        if (purchasedProductIds.has(product.id)) return false;
+        
+        // Excluir productos específicos que no deben aparecer
+        const nameLower = product.name?.toLowerCase() || '';
+        
+        // Excluir "Hamburguesa Doble BBQ"
+        if (nameLower.includes('bbq') && nameLower.includes('doble')) {
+          console.warn('⚠️ Producto con BBQ detectado, excluyendo:', product.name);
+          return false;
+        }
+        
+        // Excluir "Hamburguesa Vegetariana"
+        if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) {
+          console.warn('⚠️ Producto vegetariano detectado, excluyendo:', product.name);
+          return false;
+        }
+        
+        return true;
+      });
+
+      // Eliminar duplicados por ID
+      const uniqueProducts = Array.from(
+        new Map(newProducts.map(item => [item.id, item])).values()
+      );
+
+      // Tomar hasta 4 productos
+      recommendedProducts.push(...uniqueProducts.slice(0, maxRecommendations));
+
+      // Si no hay suficientes recomendaciones, completar con productos destacados
+      if (recommendedProducts.length < maxRecommendations) {
+        this.menuService.getFeaturedItems().pipe(takeUntil(this.destroy$)).subscribe(featuredItems => {
+          const additionalProducts = featuredItems
+            .filter(item => {
+              if (!item || !item.available || !item.id) return false;
+              if (purchasedProductIds.has(item.id)) return false;
+              if (recommendedProducts.some(rec => rec.id === item.id)) return false;
+              
+              // Excluir productos específicos que no deben aparecer
+              const nameLower = item.name?.toLowerCase() || '';
+              
+              // Excluir "Hamburguesa Doble BBQ"
+              if (nameLower.includes('bbq') && nameLower.includes('doble')) {
+                return false;
+              }
+              
+              // Excluir "Hamburguesa Vegetariana"
+              if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) {
+                return false;
+              }
+              
+              return true;
+            })
+            .slice(0, maxRecommendations - recommendedProducts.length);
+
+          recommendedProducts.push(...additionalProducts);
+          // Asegurar que solo productos con ID válido se muestren
+          this.recommendedDishes = recommendedProducts
+            .filter(item => item && item.id)
+            .slice(0, maxRecommendations);
+        });
+      } else {
+        // Asegurar que solo productos con ID válido se muestren
+        this.recommendedDishes = recommendedProducts
+          .filter(item => item && item.id)
+          .slice(0, maxRecommendations);
+      }
+    });
+  }
+
+  private loadFallbackRecommendedDishes() {
+    // Cargar productos destacados como recomendados cuando no hay historial de compras
+    this.menuService.getFeaturedItems().pipe(takeUntil(this.destroy$)).subscribe(items => {
+      // Filtrar solo productos disponibles y que existan en la base de datos
+      // Solo productos que vienen del backend (tienen ID válido)
+      this.recommendedDishes = items
+        .filter(item => {
+          if (!item || !item.available || !item.id) return false;
+          // Excluir productos específicos que no deben aparecer
+          const nameLower = item.name?.toLowerCase() || '';
+          
+          // Excluir "Hamburguesa Doble BBQ"
+          if (nameLower.includes('bbq') && nameLower.includes('doble')) {
+            console.warn('⚠️ Producto con BBQ detectado, excluyendo:', item.name);
+            return false;
+          }
+          
+          // Excluir "Hamburguesa Vegetariana"
+          if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) {
+            console.warn('⚠️ Producto vegetariano detectado, excluyendo:', item.name);
+            return false;
+          }
+          
+          return true;
+        })
+        .slice(0, 4);
+      
+      console.log('✅ Productos recomendados cargados desde BD:', this.recommendedDishes.map(d => d.name));
+      
+      // Verificar que no haya productos hardcodeados (IDs numéricos pequeños)
+      // Los productos de MongoDB tienen ObjectIds de 24 caracteres (strings)
+      const hasHardcodedProducts = this.recommendedDishes.some(d => typeof d.id === 'number' && d.id < 100);
+      if (hasHardcodedProducts) {
+        console.warn('⚠️ Se detectaron productos con IDs numéricos pequeños (posiblemente hardcodeados). Filtrando...');
+        // Filtrar productos con IDs numéricos pequeños (probablemente hardcodeados)
+        this.recommendedDishes = this.recommendedDishes.filter(d => 
+          typeof d.id === 'string' || (typeof d.id === 'number' && d.id >= 100)
+        );
+        console.log('✅ Productos recomendados después de filtrar hardcodeados:', this.recommendedDishes.map(d => d.name));
+      }
     });
   }
 
@@ -291,9 +497,27 @@ export class PerfilComponent implements OnInit, OnDestroy {
     this.activeTab = tab;
   }
 
+  navigateToProductDetail(productId: number | string, categoryId?: string | null): void {
+    if (!productId) {
+      console.error('❌ Intento de navegar a producto sin ID');
+      return;
+    }
+    // Navegar al detalle del producto
+    // Si tenemos categoryId, pasarlo como query param para poder volver a la categoría
+    if (categoryId) {
+      this.router.navigate(['/menu/producto', productId], {
+        queryParams: { categoryId: categoryId }
+      });
+    } else {
+      this.router.navigate(['/menu/producto', productId]);
+    }
+  }
+
   loadOrders() {
     this.userService.getOrders().subscribe(orders => {
       this.orders = orders;
+      // Recargar recomendaciones cuando se actualicen las órdenes
+      this.loadRecommendedDishes();
     });
   }
 
@@ -727,7 +951,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
       this.menuService.getItemById(item.id).subscribe(product => {
         if (product) {
           // Mapear las opciones para incluir el id requerido por CartItemOption
-          const cartOptions = (item.selectedOptions || []).map((opt, index) => ({
+          const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
             id: opt.id || `opt_${item.id}_${index}`,
             name: opt.name,
             price: opt.price
@@ -754,7 +978,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
         } else {
           // Si no se encuentra el producto, usar la información del pedido
           // Mapear las opciones para incluir el id requerido por CartItemOption
-          const cartOptions = (item.selectedOptions || []).map((opt, index) => ({
+          const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
             id: opt.id || `opt_${item.id}_${index}`,
             name: opt.name,
             price: opt.price
@@ -847,6 +1071,93 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
   getInitials(name: string): string {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+  }
+
+  getAvatarImage(): string {
+    if (!this.userProfile) {
+      return 'https://i.pravatar.cc/150?img=1';
+    }
+    
+    const name = this.userProfile.fullName?.toLowerCase() || '';
+    const email = this.userProfile.email?.toLowerCase() || '';
+    
+    // Nombres comunes de mujer en español
+    const femaleNames = ['maria', 'maría', 'ana', 'carmen', 'laura', 'patricia', 'guadalupe', 'rosa', 'marta', 'andrea', 'fernanda', 'valentina', 'sofia', 'sofía', 'isabella', 'camila', 'valeria', 'daniela', 'natalia', 'paula', 'carolina', 'alejandra', 'diana', 'monica', 'mónica', 'claudia', 'juliana', 'lucia', 'lucía', 'elena', 'cristina', 'isabel', 'beatriz', 'adriana', 'gabriela', 'vanessa', 'jessica', 'karen', 'katherine', 'kathryn', 'liliana', 'mariana', 'michelle', 'nancy', 'olga', 'raquel', 'sandra', 'tania', 'veronica', 'verónica', 'yolanda', 'zulema'];
+    
+    // Nombres comunes de hombre en español
+    const maleNames = ['juan', 'carlos', 'jose', 'josé', 'luis', 'miguel', 'antonio', 'francisco', 'manuel', 'pedro', 'david', 'javier', 'jorge', 'alejandro', 'roberto', 'fernando', 'ricardo', 'daniel', 'pablo', 'sergio', 'eduardo', 'mario', 'alberto', 'oscar', 'óscar', 'rafael', 'raul', 'raúl', 'victor', 'victor', 'andres', 'andrés', 'felipe', 'sebastian', 'sebastián', 'nicolas', 'nicolás', 'cristian', 'esteban', 'gabriel', 'hugo', 'ignacio', 'ivan', 'iván', 'leonardo', 'marcos', 'martin', 'martín', 'rodrigo', 'simon', 'simón', 'tomas', 'tomás'];
+    
+    // Detectar género por nombre
+    const firstName = name.split(' ')[0];
+    let isFemale = false;
+    
+    if (femaleNames.includes(firstName)) {
+      isFemale = true;
+    } else if (maleNames.includes(firstName)) {
+      isFemale = false;
+    } else {
+      // Si no se encuentra en las listas, intentar detectar por terminaciones comunes
+      const femaleEndings = ['a', 'ia', 'ina', 'ela', 'ana', 'ina'];
+      const maleEndings = ['o', 'io', 'in', 'el', 'an', 'on'];
+      
+      if (femaleEndings.some(ending => firstName.endsWith(ending))) {
+        isFemale = true;
+      } else if (maleEndings.some(ending => firstName.endsWith(ending))) {
+        isFemale = false;
+      } else {
+        // Por defecto, si el nombre termina en 'a' es probablemente mujer
+        isFemale = firstName.endsWith('a') && !firstName.endsWith('ma') && !firstName.endsWith('pa');
+      }
+    }
+    
+    // Si no se puede determinar por nombre, intentar por email
+    if (!firstName || firstName.length < 2) {
+      const emailName = email.split('@')[0]?.toLowerCase() || '';
+      if (emailName) {
+        if (femaleNames.some(n => emailName.includes(n))) {
+          isFemale = true;
+        } else if (maleNames.some(n => emailName.includes(n))) {
+          isFemale = false;
+        }
+      }
+    }
+    
+    // URLs de avatares de muñecas animadas - determinístico basado en el nombre
+    // Usar el hash del nombre para seleccionar siempre el mismo avatar
+    let hash = 0;
+    const nameForHash = name || email;
+    for (let i = 0; i < nameForHash.length; i++) {
+      hash = nameForHash.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % 8;
+    
+    if (isFemale) {
+      // Muñecas animadas de niña - usando diferentes estilos
+      const girlAvatars = [
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede,ffd5dc,ffdfbf',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede,ffd5dc',
+        'https://api.dicebear.com/7.x/big-smile/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=ffd5dc,b6e3f4',
+        'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=ffd5dc,c0aede',
+        'https://api.dicebear.com/7.x/personas/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,ffd5dc',
+        'https://api.dicebear.com/7.x/fun-emoji/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=ffd5dc',
+        'https://api.dicebear.com/7.x/lorelei/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=ffd5dc'
+      ];
+      return girlAvatars[index];
+    } else {
+      // Muñecas animadas de niño - usando diferentes estilos
+      const boyAvatars = [
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede,ffdfbf',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede',
+        'https://api.dicebear.com/7.x/big-smile/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,ffdfbf',
+        'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede',
+        'https://api.dicebear.com/7.x/personas/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,ffdfbf',
+        'https://api.dicebear.com/7.x/fun-emoji/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4',
+        'https://api.dicebear.com/7.x/lorelei/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4'
+      ];
+      return boyAvatars[index];
+    }
   }
 
   getPaymentMethodName(method: string): string {

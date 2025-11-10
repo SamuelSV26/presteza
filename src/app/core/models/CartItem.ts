@@ -7,7 +7,7 @@ export interface CartItemOption {
 
 export interface CartItem {
   id: string;
-  productId: number;
+  productId: number | string; // Puede ser número (datos locales) o string (MongoDB ObjectId)
   productName: string;
   productDescription: string;
   basePrice: number;

@@ -54,6 +54,7 @@ export class CartService {
         observer.next(total);
       });
     });
+    
   }
 
   getTotalPrice(): Observable<number> {
