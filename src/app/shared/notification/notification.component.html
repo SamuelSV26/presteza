@@ -1,7 +1,7 @@
 <!-- Notificaciones Toast -->
 <div class="notifications-container">
   <div 
-    *ngFor="let notification of notifications" 
+    *ngFor="let notification of notifications; trackBy: trackByNotificationId" 
     class="notification-toast"
     [class.notification-success]="notification.type === 'success'"
     [class.notification-error]="notification.type === 'error'"
@@ -18,6 +18,9 @@
       <button class="notification-close" (click)="removeNotification(notification.id)">
         <i class="bi bi-x-lg"></i>
       </button>
+    </div>
+    <div class="notification-progress" *ngIf="notification.duration && notification.duration > 0">
+      <div class="notification-progress-bar" [style.animation-duration]="notification.duration + 'ms'"></div>
     </div>
   </div>
 </div>

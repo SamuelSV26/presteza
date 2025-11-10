@@ -77,13 +77,96 @@ export class RegistroComponent implements OnInit {
             
             // Hacer login automático después del registro
             setTimeout(() => {
-              this.authService.login(registerData.email, registerData.password).subscribe({
+              this.authService.login(registerData.email, registerData.password, false).subscribe({
                 next: () => {
-                  console.log('Login automático exitoso después del registro');
-                  // La redirección se maneja automáticamente en el AuthService según el rol
+                  console.log('✅ Login automático exitoso después del registro');
+                  
+                  // Función para realizar la redirección
+                  const performRedirect = () => {
+                    // Obtener el rol directamente del token decodificado
+                    const token = this.authService.getToken();
+                    console.log('🔑 Token obtenido después del registro:', token ? 'Sí' : 'No');
+                    
+                    if (token) {
+                      try {
+                        const base64Url = token.split('.')[1];
+                        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                        }).join(''));
+                        const payload = JSON.parse(jsonPayload);
+                        
+                        const userRole = payload?.role || payload?.userRole || payload?.rol || payload?.type || 'client';
+                        const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : 'client';
+                        
+                        console.log('🔍 Rol obtenido después del registro:', normalizedRole);
+                        
+                        // Redirigir según el rol
+                        if (normalizedRole === 'admin') {
+                          console.log('✅ Redirigiendo a /admin');
+                          this.router.navigateByUrl('/admin').then(success => {
+                            console.log('✅ Navegación a /admin:', success ? 'exitosa' : 'fallida');
+                            if (!success) {
+                              console.error('❌ Error al navegar a /admin');
+                            }
+                          }).catch(err => {
+                            console.error('❌ Excepción al navegar a /admin:', err);
+                          });
+                        } else {
+                          console.log('✅ Redirigiendo a /perfil');
+                          this.router.navigateByUrl('/perfil').then(success => {
+                            console.log('✅ Navegación a /perfil:', success ? 'exitosa' : 'fallida');
+                            if (!success) {
+                              console.error('❌ Error al navegar a /perfil');
+                              // Intentar de nuevo después de un breve delay
+                              setTimeout(() => {
+                                console.log('🔄 Reintentando navegación a /perfil...');
+                                this.router.navigateByUrl('/perfil');
+                              }, 500);
+                            }
+                          }).catch(err => {
+                            console.error('❌ Excepción al navegar a /perfil:', err);
+                          });
+                        }
+                      } catch (error) {
+                        console.error('❌ Error al decodificar token para obtener rol:', error);
+                        // Fallback: usar el método del servicio
+                        const userInfo = this.authService.getUserInfo();
+                        const userRole = userInfo?.role || this.authService.getRole();
+                        const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : 'client';
+                        
+                        if (normalizedRole === 'admin') {
+                          this.router.navigateByUrl('/admin');
+                        } else {
+                          this.router.navigateByUrl('/perfil');
+                        }
+                      }
+                    } else {
+                      console.error('❌ No se encontró token después del registro');
+                      // Redirigir a perfil por defecto si no hay token
+                      this.router.navigateByUrl('/perfil');
+                    }
+                  };
+                  
+                  // Verificar que el token esté disponible antes de redirigir
+                  let attempts = 0;
+                  const maxAttempts = 10;
+                  const checkTokenAndRedirect = () => {
+                    const token = this.authService.getToken();
+                    if (token || attempts >= maxAttempts) {
+                      performRedirect();
+                    } else {
+                      attempts++;
+                      console.log(`⏳ Esperando token... Intento ${attempts}/${maxAttempts}`);
+                      setTimeout(checkTokenAndRedirect, 100);
+                    }
+                  };
+                  
+                  // Iniciar verificación
+                  checkTokenAndRedirect();
                 },
                 error: (loginError) => {
-                  console.error('Error en login automático:', loginError);
+                  console.error('❌ Error en login automático:', loginError);
                   // Si el login automático falla, redirigir al login para que inicie sesión manualmente
                   this.router.navigate(['/login']);
                 }

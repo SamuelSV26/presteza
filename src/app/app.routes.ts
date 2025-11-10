@@ -10,6 +10,7 @@ import { RegistroComponent } from './modules/registro/registro.component';
 import { LoginComponent } from './modules/login/login.component';
 import { PerfilComponent } from './modules/perfil/perfil.component';
 import { AdminDashboardComponent } from './modules/admin/admin-dashboard.component';
+import { CheckoutComponent } from './modules/checkout/checkout.component';
 import { homeGuard } from './core/guards/home.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
@@ -68,6 +69,11 @@ export const routes: Routes = [
     path: 'admin',
     component: AdminDashboardComponent,
     canActivate: [adminGuard]
+  },
+  {
+    path: 'checkout',
+    component: CheckoutComponent,
+    canActivate: [authGuard]
   }
 ];
 

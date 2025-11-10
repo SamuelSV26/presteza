@@ -12,7 +12,7 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(
       withInterceptors([
         httpInterceptor,
-        loggingInterceptor // Solo en desarrollo
+        loggingInterceptor
       ])
     )
   ]

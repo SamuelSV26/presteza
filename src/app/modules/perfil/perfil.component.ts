@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { CartService } from '../../core/services/cart.service';
 import { forkJoin, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { UserProfile } from '../../core/models/UserProfile';
@@ -33,13 +34,17 @@ export class PerfilComponent implements OnInit, OnDestroy {
   profileForm: FormGroup;
   addressForm: FormGroup;
   passwordForm: FormGroup;
+  paymentMethodForm: FormGroup;
 
   showAddressModal = false;
   showPasswordModal = false;
   showProfileModal = false;
   showEditAddressModal = false;
+  showPaymentMethodModal = false;
   editingAddress: Address | null = null;
+  editingPaymentMethod: PaymentMethod | null = null;
   submitted = false;
+  expandedOrders: Set<string> = new Set<string>();
 
   private destroy$ = new Subject<void>();
 
@@ -49,7 +54,8 @@ export class PerfilComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private menuService: MenuService,
     private authService: AuthService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private cartService: CartService
   ) {
     this.profileForm = this.fb.group({
       fullName: ['', [Validators.required, Validators.minLength(3)]],
@@ -71,6 +77,39 @@ export class PerfilComponent implements OnInit, OnDestroy {
       newPassword: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', [Validators.required]]
     }, { validator: this.passwordMatchValidator });
+
+    this.paymentMethodForm = this.fb.group({
+      type: ['card', [Validators.required]],
+      cardNumber: ['', []], // Validación condicional
+      cardHolder: ['', []], // Validación condicional
+      expiryMonth: ['', []], // Validación condicional
+      expiryYear: ['', []], // Validación condicional
+      cvv: ['', []], // Validación condicional
+      brand: ['Visa', [Validators.required]],
+      isDefault: [false]
+    });
+
+    // Validación condicional: solo requerir campos de tarjeta si el tipo es 'card'
+    this.paymentMethodForm.get('type')?.valueChanges.subscribe(type => {
+      if (type === 'card') {
+        this.paymentMethodForm.get('cardNumber')?.setValidators([Validators.required, Validators.pattern(/^[0-9\s]{13,19}$/)]);
+        this.paymentMethodForm.get('cardHolder')?.setValidators([Validators.required]);
+        this.paymentMethodForm.get('expiryMonth')?.setValidators([Validators.required, Validators.pattern(/^(0[1-9]|1[0-2])$/)]);
+        this.paymentMethodForm.get('expiryYear')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{2}$/)]);
+        this.paymentMethodForm.get('cvv')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{3,4}$/)]);
+      } else {
+        this.paymentMethodForm.get('cardNumber')?.clearValidators();
+        this.paymentMethodForm.get('cardHolder')?.clearValidators();
+        this.paymentMethodForm.get('expiryMonth')?.clearValidators();
+        this.paymentMethodForm.get('expiryYear')?.clearValidators();
+        this.paymentMethodForm.get('cvv')?.clearValidators();
+      }
+      this.paymentMethodForm.get('cardNumber')?.updateValueAndValidity();
+      this.paymentMethodForm.get('cardHolder')?.updateValueAndValidity();
+      this.paymentMethodForm.get('expiryMonth')?.updateValueAndValidity();
+      this.paymentMethodForm.get('expiryYear')?.updateValueAndValidity();
+      this.paymentMethodForm.get('cvv')?.updateValueAndValidity();
+    });
   }
 
   ngOnInit() {
@@ -78,12 +117,27 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
     // Suscribirse a cambios en la información del usuario
     this.authService.userInfo$.pipe(takeUntil(this.destroy$)).subscribe(userInfo => {
+      if (userInfo) {
+        console.log('🔄 userInfo$ cambió, recargando perfil completo...');
+        this.loadUserProfile();
+        this.loadFavoriteDishes();
+        this.loadAddresses();
+      }
+    });
+
+    // Escuchar evento personalizado cuando el usuario inicia sesión
+    window.addEventListener('userInfoUpdated', () => {
+      console.log('🔄 userInfoUpdated en PerfilComponent, recargando datos...');
       this.loadUserProfile();
+      this.loadFavoriteDishes();
+      this.loadAddresses();
+      this.loadPaymentMethods();
     });
 
     // Cargar platos recomendados y favoritos
     this.loadRecommendedDishes();
     this.loadFavoriteDishes();
+    this.loadAddresses();
 
     // Suscribirse a cambios en favoritos (revisar cada vez que cambie localStorage)
     this.setupFavoriteListener();
@@ -106,8 +160,8 @@ export class PerfilComponent implements OnInit, OnDestroy {
     const userInfo = this.authService.getUserInfo();
 
     if (!userInfo) {
-      // No hay usuario autenticado, mostrar datos de prueba
-      this.loadMockData();
+      // No hay usuario autenticado, no cargar datos
+      // El usuario debería estar autenticado para ver el perfil
       return;
     }
 
@@ -220,103 +274,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadMockData() {
-    // Cargar datos de prueba para visualización
-    const mockProfile: UserProfile = {
-      id: 'demo_user_001',
-      fullName: 'Juan Pérez',
-      email: 'juan.perez@email.com',
-      phone: '3104941839',
-      memberSince: new Date('2024-01-15'),
-      preferences: {
-        notifications: true,
-        emailNotifications: true,
-        smsNotifications: false,
-        favoriteCategories: ['hamburguesas', 'bebidas', 'postres']
-      }
-    };
-
-    this.userProfile = mockProfile;
-    this.profileForm.patchValue({
-      fullName: mockProfile.fullName,
-      email: mockProfile.email,
-      phone: mockProfile.phone
-    });
-
-    // Pedidos de prueba
-    this.orders = [
-      {
-        id: 'ORD-001',
-        date: new Date('2024-12-15'),
-        items: [
-          { id: 1, name: 'Bandeja Paisa Presteza', quantity: 1, price: 25000 },
-          { id: 16, name: 'Limonada de Coco', quantity: 2, price: 8000 }
-        ],
-        total: 41000,
-        status: 'delivered',
-        deliveryAddress: 'Carrera 23 # 70B - 57, Milan, Manizales'
-      },
-      {
-        id: 'ORD-002',
-        date: new Date('2024-12-20'),
-        items: [
-          { id: 6, name: 'Hamburguesa Presteza', quantity: 1, price: 22000 },
-          { id: 11, name: 'Papas Fritas', quantity: 1, price: 8000 }
-        ],
-        total: 30000,
-        status: 'ready',
-        deliveryAddress: 'Carrera 23 # 70B - 57, Milan, Manizales'
-      },
-      {
-        id: 'ORD-003',
-        date: new Date('2024-12-22'),
-        items: [
-          { id: 17, name: 'Tres Leches', quantity: 2, price: 12000 },
-          { id: 14, name: 'Gaseosa', quantity: 2, price: 5000 }
-        ],
-        total: 34000,
-        status: 'preparing',
-        deliveryAddress: 'Carrera 23 # 70B - 57, Milan, Manizales'
-      }
-    ];
-
-    // Direcciones de prueba
-    this.addresses = [
-      {
-        id: 'addr_001',
-        title: 'Casa',
-        address: 'Carrera 23 # 70B - 57, Milan',
-        city: 'Manizales',
-        postalCode: '170001',
-        isDefault: true
-      },
-      {
-        id: 'addr_002',
-        title: 'Trabajo',
-        address: 'Calle 50 # 23-45, Centro',
-        city: 'Manizales',
-        postalCode: '170002',
-        isDefault: false
-      }
-    ];
-
-    // Métodos de pago de prueba
-    this.paymentMethods = [
-      {
-        id: 'pm_001',
-        type: 'card',
-        last4: '4242',
-        brand: 'Visa',
-        isDefault: true
-      },
-      {
-        id: 'pm_002',
-        type: 'cash',
-        isDefault: false
-      }
-    ];
-  }
-
   passwordMatchValidator(form: FormGroup) {
     return form.get('newPassword')?.value === form.get('confirmPassword')?.value
       ? null : { 'mismatch': true };
@@ -350,6 +307,129 @@ export class PerfilComponent implements OnInit, OnDestroy {
     this.userService.getPaymentMethods().subscribe(methods => {
       this.paymentMethods = methods;
     });
+  }
+
+  openPaymentMethodModal() {
+    this.showPaymentMethodModal = true;
+    this.editingPaymentMethod = null;
+    this.paymentMethodForm.reset();
+    this.paymentMethodForm.patchValue({
+      type: 'card',
+      isDefault: this.paymentMethods.length === 0
+    });
+  }
+
+  closePaymentMethodModal() {
+    this.showPaymentMethodModal = false;
+    this.editingPaymentMethod = null;
+    this.paymentMethodForm.reset();
+    this.submitted = false;
+  }
+
+  onPaymentMethodSubmit() {
+    this.submitted = true;
+
+    // Validar según el tipo de método
+    const formValue = this.paymentMethodForm.value;
+    if (formValue.type === 'card') {
+      // Validar campos de tarjeta
+      if (!this.paymentMethodForm.get('cardNumber')?.valid ||
+          !this.paymentMethodForm.get('cardHolder')?.valid ||
+          !this.paymentMethodForm.get('expiryMonth')?.valid ||
+          !this.paymentMethodForm.get('expiryYear')?.valid ||
+          !this.paymentMethodForm.get('cvv')?.valid) {
+        this.notificationService.showError('Por favor, completa todos los campos de la tarjeta correctamente');
+        return;
+      }
+    }
+
+    if (this.paymentMethodForm.valid || formValue.type === 'cash') {
+      const isDefault = formValue.isDefault || this.paymentMethods.length === 0;
+
+      if (this.editingPaymentMethod) {
+        // Editar método existente
+        const updatedMethod: PaymentMethod = {
+          ...this.editingPaymentMethod,
+          type: formValue.type,
+          last4: formValue.cardNumber ? formValue.cardNumber.replace(/\s/g, '').slice(-4) : undefined,
+          brand: formValue.brand || 'Visa',
+          isDefault: isDefault
+        };
+
+        // Si se marca como principal, quitar el estado de los demás
+        if (isDefault) {
+          this.paymentMethods.forEach(m => {
+            if (m.id !== updatedMethod.id && m.isDefault) {
+              const nonDefaultMethod = { ...m, isDefault: false };
+              this.userService.updatePaymentMethod(nonDefaultMethod);
+            }
+          });
+        }
+
+        this.userService.updatePaymentMethod(updatedMethod);
+        this.notificationService.showSuccess('Método de pago actualizado correctamente');
+      } else {
+        // Crear nuevo método
+        const newMethod: PaymentMethod = {
+          id: 'pm_' + Date.now(),
+          type: formValue.type,
+          last4: formValue.cardNumber ? formValue.cardNumber.replace(/\s/g, '').slice(-4) : undefined,
+          brand: formValue.brand || 'Visa',
+          isDefault: isDefault
+        };
+
+        // Si se marca como principal, quitar el estado de los demás
+        if (isDefault) {
+          this.paymentMethods.forEach(m => {
+            if (m.isDefault) {
+              const nonDefaultMethod = { ...m, isDefault: false };
+              this.userService.updatePaymentMethod(nonDefaultMethod);
+            }
+          });
+        }
+
+        this.userService.savePaymentMethod(newMethod);
+        this.notificationService.showSuccess('Método de pago agregado correctamente');
+      }
+
+      this.loadPaymentMethods();
+      this.closePaymentMethodModal();
+    } else {
+      this.notificationService.showError('Por favor, completa todos los campos correctamente');
+    }
+  }
+
+  editPaymentMethod(method: PaymentMethod) {
+    this.editingPaymentMethod = method;
+    this.showPaymentMethodModal = true;
+    this.paymentMethodForm.patchValue({
+      type: method.type,
+      cardNumber: method.last4 ? '**** **** **** ' + method.last4 : '',
+      brand: method.brand || 'Visa',
+      isDefault: method.isDefault
+    });
+  }
+
+  deletePaymentMethod(method: PaymentMethod) {
+    this.notificationService.confirm(
+      'Eliminar Método de Pago',
+      `¿Estás seguro de que deseas eliminar este método de pago?`,
+      'Eliminar',
+      'Cancelar'
+    ).then(confirmed => {
+      if (confirmed) {
+        this.userService.deletePaymentMethod(method.id);
+        this.loadPaymentMethods();
+        this.notificationService.showSuccess('Método de pago eliminado correctamente');
+      }
+    });
+  }
+
+  formatCardNumber(event: Event) {
+    const input = event.target as HTMLInputElement;
+    let value = input.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
+    const formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+    this.paymentMethodForm.patchValue({ cardNumber: formattedValue }, { emitEvent: false });
   }
 
   onProfileSubmit() {
@@ -595,6 +675,156 @@ export class PerfilComponent implements OnInit, OnDestroy {
     return statusIcons[status] || 'bi-circle';
   }
 
+  formatEstimatedTime(order: Order): string {
+    if (!order.estimatedDeliveryTime) return '';
+    const now = new Date();
+    const estimated = new Date(order.estimatedDeliveryTime);
+    const diffMs = estimated.getTime() - now.getTime();
+    const diffMins = Math.round(diffMs / (1000 * 60));
+
+    if (diffMins <= 0) {
+      return 'Tiempo estimado cumplido';
+    } else if (diffMins < 60) {
+      return `Aprox. ${diffMins} min`;
+    } else {
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      return `Aprox. ${hours}h ${mins}min`;
+    }
+  }
+
+  getTrackingCode(order: Order): string {
+    return order.trackingCode || order.id.slice(-8).toUpperCase();
+  }
+
+  cancelOrder(order: Order): void {
+    this.notificationService.confirm(
+      'Cancelar Pedido',
+      `¿Estás seguro de que deseas cancelar este pedido? Esta acción no se puede deshacer.`,
+      'Cancelar Pedido',
+      'Volver'
+    ).then(confirmed => {
+      if (confirmed) {
+        this.userService.cancelOrder(order.id).subscribe(success => {
+          if (success) {
+            this.notificationService.showSuccess('Pedido cancelado exitosamente');
+            this.loadOrders();
+          } else {
+            this.notificationService.showError('No se pudo cancelar el pedido. El tiempo límite ha expirado o el pedido ya está en preparación.');
+          }
+        });
+      }
+    });
+  }
+
+  reorder(order: Order): void {
+    // Agregar todos los items del pedido al carrito
+    let itemsAdded = 0;
+    const totalItems = order.items.reduce((sum, it) => sum + it.quantity, 0);
+
+    order.items.forEach(item => {
+      // Buscar el producto en el menú
+      this.menuService.getItemById(item.id).subscribe(product => {
+        if (product) {
+          // Mapear las opciones para incluir el id requerido por CartItemOption
+          const cartOptions = (item.selectedOptions || []).map((opt, index) => ({
+            id: opt.id || `opt_${item.id}_${index}`,
+            name: opt.name,
+            price: opt.price
+          }));
+
+          for (let i = 0; i < item.quantity; i++) {
+            this.cartService.addItem({
+              productId: product.id,
+              productName: product.name,
+              productDescription: product.description || '',
+              basePrice: product.price,
+              selectedOptions: cartOptions,
+              quantity: 1,
+              imageUrl: product.imageUrl
+            });
+            itemsAdded++;
+          }
+          if (itemsAdded === totalItems) {
+            this.notificationService.showSuccess(`Se agregaron ${itemsAdded} item(s) al carrito`);
+            setTimeout(() => {
+              this.router.navigate(['/menu']);
+            }, 1000);
+          }
+        } else {
+          // Si no se encuentra el producto, usar la información del pedido
+          // Mapear las opciones para incluir el id requerido por CartItemOption
+          const cartOptions = (item.selectedOptions || []).map((opt, index) => ({
+            id: opt.id || `opt_${item.id}_${index}`,
+            name: opt.name,
+            price: opt.price
+          }));
+
+          for (let i = 0; i < item.quantity; i++) {
+            this.cartService.addItem({
+              productId: item.id,
+              productName: item.name,
+              productDescription: '',
+              basePrice: item.price,
+              selectedOptions: cartOptions,
+              quantity: 1
+            });
+            itemsAdded++;
+          }
+          if (itemsAdded === totalItems) {
+            this.notificationService.showSuccess(`Se agregaron ${itemsAdded} item(s) al carrito`);
+            setTimeout(() => {
+              this.router.navigate(['/menu']);
+            }, 1000);
+          }
+        }
+      });
+    });
+  }
+
+  getOrderStatusSteps(order: Order): Array<{status: string, label: string, icon: string, completed: boolean, current: boolean}> {
+    const steps = [
+      { status: 'pending', label: 'Confirmado', icon: 'bi-check-circle', completed: true, current: false },
+      { status: 'preparing', label: 'Preparando', icon: 'bi-hourglass-split', completed: false, current: false },
+      { status: 'ready', label: 'Listo', icon: 'bi-check-circle', completed: false, current: false },
+      { status: 'delivered', label: 'Entregado', icon: 'bi-truck', completed: false, current: false }
+    ];
+
+    const statusOrder = ['pending', 'preparing', 'ready', 'delivered'];
+    const currentIndex = statusOrder.indexOf(order.status);
+
+    steps.forEach((step, index) => {
+      if (index <= currentIndex) {
+        step.completed = true;
+      }
+      if (index === currentIndex) {
+        step.current = true;
+      }
+    });
+
+    if (order.status === 'cancelled') {
+      return steps.map(s => ({ ...s, completed: false, current: false }));
+    }
+
+    return steps;
+  }
+
+  expandOrderDetails(order: Order): void {
+    // Toggle para expandir/colapsar detalles del pedido
+    if (!this.expandedOrders) {
+      this.expandedOrders = new Set<string>();
+    }
+    if (this.expandedOrders.has(order.id)) {
+      this.expandedOrders.delete(order.id);
+    } else {
+      this.expandedOrders.add(order.id);
+    }
+  }
+
+  isOrderExpanded(order: Order): boolean {
+    return this.expandedOrders?.has(order.id) || false;
+  }
+
   formatDate(date: Date): string {
     return new Date(date).toLocaleDateString('es-CO', {
       year: 'numeric',
@@ -617,6 +847,17 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
   getInitials(name: string): string {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+  }
+
+  getPaymentMethodName(method: string): string {
+    const methods: { [key: string]: string } = {
+      'card': 'Tarjeta',
+      'cash': 'Efectivo',
+      'nequi': 'Nequi',
+      'daviplata': 'Daviplata',
+      'transfer': 'Transferencia Bancaria'
+    };
+    return methods[method] || method;
   }
 }
 

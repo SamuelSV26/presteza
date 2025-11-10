@@ -1,8 +1,15 @@
 <div class="cart-container">
   <button class="cart-button" (click)="toggleCart()" type="button" aria-label="Abrir carrito">
-    <i class="bi bi-cart3"></i>
-    <ng-container *ngIf="(totalItems$ | async) as totalItems">
-      <span *ngIf="totalItems > 0" class="cart-badge">{{ totalItems }}</span>
+    <div class="cart-icon-wrapper">
+      <i class="bi bi-cart3"></i>
+      <ng-container *ngIf="(totalItems$ | async) as totalItems">
+        <span *ngIf="totalItems > 0" class="cart-badge" [title]="totalItems + ' productos en el carrito'">
+          {{ totalItems }}
+        </span>
+      </ng-container>
+    </div>
+    <ng-container *ngIf="(totalPrice$ | async) as totalPrice">
+      <span *ngIf="totalPrice > 0" class="cart-price">{{ totalPrice | currency:'COP':'symbol':'1.0-0' }}</span>
     </ng-container>
   </button>
 
@@ -56,7 +63,7 @@
                 <ng-container *ngIf="(totalPrice$ | async) as totalPrice">{{ totalPrice | currency:'COP':'symbol':'1.0-0' }}</ng-container>
               </span>
             </div>
-            <button class="btn-checkout" (click)="clearCart()">Finalizar Pedido</button>
+            <button class="btn-checkout" (click)="goToCheckout()">Finalizar Pedido</button>
           </div>
         </div>
       </ng-container>

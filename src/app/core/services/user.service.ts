@@ -13,7 +13,35 @@ export class UserService {
   userProfile$ = this.userProfileSubject.asObservable();
 
   constructor() {
+    // Cargar perfil cuando se inicializa el servicio
     this.loadUserProfile();
+
+    // Escuchar cambios en userInfo para recargar el perfil cuando el usuario inicie sesión
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (userInfoStr) {
+      try {
+        const userInfo = JSON.parse(userInfoStr);
+        if (userInfo) {
+          this.loadUserProfile();
+        }
+      } catch (e) {
+        console.error('Error al verificar userInfo en constructor:', e);
+      }
+    }
+
+    // Escuchar cuando el usuario inicia sesión (evento personalizado desde AuthService)
+    window.addEventListener('userInfoUpdated', () => {
+      console.log('🔄 userInfoUpdated detectado en UserService, recargando perfil del usuario...');
+      this.loadUserProfile();
+    });
+
+    // También escuchar cambios en localStorage (para cuando se actualiza userInfo en otra pestaña)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'userInfo' && e.newValue) {
+        console.log('🔄 Cambio en userInfo detectado en storage, recargando perfil...');
+        this.loadUserProfile();
+      }
+    });
   }
 
   private loadUserProfile(): void {
@@ -204,23 +232,156 @@ export class UserService {
   }
 
   getOrders(): Observable<Order[]> {
-    // Simular historial de pedidos
-    const storedOrders = localStorage.getItem('userOrders');
-    if (storedOrders) {
-      const orders = JSON.parse(storedOrders);
-      orders.forEach((order: any) => {
-        order.date = new Date(order.date);
-      });
-      return of(orders);
+    // Obtener el userId del usuario actual
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return of([]);
     }
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      const storedOrders = localStorage.getItem(`userOrders_${userId}`);
+      if (storedOrders) {
+        const orders = JSON.parse(storedOrders);
+        orders.forEach((order: any) => {
+          order.date = new Date(order.date);
+          if (order.estimatedDeliveryTime) {
+            order.estimatedDeliveryTime = new Date(order.estimatedDeliveryTime);
+          }
+          if (order.statusHistory) {
+            order.statusHistory.forEach((update: any) => {
+              update.timestamp = new Date(update.timestamp);
+            });
+          }
+
+          // Valores por defecto para pedidos antiguos que no tienen estas propiedades
+          if (order.subtotal === undefined) {
+            // Calcular subtotal desde los items si no existe
+            order.subtotal = order.items.reduce((sum: number, item: OrderItem) =>
+              sum + (item.price * item.quantity), 0);
+          }
+          if (order.additionalFees === undefined) {
+            order.additionalFees = 0;
+          }
+          if (order.orderType === undefined) {
+            // Si tiene dirección, asumimos que es delivery, sino pickup
+            order.orderType = order.deliveryAddress ? 'delivery' : 'pickup';
+          }
+          if (order.paymentMethod === undefined) {
+            order.paymentMethod = 'cash'; // Valor por defecto
+          }
+
+          // Verificar si puede cancelarse (primeros 5 minutos)
+          if (order.canCancel !== undefined && order.date) {
+            const now = new Date();
+            const orderTime = new Date(order.date);
+            const minutesDiff = (now.getTime() - orderTime.getTime()) / (1000 * 60);
+            order.canCancel = minutesDiff <= 5 && order.status === 'pending';
+          }
+        });
+        return of(orders);
+      }
+    } catch (e) {
+      console.error('Error al obtener pedidos:', e);
+    }
+
     return of([]);
   }
 
   saveOrder(order: Order): void {
-    this.getOrders().subscribe(orders => {
-      const updatedOrders = [order, ...orders];
-      localStorage.setItem('userOrders', JSON.stringify(updatedOrders));
-    });
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) return;
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      this.getOrders().subscribe(orders => {
+        const updatedOrders = [order, ...orders];
+        localStorage.setItem(`userOrders_${userId}`, JSON.stringify(updatedOrders));
+      });
+    } catch (e) {
+      console.error('Error al guardar pedido:', e);
+    }
+  }
+
+  updateOrderStatus(orderId: string, newStatus: Order['status'], message?: string): void {
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) return;
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      this.getOrders().subscribe(orders => {
+        const orderIndex = orders.findIndex(o => o.id === orderId);
+        if (orderIndex !== -1) {
+          const order = orders[orderIndex];
+          order.status = newStatus;
+
+          // Agregar al historial
+          if (!order.statusHistory) {
+            order.statusHistory = [];
+          }
+          order.statusHistory.push({
+            status: newStatus,
+            timestamp: new Date(),
+            message: message
+          });
+
+          // Actualizar canCancel
+          if (newStatus !== 'pending' && newStatus !== 'cancelled') {
+            order.canCancel = false;
+          }
+
+          localStorage.setItem(`userOrders_${userId}`, JSON.stringify(orders));
+        }
+      });
+    } catch (e) {
+      console.error('Error al actualizar estado del pedido:', e);
+    }
+  }
+
+  cancelOrder(orderId: string): Observable<boolean> {
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return of(false);
+    }
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      return this.getOrders().pipe(
+        map(orders => {
+          const orderIndex = orders.findIndex(o => o.id === orderId);
+          if (orderIndex !== -1) {
+            const order = orders[orderIndex];
+            if (order.canCancel && order.status === 'pending') {
+              order.status = 'cancelled';
+              if (!order.statusHistory) {
+                order.statusHistory = [];
+              }
+              order.statusHistory.push({
+                status: 'cancelled',
+                timestamp: new Date(),
+                message: 'Pedido cancelado por el cliente'
+              });
+              order.canCancel = false;
+
+              localStorage.setItem(`userOrders_${userId}`, JSON.stringify(orders));
+              return true;
+            }
+          }
+          return false;
+        })
+      );
+    } catch (e) {
+      console.error('Error al cancelar pedido:', e);
+      return of(false);
+    }
   }
 
   getAddresses(): Observable<Address[]> {
@@ -284,18 +445,90 @@ export class UserService {
   }
 
   getPaymentMethods(): Observable<PaymentMethod[]> {
-    const storedMethods = localStorage.getItem('userPaymentMethods');
-    if (storedMethods) {
-      return of(JSON.parse(storedMethods));
+    // Obtener el userId del usuario actual
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return of([]);
     }
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      // Retornar métodos de pago asociados al usuario actual
+      const storedMethods = localStorage.getItem(`userPaymentMethods_${userId}`);
+      if (storedMethods) {
+        return of(JSON.parse(storedMethods));
+      }
+    } catch (e) {
+      console.error('Error al obtener métodos de pago:', e);
+    }
+
     return of([]);
   }
 
   savePaymentMethod(method: PaymentMethod): void {
-    this.getPaymentMethods().subscribe(methods => {
-      const updatedMethods = [...methods, method];
-      localStorage.setItem('userPaymentMethods', JSON.stringify(updatedMethods));
-    });
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) return;
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      this.getPaymentMethods().subscribe(methods => {
+        // Si se marca como principal, quitar el estado de los demás
+        if (method.isDefault) {
+          methods = methods.map(m => ({ ...m, isDefault: false }));
+        }
+
+        const updatedMethods = [...methods, method];
+        localStorage.setItem(`userPaymentMethods_${userId}`, JSON.stringify(updatedMethods));
+      });
+    } catch (e) {
+      console.error('Error al guardar método de pago:', e);
+    }
+  }
+
+  updatePaymentMethod(method: PaymentMethod): void {
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) return;
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      this.getPaymentMethods().subscribe(methods => {
+        // Si se marca como principal, quitar el estado de los demás
+        if (method.isDefault) {
+          methods = methods.map(m => m.id !== method.id ? { ...m, isDefault: false } : m);
+        }
+
+        const index = methods.findIndex(m => m.id === method.id);
+        if (index !== -1) {
+          methods[index] = method;
+          localStorage.setItem(`userPaymentMethods_${userId}`, JSON.stringify(methods));
+        }
+      });
+    } catch (e) {
+      console.error('Error al actualizar método de pago:', e);
+    }
+  }
+
+  deletePaymentMethod(methodId: string): void {
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) return;
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      this.getPaymentMethods().subscribe(methods => {
+        const updatedMethods = methods.filter(m => m.id !== methodId);
+        localStorage.setItem(`userPaymentMethods_${userId}`, JSON.stringify(updatedMethods));
+      });
+    } catch (e) {
+      console.error('Error al eliminar método de pago:', e);
+    }
   }
 
   private generateId(): string {
@@ -387,10 +620,18 @@ export class UserService {
   }
 
   logout(): void {
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userPhone');
-    localStorage.removeItem('userProfile');
+    // NO eliminar datos del usuario - estos deben persistir
+    // Solo limpiar el estado del servicio
     this.userProfileSubject.next(null);
+    // Los datos en localStorage se mantienen asociados al userId
+    // y se cargarán automáticamente cuando el usuario vuelva a iniciar sesión
+  }
+
+  /**
+   * Recarga el perfil del usuario desde localStorage
+   * Útil cuando el usuario vuelve a iniciar sesión
+   */
+  reloadUserProfile(): void {
+    this.loadUserProfile();
   }
 }

@@ -32,7 +32,7 @@ export class NotificationService {
   private confirmResponseSubject = new BehaviorSubject<{ id: string; confirmed: boolean } | null>(null);
   public confirmResponse$ = this.confirmResponseSubject.asObservable();
 
-  showSuccess(message: string, title?: string, duration: number = 3000): void {
+  showSuccess(message: string, title?: string, duration: number = 5000): void {
     this.addNotification({
       id: this.generateId(),
       type: 'success',
@@ -42,7 +42,7 @@ export class NotificationService {
     });
   }
 
-  showError(message: string, title?: string, duration: number = 5000): void {
+  showError(message: string, title?: string, duration: number = 7000): void {
     this.addNotification({
       id: this.generateId(),
       type: 'error',
@@ -52,7 +52,7 @@ export class NotificationService {
     });
   }
 
-  showInfo(message: string, title?: string, duration: number = 3000): void {
+  showInfo(message: string, title?: string, duration: number = 5000): void {
     this.addNotification({
       id: this.generateId(),
       type: 'info',
@@ -62,7 +62,7 @@ export class NotificationService {
     });
   }
 
-  showWarning(message: string, title?: string, duration: number = 4000): void {
+  showWarning(message: string, title?: string, duration: number = 6000): void {
     this.addNotification({
       id: this.generateId(),
       type: 'warning',

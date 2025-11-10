@@ -1,0 +1,441 @@
+<section class="checkout-page">
+  <div class="container py-5">
+    <div class="row">
+      <!-- Columna Izquierda: Información del Pedido -->
+      <div class="col-lg-7 mb-4">
+        <div class="checkout-card">
+          <div class="checkout-header">
+            <button class="btn-back" (click)="goBack()">
+              <i class="bi bi-arrow-left"></i>
+              Volver
+            </button>
+            <h2 class="checkout-title">Finalizar Pedido</h2>
+          </div>
+
+          <!-- Tipo de Pedido -->
+          <div class="checkout-section">
+            <h3 class="section-title">
+              <i class="bi bi-truck me-2"></i>
+              Tipo de Pedido
+            </h3>
+            <div class="order-type-options">
+              <label class="order-type-option" [class.active]="orderType === 'pickup'">
+                <input type="radio" name="orderType" value="pickup" [(ngModel)]="orderType" (change)="onOrderTypeChange('pickup')" />
+                <div class="option-content">
+                  <i class="bi bi-shop"></i>
+                  <div>
+                    <strong>Recoger en Restaurante</strong>
+                    <small>+$1,000 por desechables</small>
+                  </div>
+                </div>
+              </label>
+              <label class="order-type-option" [class.active]="orderType === 'delivery'">
+                <input type="radio" name="orderType" value="delivery" [(ngModel)]="orderType" (change)="onOrderTypeChange('delivery')" />
+                <div class="option-content">
+                  <i class="bi bi-truck"></i>
+                  <div>
+                    <strong>Entrega a Domicilio</strong>
+                    <small>+$4,000 por domicilio</small>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Información de Entrega (solo si es a domicilio) -->
+          <div class="checkout-section" *ngIf="orderType === 'delivery'">
+            <h3 class="section-title">
+              <i class="bi bi-geo-alt me-2"></i>
+              Información de Entrega
+            </h3>
+
+            <!-- Direcciones Guardadas (si hay) -->
+            <div *ngIf="savedAddresses.length > 0" class="saved-addresses mb-4">
+              <label class="section-subtitle">Direcciones Guardadas</label>
+              <div class="saved-addresses-list">
+                <div *ngFor="let savedAddress of savedAddresses" class="saved-address-card" [class.active]="selectedSavedAddress === savedAddress.id">
+                  <label class="saved-address-option">
+                    <input
+                      type="radio"
+                      name="savedAddress"
+                      [value]="savedAddress.id"
+                      [checked]="selectedSavedAddress === savedAddress.id"
+                      (change)="onSavedAddressSelect(savedAddress.id)"
+                    />
+                    <div class="saved-address-content">
+                      <div class="saved-address-icon">
+                        <i class="bi bi-geo-alt-fill"></i>
+                      </div>
+                      <div class="saved-address-info">
+                        <span class="saved-address-title">{{ savedAddress.title }}</span>
+                        <span class="saved-address-details">
+                          {{ savedAddress.address }}, {{ savedAddress.neighborhood || '' }}
+                        </span>
+                        <span class="saved-address-badge" *ngIf="savedAddress.isDefault">Principal</span>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              <div *ngIf="selectedSavedAddress" class="use-new-address-option mt-3">
+                <button type="button" class="btn-link" (click)="useNewAddress()">
+                  <i class="bi bi-plus-circle me-2"></i>
+                  Usar otra dirección
+                </button>
+              </div>
+            </div>
+
+            <!-- Indicador de Dirección Guardada -->
+            <div *ngIf="useSavedAddress && selectedSavedAddress" class="saved-address-indicator mb-4">
+              <div class="saved-address-info-display">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>Usando dirección guardada: <strong>{{ getSelectedSavedAddressInfo() }}</strong></span>
+              </div>
+            </div>
+
+            <form [formGroup]="deliveryForm" class="delivery-form" *ngIf="!useSavedAddress">
+              <div class="form-group">
+                <label for="address">Dirección *</label>
+                <input type="text" id="address" formControlName="address" class="form-control" placeholder="Calle 123 #45-67" />
+              </div>
+              <div class="form-group">
+                <label for="neighborhood">Barrio *</label>
+                <input type="text" id="neighborhood" formControlName="neighborhood" class="form-control" placeholder="Nombre del barrio" />
+              </div>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label for="city">Ciudad</label>
+                    <input type="text" id="city" formControlName="city" class="form-control" value="Manizales" readonly />
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label for="postalCode">Código Postal</label>
+                    <input type="text" id="postalCode" formControlName="postalCode" class="form-control" value="170001" readonly />
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="phone">Teléfono de Contacto *</label>
+                <input type="tel" id="phone" formControlName="phone" class="form-control" placeholder="3001234567" />
+              </div>
+              <div class="form-group">
+                <label for="deliveryInstructions">Instrucciones de Entrega (opcional)</label>
+                <textarea id="deliveryInstructions" formControlName="deliveryInstructions" class="form-control" rows="3" placeholder="Ej: Llamar antes de llegar, timbre de la izquierda, etc."></textarea>
+              </div>
+            </form>
+          </div>
+
+          <!-- Método de Pago -->
+          <div class="checkout-section">
+            <h3 class="section-title">
+              <i class="bi bi-wallet2 me-2"></i>
+              Método de Pago
+            </h3>
+
+            <!-- Métodos de Pago Guardados (si hay) -->
+            <div *ngIf="savedPaymentMethods.length > 0" class="saved-payment-methods mb-4">
+              <label class="section-subtitle">Métodos Guardados</label>
+              <div class="saved-methods-list">
+                <div *ngFor="let savedMethod of savedPaymentMethods" class="saved-method-card" [class.active]="selectedSavedMethod === savedMethod.id">
+                  <label class="saved-method-option">
+                    <input
+                      type="radio"
+                      name="savedPaymentMethod"
+                      [value]="savedMethod.id"
+                      [checked]="selectedSavedMethod === savedMethod.id"
+                      (change)="onSavedMethodSelect(savedMethod.id)"
+                    />
+                    <div class="saved-method-content">
+                      <div class="saved-method-icon">
+                        <i class="bi bi-credit-card-2-front" *ngIf="savedMethod.type === 'card'"></i>
+                        <i class="bi bi-cash-coin" *ngIf="savedMethod.type === 'cash'"></i>
+                      </div>
+                      <div class="saved-method-info">
+                        <span class="saved-method-name" *ngIf="savedMethod.type === 'card'">
+                          {{ savedMethod.brand }} •••• {{ savedMethod.last4 }}
+                        </span>
+                        <span class="saved-method-name" *ngIf="savedMethod.type === 'cash'">
+                          Efectivo
+                        </span>
+                        <span class="saved-method-badge" *ngIf="savedMethod.isDefault">Principal</span>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              <div *ngIf="selectedSavedMethod && paymentMethod === 'card'" class="use-new-card-option mt-3">
+                <button type="button" class="btn-link" (click)="useNewCard()">
+                  <i class="bi bi-plus-circle me-2"></i>
+                  Usar otra tarjeta
+                </button>
+              </div>
+            </div>
+
+            <div class="payment-methods">
+              <label class="payment-method-option" [class.active]="paymentMethod === 'cash' && !selectedSavedMethod">
+                <input type="radio" name="paymentMethod" value="cash" [(ngModel)]="paymentMethod" (change)="onPaymentMethodChange('cash')" />
+                <div class="option-content">
+                  <i class="bi bi-cash-coin"></i>
+                  <span>Efectivo</span>
+                </div>
+              </label>
+              <label class="payment-method-option" [class.active]="paymentMethod === 'card' && !useSavedCard">
+                <input type="radio" name="paymentMethod" value="card" [(ngModel)]="paymentMethod" (change)="onPaymentMethodChange('card')" />
+                <div class="option-content">
+                  <i class="bi bi-credit-card-2-front"></i>
+                  <span>Tarjeta Nueva</span>
+                </div>
+              </label>
+              <label class="payment-method-option" [class.active]="paymentMethod === 'nequi'">
+                <input type="radio" name="paymentMethod" value="nequi" [(ngModel)]="paymentMethod" (change)="onPaymentMethodChange('nequi')" />
+                <div class="option-content">
+                  <i class="bi bi-phone"></i>
+                  <span>Nequi</span>
+                </div>
+              </label>
+              <label class="payment-method-option" [class.active]="paymentMethod === 'daviplata'">
+                <input type="radio" name="paymentMethod" value="daviplata" [(ngModel)]="paymentMethod" (change)="onPaymentMethodChange('daviplata')" />
+                <div class="option-content">
+                  <i class="bi bi-wallet2"></i>
+                  <span>Daviplata</span>
+                </div>
+              </label>
+              <label class="payment-method-option" [class.active]="paymentMethod === 'transfer'">
+                <input type="radio" name="paymentMethod" value="transfer" [(ngModel)]="paymentMethod" (change)="onPaymentMethodChange('transfer')" />
+                <div class="option-content">
+                  <i class="bi bi-bank"></i>
+                  <span>Transferencia</span>
+                </div>
+              </label>
+            </div>
+
+            <!-- Indicador de Tarjeta Guardada -->
+            <div *ngIf="paymentMethod === 'card' && useSavedCard && selectedSavedMethod" class="saved-card-indicator mt-4">
+              <div class="saved-card-info">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>Usando tarjeta guardada: <strong>{{ getSelectedSavedCardInfo() }}</strong></span>
+              </div>
+            </div>
+
+            <!-- Formulario de Tarjeta (solo si es tarjeta y no usa tarjeta guardada) -->
+            <div *ngIf="paymentMethod === 'card' && !useSavedCard" class="card-form mt-4">
+              <form [formGroup]="paymentForm" class="payment-form">
+                <div class="form-group">
+                  <label for="cardNumber">Número de Tarjeta *</label>
+                  <input type="text" id="cardNumber" formControlName="cardNumber" class="form-control" placeholder="1234 5678 9012 3456" maxlength="19" (input)="formatCardNumber($event)" />
+                </div>
+                <div class="form-group">
+                  <label for="cardHolder">Titular de la Tarjeta *</label>
+                  <input type="text" id="cardHolder" formControlName="cardHolder" class="form-control" placeholder="Nombre completo" />
+                </div>
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label for="expiryDate">Fecha de Vencimiento *</label>
+                      <input type="text" id="expiryDate" formControlName="expiryDate" class="form-control" placeholder="MM/AA" maxlength="5" (input)="formatExpiryDate($event)" />
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label for="cvv">CVV *</label>
+                      <input type="text" id="cvv" formControlName="cvv" class="form-control" placeholder="123" maxlength="4" />
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <!-- Información de pago digital (Nequi/Daviplata) -->
+            <div *ngIf="paymentMethod === 'nequi' || paymentMethod === 'daviplata'" class="digital-payment-info mt-4">
+              <div class="payment-info-card" *ngIf="showPaymentInfo; else paymentInfoPending">
+                <div class="payment-info-header">
+                  <div class="payment-icon-wrapper">
+                    <i class="bi" [ngClass]="paymentMethod === 'nequi' ? 'bi-phone' : 'bi-wallet2'"></i>
+                  </div>
+                  <div>
+                    <h4 class="payment-title">Pago con {{ getPaymentMethodName(paymentMethod) }}</h4>
+                    <p class="payment-subtitle">Usa el siguiente enlace o código para realizar tu pago</p>
+                  </div>
+                </div>
+
+                <div class="payment-details">
+                  <div class="payment-link-section">
+                    <label class="payment-label">Enlace de Pago</label>
+                    <div class="payment-link-container">
+                      <input type="text" [value]="paymentLink" readonly class="payment-link-input" />
+                      <button class="btn-copy" (click)="copyToClipboard(paymentLink, 'Enlace')" title="Copiar enlace">
+                        <i class="bi bi-clipboard"></i>
+                      </button>
+                      <button class="btn-open-link" (click)="openPaymentLink()" title="Abrir enlace">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="payment-code-section">
+                    <label class="payment-label">Código de Pago</label>
+                    <div class="payment-code-container">
+                      <span class="payment-code">{{ paymentCode }}</span>
+                      <button class="btn-copy" (click)="copyToClipboard(paymentCode, 'Código')" title="Copiar código">
+                        <i class="bi bi-clipboard"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="payment-reference-section">
+                    <label class="payment-label">Referencia</label>
+                    <div class="payment-reference-container">
+                      <span class="payment-reference">{{ paymentReference }}</span>
+                      <button class="btn-copy" (click)="copyToClipboard(paymentReference, 'Referencia')" title="Copiar referencia">
+                        <i class="bi bi-clipboard"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="payment-instructions">
+                  <i class="bi bi-info-circle"></i>
+                  <p>Guarda esta información. Recibirás también un correo electrónico con estos datos.</p>
+                </div>
+              </div>
+
+              <ng-template #paymentInfoPending>
+                <div class="payment-info-pending">
+                  <i class="bi bi-info-circle"></i>
+                  <p>Al confirmar tu pedido, recibirás un enlace y código para realizar el pago por {{ getPaymentMethodName(paymentMethod) }}.</p>
+                </div>
+              </ng-template>
+            </div>
+
+            <!-- Información de transferencia -->
+            <div *ngIf="paymentMethod === 'transfer'" class="transfer-info mt-4">
+              <div class="payment-info-card" *ngIf="showPaymentInfo; else transferInfoPending">
+                <div class="payment-info-header">
+                  <div class="payment-icon-wrapper">
+                    <i class="bi bi-bank"></i>
+                  </div>
+                  <div>
+                    <h4 class="payment-title">Transferencia Bancaria</h4>
+                    <p class="payment-subtitle">Realiza la transferencia con los siguientes datos</p>
+                  </div>
+                </div>
+
+                <div class="bank-details" *ngIf="bankAccount">
+                  <div class="bank-detail-row">
+                    <span class="bank-label">Banco:</span>
+                    <span class="bank-value">{{ bankAccount.bank }}</span>
+                  </div>
+                  <div class="bank-detail-row">
+                    <span class="bank-label">Tipo de Cuenta:</span>
+                    <span class="bank-value">{{ bankAccount.accountType }}</span>
+                  </div>
+                  <div class="bank-detail-row">
+                    <span class="bank-label">Número de Cuenta:</span>
+                    <div class="bank-value-container">
+                      <span class="bank-value">{{ bankAccount.accountNumber }}</span>
+                      <button class="btn-copy" (click)="copyToClipboard(bankAccount.accountNumber, 'Número de cuenta')" title="Copiar número de cuenta">
+                        <i class="bi bi-clipboard"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="bank-detail-row">
+                    <span class="bank-label">Titular:</span>
+                    <span class="bank-value">{{ bankAccount.accountHolder }}</span>
+                  </div>
+                  <div class="bank-detail-row">
+                    <span class="bank-label">NIT:</span>
+                    <span class="bank-value">{{ bankAccount.nit }}</span>
+                  </div>
+                  <div class="bank-detail-row highlight">
+                    <span class="bank-label">Referencia de Pago:</span>
+                    <div class="bank-value-container">
+                      <span class="bank-value reference-value">{{ bankAccount.reference }}</span>
+                      <button class="btn-copy" (click)="copyToClipboard(bankAccount.reference, 'Referencia')" title="Copiar referencia">
+                        <i class="bi bi-clipboard"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="payment-instructions">
+                  <i class="bi bi-info-circle"></i>
+                  <p><strong>Importante:</strong> Usa la referencia de pago al realizar la transferencia. Recibirás un correo de confirmación.</p>
+                </div>
+              </div>
+
+              <ng-template #transferInfoPending>
+                <div class="payment-info-pending">
+                  <i class="bi bi-info-circle"></i>
+                  <p>Al confirmar tu pedido, recibirás los datos bancarios para realizar la transferencia.</p>
+                </div>
+              </ng-template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Resumen del Pedido -->
+      <div class="col-lg-5">
+        <div class="checkout-summary">
+          <h3 class="summary-title">Resumen del Pedido</h3>
+
+          <!-- Items del Carrito -->
+          <div class="summary-items">
+            <div *ngFor="let item of cartItems$ | async" class="summary-item">
+              <div class="item-info">
+                <span class="item-name">{{ item.productName }} x{{ item.quantity }}</span>
+                <span class="item-price">{{ item.totalPrice | currency:'COP':'symbol':'1.0-0' }}</span>
+              </div>
+              <div *ngIf="item.selectedOptions && item.selectedOptions.length > 0" class="item-options">
+                <small *ngFor="let option of item.selectedOptions">{{ option.name }}</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Totales -->
+          <div class="summary-totals">
+            <div class="total-row">
+              <span>Subtotal:</span>
+              <span>{{ subtotal | currency:'COP':'symbol':'1.0-0' }}</span>
+            </div>
+            <div class="total-row" *ngIf="additionalFees > 0">
+              <span>
+                <span *ngIf="orderType === 'pickup'">Desechables:</span>
+                <span *ngIf="orderType === 'delivery'">Domicilio:</span>
+              </span>
+              <span>{{ additionalFees | currency:'COP':'symbol':'1.0-0' }}</span>
+            </div>
+            <div class="total-row final">
+              <span>Total a Pagar:</span>
+              <span>{{ total | currency:'COP':'symbol':'1.0-0' }}</span>
+            </div>
+          </div>
+
+          <!-- Botón de Confirmar -->
+          <button
+            class="btn-confirm-order"
+            (click)="proceedToPayment()"
+            [disabled]="isLoading || (orderType === 'delivery' && !useSavedAddress && deliveryForm.invalid) || (paymentMethod === 'card' && !useSavedCard && paymentForm.invalid)">
+            <span *ngIf="!isLoading">
+              <i class="bi" [ngClass]="showPaymentInfo && (paymentMethod === 'nequi' || paymentMethod === 'daviplata' || paymentMethod === 'transfer') ? 'bi-check-circle-fill' : 'bi-check-circle'"></i>
+              <ng-container *ngIf="showPaymentInfo && (paymentMethod === 'nequi' || paymentMethod === 'daviplata' || paymentMethod === 'transfer'); else confirmOrderText">
+                Ya realicé el pago - Confirmar Pedido
+              </ng-container>
+              <ng-template #confirmOrderText>
+                Confirmar Pedido
+              </ng-template>
+            </span>
+            <span *ngIf="isLoading">
+              <i class="bi bi-hourglass-split me-2"></i>
+              Procesando...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
