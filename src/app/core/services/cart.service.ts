@@ -74,3 +74,5 @@ export class CartService {
     return basePrice + optionsPrice;
   }
 }
+
+export { CartItem };
