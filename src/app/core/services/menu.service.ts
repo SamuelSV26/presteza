@@ -1,9 +1,11 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { catchError, map, tap } from 'rxjs/operators';
+import { Observable, of, forkJoin } from 'rxjs';
+import { catchError, map, tap, switchMap } from 'rxjs/operators';
 import { MenuCategory } from '../models/MenuCategory';
-import { MenuItem } from '../models/MenuItem';
+import { MenuItem, ProductSupply } from '../models/MenuItem';
+import { SupplyService } from './supply.service';
+import { Supply } from '../models/Supply';
 
 
 
@@ -14,8 +16,14 @@ import { MenuItem } from '../models/MenuItem';
 })
 export class MenuService {
   private apiUrl = 'http://localhost:4000';
+  private suppliesCache: Supply[] = [];
+  private suppliesCacheTime: number = 0;
+  private cacheTimeout = 30000; // 30 segundos
 
-  constructor(private http: HttpClient) { }
+  constructor(
+    private http: HttpClient,
+    private supplyService?: SupplyService
+  ) { }
 
   // NOTA: Los datos locales están comentados - TODO debe venir de la base de datos
   // Estos arrays solo se mantienen como referencia pero NO se usan como fallback
@@ -561,7 +569,7 @@ export class MenuService {
     // Usar el endpoint específico del backend para obtener platos por categoría
     // El backend puede esperar el ID de MongoDB o el nombre de la categoría
     return this.http.get<any>(`${this.apiUrl}/dishes/category/${categoryId}`).pipe(
-      map(response => {
+      switchMap(response => {
         // El backend puede devolver { message, dishes } o directamente un array
         const dishes = response.dishes || response || [];
         console.log(`✅ Respuesta del backend:`, response);
@@ -569,7 +577,7 @@ export class MenuService {
 
         if (!Array.isArray(dishes)) {
           console.error('❌ La respuesta no es un array:', dishes);
-          return [];
+          return of([]);
         }
 
         // Si es la categoría de hamburguesas, buscar hamburguesas vegetarianas
@@ -599,7 +607,14 @@ export class MenuService {
           })
           .filter((item: MenuItem | null) => item !== null) as MenuItem[];
         console.log(`📦 Productos mapeados:`, mappedItems);
-        return mappedItems;
+        
+        // Verificar disponibilidad basada en stock de insumos
+        return this.getSupplies().pipe(
+          map(supplies => {
+            const checkedItems = this.checkProductsAvailability(mappedItems, supplies);
+            return checkedItems;
+          })
+        );
       }),
       catchError(error => {
         console.error(`❌ Error al obtener productos del backend por categoría ${categoryId}:`, error);
@@ -622,13 +637,20 @@ export class MenuService {
     console.log('🔍 Obteniendo producto por ID:', idString, '(tipo:', typeof id, ')');
 
     return this.http.get<any>(`${this.apiUrl}/dishes/${idString}`).pipe(
-      map(response => {
+      switchMap(response => {
         // El backend puede devolver { message, dish } o directamente el objeto
         const dish = response.dish || response;
         console.log('📦 Respuesta del backend para producto:', dish);
         const mappedItem = this.mapDishToMenuItem(dish);
         console.log('✅ Producto mapeado:', mappedItem);
-        return mappedItem;
+        
+        // Verificar disponibilidad basada en stock de insumos
+        return this.getSupplies().pipe(
+          map(supplies => {
+            const checkedItem = this.checkProductAvailability(mappedItem, supplies);
+            return checkedItem;
+          })
+        );
       }),
       catchError(error => {
         console.error('❌ Error al obtener producto del backend:', error);
@@ -649,15 +671,96 @@ export class MenuService {
    * Obtiene todos los platos desde el backend (sin filtros)
    * Útil para el panel de administración
    */
+  /**
+   * Obtener insumos con caché
+   */
+  private getSupplies(): Observable<Supply[]> {
+    const now = Date.now();
+    if (this.suppliesCache.length > 0 && (now - this.suppliesCacheTime) < this.cacheTimeout) {
+      return of(this.suppliesCache);
+    }
+
+    if (!this.supplyService) {
+      return of([]);
+    }
+
+    return this.supplyService.findAll().pipe(
+      map(response => {
+        this.suppliesCache = response.supplies || [];
+        this.suppliesCacheTime = now;
+        return this.suppliesCache;
+      }),
+      catchError(() => of([]))
+    );
+  }
+
+  /**
+   * Verificar disponibilidad de producto basada en stock de insumos
+   */
+  private checkProductAvailability(product: MenuItem, supplies: Supply[]): MenuItem {
+    if (!product.supplies || product.supplies.length === 0) {
+      // Si no tiene insumos asociados, mantener disponibilidad original
+      return { ...product, stockStatus: 'available' };
+    }
+
+    const unavailableSupplies: string[] = [];
+    let hasLowStock = false;
+
+    for (const productSupply of product.supplies) {
+      const supply = supplies.find(s => (s._id || s.id) === productSupply.supplyId);
+      
+      if (!supply) {
+        // Insumo no encontrado, considerar como agotado
+        unavailableSupplies.push(productSupply.supplyId);
+        continue;
+      }
+
+      if (supply.quantity === 0) {
+        unavailableSupplies.push(productSupply.supplyId);
+      } else if (supply.quantity < productSupply.quantityRequired) {
+        unavailableSupplies.push(productSupply.supplyId);
+      } else if (supply.quantity < (productSupply.quantityRequired * 2)) {
+        // Stock bajo si tiene menos del doble de lo requerido
+        hasLowStock = true;
+      }
+    }
+
+    let stockStatus: 'available' | 'low_stock' | 'out_of_stock' = 'available';
+    let available = product.available;
+
+    if (unavailableSupplies.length > 0) {
+      stockStatus = 'out_of_stock';
+      available = false;
+    } else if (hasLowStock) {
+      stockStatus = 'low_stock';
+      // Mantener disponible pero con advertencia
+    }
+
+    return {
+      ...product,
+      available,
+      stockStatus,
+      unavailableSupplies: unavailableSupplies.length > 0 ? unavailableSupplies : undefined
+    };
+  }
+
+  /**
+   * Verificar disponibilidad de múltiples productos
+   */
+  private checkProductsAvailability(products: MenuItem[], supplies: Supply[]): MenuItem[] {
+    return products.map(product => this.checkProductAvailability(product, supplies));
+  }
+
   getAllDishes(): Observable<MenuItem[]> {
     console.log('🔍 Obteniendo todos los platos desde el backend...');
     return this.http.get<any>(`${this.apiUrl}/dishes`).pipe(
-      map(response => {
+      switchMap(response => {
         // El backend puede devolver { message, dishes } o directamente un array
         const dishes = response.dishes || response || [];
+        
         if (!Array.isArray(dishes)) {
           console.error('❌ La respuesta no es un array:', dishes);
-          return [];
+          return of([]);
         }
 
         console.log('📦 Total de productos recibidos del backend:', dishes.length, 'productos');
@@ -675,7 +778,15 @@ export class MenuService {
           .filter((item: MenuItem | null) => item !== null) as MenuItem[];
 
         console.log('✅ Productos mapeados exitosamente:', menuItems.length, 'productos');
-        return menuItems;
+        
+        // Verificar disponibilidad basada en stock de insumos
+        return this.getSupplies().pipe(
+          map(supplies => {
+            const checkedItems = this.checkProductsAvailability(menuItems, supplies);
+            console.log('✅ Disponibilidad verificada basada en stock de insumos');
+            return checkedItems;
+          })
+        );
       }),
       catchError(error => {
         console.error('❌ Error al obtener todos los platos del backend:', error);
@@ -687,12 +798,12 @@ export class MenuService {
   getFeaturedItems(): Observable<MenuItem[]> {
     // Retornar productos destacados/populares desde el backend
     return this.http.get<any>(`${this.apiUrl}/dishes`).pipe(
-      map(response => {
+      switchMap(response => {
         // El backend puede devolver { message, dishes } o directamente un array
         const dishes = response.dishes || response || [];
         if (!Array.isArray(dishes)) {
           console.error('❌ La respuesta de productos destacados no es un array:', dishes);
-          return [];
+          return of([]);
         }
 
         console.log('📦 Productos recibidos del backend:', dishes.length, 'productos');
@@ -721,30 +832,37 @@ export class MenuService {
           })
           .filter((item: MenuItem | null) => item !== null) as MenuItem[];
 
-        // Filtrar productos destacados (puedes ajustar la lógica según tu backend)
-        // Por ahora, tomamos los primeros 3 productos disponibles
-        // Excluir productos específicos que no deben aparecer
-        const filteredItems = menuItems.filter((item: MenuItem) => {
-          if (item.available === false) return false;
-          const nameLower = item.name?.toLowerCase() || '';
+        // Verificar disponibilidad basada en stock de insumos
+        return this.getSupplies().pipe(
+          map(supplies => {
+            const checkedItems = this.checkProductsAvailability(menuItems, supplies);
+            
+            // Filtrar productos destacados (puedes ajustar la lógica según tu backend)
+            // Por ahora, tomamos los primeros 3 productos disponibles
+            // Excluir productos específicos que no deben aparecer
+            const filteredItems = checkedItems.filter((item: MenuItem) => {
+              if (item.available === false) return false;
+              const nameLower = item.name?.toLowerCase() || '';
 
-          // Excluir "Hamburguesa Doble BBQ"
-          if (nameLower.includes('bbq') && nameLower.includes('doble')) {
-            console.warn('⚠️ Producto "Hamburguesa Doble BBQ" detectado y excluido:', item.name);
-            return false;
-          }
+              // Excluir "Hamburguesa Doble BBQ"
+              if (nameLower.includes('bbq') && nameLower.includes('doble')) {
+                console.warn('⚠️ Producto "Hamburguesa Doble BBQ" detectado y excluido:', item.name);
+                return false;
+              }
 
-          // Excluir "Hamburguesa Vegetariana" si no está en la BD
-          if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) {
-            console.warn('⚠️ Producto "Hamburguesa Vegetariana" detectado y excluido:', item.name);
-            return false;
-          }
+              // Excluir "Hamburguesa Vegetariana" si no está en la BD
+              if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) {
+                console.warn('⚠️ Producto "Hamburguesa Vegetariana" detectado y excluido:', item.name);
+                return false;
+              }
 
-          return true;
-        });
+              return true;
+            });
 
-        console.log('✅ Productos filtrados para destacados:', filteredItems.length, 'productos');
-        return filteredItems.slice(0, 10); // Retornar más productos para tener opciones en recomendaciones
+            console.log('✅ Productos filtrados para destacados:', filteredItems.length, 'productos');
+            return filteredItems.slice(0, 10); // Retornar más productos para tener opciones en recomendaciones
+          })
+        );
       }),
       catchError(error => {
         console.error('Error al obtener productos destacados del backend, usando datos locales:', error);
@@ -770,6 +888,15 @@ export class MenuService {
 
     // Obtener el ID del plato de forma segura
     const dishId = dish.id || dish._id;
+    
+    // Mapear supplies si existen
+    let supplies: ProductSupply[] | undefined;
+    if (dish.supplies && Array.isArray(dish.supplies)) {
+      supplies = dish.supplies.map((s: any) => ({
+        supplyId: s.supplyId || s.supply_id || s._id || s.id,
+        quantityRequired: s.quantityRequired || s.quantity_required || s.quantity || 1
+      }));
+    }
 
     // Si es un ObjectId de MongoDB (24 caracteres hexadecimales), mantenerlo como string
     // Si es un número o un string numérico corto, convertirlo a número
@@ -840,7 +967,9 @@ export class MenuService {
       available: dish.available !== undefined ? Boolean(dish.available) : (dish.disponible !== undefined ? Boolean(dish.disponible) : true),
       categoryId: categoryId,
       // Las opciones mapeadas
-      options: mappedOptions
+      options: mappedOptions,
+      // Insumos requeridos
+      supplies: supplies
     };
   }
 

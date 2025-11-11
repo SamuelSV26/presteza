@@ -32,6 +32,18 @@
         <div class="product-header">
           <h1 class="product-title">{{ product.name }}</h1>
           <p class="product-description">{{ product.description }}</p>
+          
+          <!-- Stock Status Badge -->
+          <div class="stock-status-badges" *ngIf="product.stockStatus">
+            <span *ngIf="product.stockStatus === 'out_of_stock' || !product.available" class="badge bg-danger">
+              <i class="bi bi-x-circle me-1"></i>
+              No disponible - Faltan insumos
+            </span>
+            <span *ngIf="product.stockStatus === 'low_stock' && product.available" class="badge bg-warning text-dark">
+              <i class="bi bi-exclamation-triangle me-1"></i>
+              Stock bajo - Disponible por tiempo limitado
+            </span>
+          </div>
 
           <!-- Rating -->
           <div class="rating-section">

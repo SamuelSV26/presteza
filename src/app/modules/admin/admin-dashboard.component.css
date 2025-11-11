@@ -1449,6 +1449,152 @@
   font-size: 1.1rem !important;
 }
 
+/* Inventario */
+.supplies-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.supply-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(107, 29, 61, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.supply-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(107, 29, 61, 0.15);
+  border-color: rgba(107, 29, 61, 0.2);
+}
+
+.supply-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(107, 29, 61, 0.1);
+}
+
+.supply-info {
+  flex: 1;
+}
+
+.supply-name {
+  color: #6b1d3d;
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+}
+
+.supply-description {
+  color: #666;
+  font-size: 0.95rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.stock-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.stock-badge.stock-ok {
+  background: linear-gradient(135deg, #28a745 0%, #34ce57 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+.stock-badge.stock-low {
+  background: linear-gradient(135deg, #ffc107 0%, #ffd54f 100%);
+  color: #856404;
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+}
+
+.stock-badge.stock-out {
+  background: linear-gradient(135deg, #dc3545 0%, #e85d6d 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.supply-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.supply-details .detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.supply-details .detail-label {
+  font-weight: 600;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.supply-details .detail-value {
+  font-weight: 700;
+  color: #333;
+  font-size: 1rem;
+}
+
+.supply-details .detail-value.stock-ok {
+  color: #28a745;
+}
+
+.supply-details .detail-value.stock-low {
+  color: #ffc107;
+}
+
+.supply-details .detail-value.stock-out {
+  color: #dc3545;
+}
+
+.supply-details .detail-value.total-value {
+  font-size: 1.2rem;
+  background: linear-gradient(135deg, #6b1d3d 0%, #8b2d4f 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.supply-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(107, 29, 61, 0.1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
 /* Categorías */
 .categories-grid {
   display: grid;

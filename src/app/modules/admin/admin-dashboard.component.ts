@@ -11,6 +11,8 @@ import { MenuService } from '../../core/services/menu.service';
 import { UserService } from '../../core/services/user.service';
 import { OrderService } from '../../core/services/order.service';
 import { OrderFromBackend } from '../../core/models/OrderResponse';
+import { SupplyService } from '../../core/services/supply.service';
+import { Supply, CreateSupplyDto, UpdateSupplyDto } from '../../core/models/Supply';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -20,7 +22,7 @@ import { OrderFromBackend } from '../../core/models/OrderResponse';
   styleUrls: ['./admin-dashboard.component.css']
 })
 export class AdminDashboardComponent implements OnInit {
-  activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' = 'dashboard';
+  activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' = 'dashboard';
 
   // Estadísticas
   stats = {
@@ -49,6 +51,14 @@ export class AdminDashboardComponent implements OnInit {
   showOrderDetailsModal = false;
   showUnavailableModal = false;
   selectedItemForUnavailable: { order: Order; item: any; itemIndex: number } | null = null;
+
+  // Inventario
+  supplies: Supply[] = [];
+  selectedSupply: Supply | null = null;
+  showSupplyModal = false;
+  supplyForm: FormGroup;
+  supplyFilter: 'all' | 'low' | 'out' = 'all';
+  lowStockThreshold = 10;
 
   // Filtros
   orderFilter: 'all' | 'pending' | 'preparing' | 'ready' | 'delivered' = 'all';
@@ -81,6 +91,7 @@ export class AdminDashboardComponent implements OnInit {
     private menuService: MenuService,
     private userService: UserService,
     private orderService: OrderService,
+    private supplyService: SupplyService,
     private authService: AuthService,
     private router: Router,
     private fb: FormBuilder,
@@ -113,6 +124,13 @@ export class AdminDashboardComponent implements OnInit {
     this.categoryForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       description: ['', [Validators.required, Validators.minLength(5)]]
+    });
+
+    this.supplyForm = this.fb.group({
+      name: ['', [Validators.required, Validators.minLength(3)]],
+      description: ['', [Validators.required, Validators.minLength(10)]],
+      unit_price: [0, [Validators.required, Validators.min(0)]],
+      quantity: [0, [Validators.required, Validators.min(0)]]
     });
   }
 
@@ -173,19 +191,53 @@ export class AdminDashboardComponent implements OnInit {
   calculateStats(): void {
     this.stats.totalOrders = this.orders.length;
     this.stats.pendingOrders = this.orders.filter(o => o.status === 'pending' || o.status === 'preparing').length;
-    this.stats.totalRevenue = this.orders
-      .filter(o => o.status === 'delivered')
-      .reduce((sum, order) => sum + order.total, 0);
-    this.stats.totalCustomers = new Set(this.orders.map(o => o.id)).size;
+    
+    // Calcular ingresos totales: Sumar TODOS los pedidos que no estén cancelados
+    // Esto incluye: pending, preparing, ready, delivered
+    // Solo excluimos 'cancelled' porque esos no generan ingresos
+    const revenueOrders = this.orders.filter(o => o.status !== 'cancelled');
+    
+    this.stats.totalRevenue = revenueOrders.reduce((sum, order) => {
+      const orderTotal = Number(order.total) || 0;
+      if (orderTotal > 0) {
+        console.log(`💰 Sumando pedido ${order.id.slice(-8)}: estado=${order.status}, total=$${orderTotal.toLocaleString()}`);
+      }
+      return sum + orderTotal;
+    }, 0);
+    
+    // Calcular total de productos activos
+    this.stats.totalProducts = this.products.filter(p => p.available !== false).length;
+    
+    // Calcular total de clientes únicos
+    const uniqueUserIds = new Set(this.orders.map(o => {
+      // Intentar obtener userId de diferentes formas
+      if (o.userName) return o.userName;
+      if (o.deliveryPhone) return o.deliveryPhone;
+      return o.id;
+    }));
+    this.stats.totalCustomers = uniqueUserIds.size;
+    
+    console.log('📊 Estadísticas calculadas:', {
+      totalOrders: this.stats.totalOrders,
+      pendingOrders: this.stats.pendingOrders,
+      totalRevenue: this.stats.totalRevenue,
+      totalProducts: this.stats.totalProducts,
+      totalCustomers: this.stats.totalCustomers,
+      revenueOrdersCount: revenueOrders.length
+    });
   }
 
-  setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings'): void {
-    this.activeTab = tab;
-    // Recargar pedidos cuando se cambia a la pestaña de pedidos
-    if (tab === 'orders') {
-      this.loadOrders();
-    }
-  }
+      setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory'): void {
+        this.activeTab = tab;
+        // Recargar pedidos cuando se cambia a la pestaña de pedidos
+        if (tab === 'orders') {
+          this.loadOrders();
+        }
+        // Recargar inventario cuando se cambia a la pestaña de inventario
+        if (tab === 'inventory') {
+          this.loadSupplies();
+        }
+      }
 
   // Gestión de Productos
   openProductModal(product?: MenuItem): void {
@@ -393,6 +445,8 @@ export class AdminDashboardComponent implements OnInit {
     this.orderService.findAll().subscribe({
       next: (response) => {
         console.log('✅ Pedidos cargados desde el backend:', response);
+        console.log('📦 Total de pedidos recibidos:', response.orders?.length || 0);
+        
         // Mapear pedidos del backend al formato del frontend
         this.orders = response.orders.map(backendOrder => this.mapBackendOrderToFrontend(backendOrder));
         
@@ -408,6 +462,10 @@ export class AdminDashboardComponent implements OnInit {
           return String(b.id).localeCompare(String(a.id));
         });
         
+        console.log('📊 Pedidos mapeados y ordenados:', this.orders.length);
+        console.log('💰 Totales de pedidos:', this.orders.map(o => ({ id: o.id.slice(-8), total: o.total, status: o.status })));
+        
+        // Recalcular estadísticas después de cargar pedidos
         this.calculateStats();
       },
       error: (error) => {
@@ -484,12 +542,32 @@ export class AdminDashboardComponent implements OnInit {
       });
     }
 
+    // Mapear estado del backend
+    const mappedStatus = this.mapBackendStatusToFrontend(backendOrder.status);
+    
+    // Si el pedido detallado tiene estado 'delivered', mantenerlo
+    const finalStatus = detailedOrder?.status === 'delivered' 
+      ? 'delivered' 
+      : mappedStatus;
+    
+    // Asegurar que el total venga del backend o del pedido detallado
+    const orderTotal = backendOrder.total || detailedOrder?.total || 0;
+    
+    console.log(`🔄 Mapeando pedido ${orderId}:`, {
+      backendStatus: backendOrder.status,
+      mappedStatus: mappedStatus,
+      finalStatus: finalStatus,
+      backendTotal: backendOrder.total,
+      detailedTotal: detailedOrder?.total,
+      finalTotal: orderTotal
+    });
+    
     return {
       id: orderId,
       date: backendOrder.createdAt ? new Date(backendOrder.createdAt) : new Date(),
       items: orderItems,
-      total: backendOrder.total,
-      status: this.mapBackendStatusToFrontend(backendOrder.status),
+      total: orderTotal,
+      status: finalStatus,
       paymentMethod: backendOrder.payment_method,
       trackingCode: orderId.substring(0, 8).toUpperCase(),
       // Información del backend
@@ -499,8 +577,8 @@ export class AdminDashboardComponent implements OnInit {
       deliveryNeighborhood: detailedOrder?.deliveryNeighborhood,
       deliveryPhone: detailedOrder?.deliveryPhone,
       orderType: detailedOrder?.orderType,
-      subtotal: detailedOrder?.subtotal,
-      additionalFees: detailedOrder?.additionalFees,
+      subtotal: detailedOrder?.subtotal || orderTotal,
+      additionalFees: detailedOrder?.additionalFees || 0,
     };
   }
 
@@ -889,6 +967,136 @@ export class AdminDashboardComponent implements OnInit {
   logout(): void {
     // Usar el método logout del AuthService que limpia todo correctamente
     this.authService.logout();
+  }
+
+  // Gestión de Inventario
+  loadSupplies(): void {
+    switch (this.supplyFilter) {
+      case 'low':
+        this.supplyService.getLowStock(this.lowStockThreshold).subscribe({
+          next: (response) => {
+            this.supplies = response.supplies;
+          },
+          error: (error) => {
+            console.error('Error al cargar insumos con stock bajo:', error);
+            this.notificationService.showError('Error al cargar el inventario');
+          }
+        });
+        break;
+      case 'out':
+        this.supplyService.getOutOfStock().subscribe({
+          next: (response) => {
+            this.supplies = response.supplies;
+          },
+          error: (error) => {
+            console.error('Error al cargar insumos agotados:', error);
+            this.notificationService.showError('Error al cargar el inventario');
+          }
+        });
+        break;
+      default:
+        this.supplyService.findAll().subscribe({
+          next: (response) => {
+            this.supplies = response.supplies;
+          },
+          error: (error) => {
+            console.error('Error al cargar inventario:', error);
+            this.notificationService.showError('Error al cargar el inventario');
+          }
+        });
+        break;
+    }
+  }
+
+  openSupplyModal(supply?: Supply): void {
+    this.selectedSupply = supply || null;
+    if (supply) {
+      this.supplyForm.patchValue({
+        name: supply.name,
+        description: supply.description,
+        unit_price: supply.unit_price,
+        quantity: supply.quantity
+      });
+    } else {
+      this.supplyForm.reset({
+        unit_price: 0,
+        quantity: 0
+      });
+    }
+    this.showSupplyModal = true;
+  }
+
+  closeSupplyModal(): void {
+    this.showSupplyModal = false;
+    this.selectedSupply = null;
+    this.supplyForm.reset();
+  }
+
+  saveSupply(): void {
+    if (this.supplyForm.valid) {
+      const formValue = this.supplyForm.value;
+      const supplyData: CreateSupplyDto | UpdateSupplyDto = {
+        name: formValue.name.trim(),
+        description: formValue.description.trim(),
+        unit_price: Number(formValue.unit_price),
+        quantity: Number(formValue.quantity)
+      };
+
+      if (this.selectedSupply) {
+        // Actualizar insumo existente
+        this.supplyService.update(this.selectedSupply._id || this.selectedSupply.id || '', supplyData).subscribe({
+          next: () => {
+            this.notificationService.showSuccess('Insumo actualizado correctamente');
+            this.closeSupplyModal();
+            this.loadSupplies();
+          },
+          error: (error) => {
+            console.error('Error al actualizar insumo:', error);
+            this.notificationService.showError(error.message || 'Error al actualizar el insumo.');
+          }
+        });
+      } else {
+        // Crear nuevo insumo
+        this.supplyService.create(supplyData as CreateSupplyDto).subscribe({
+          next: () => {
+            this.notificationService.showSuccess('Insumo creado correctamente');
+            this.closeSupplyModal();
+            this.loadSupplies();
+          },
+          error: (error) => {
+            console.error('Error al crear insumo:', error);
+            this.notificationService.showError(error.message || 'Error al crear el insumo.');
+          }
+        });
+      }
+    }
+  }
+
+  deleteSupply(id: string): void {
+    if (confirm('¿Estás seguro de que quieres eliminar este insumo?')) {
+      this.supplyService.remove(id).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Insumo eliminado correctamente');
+          this.loadSupplies();
+        },
+        error: (error) => {
+          console.error('Error al eliminar insumo:', error);
+          this.notificationService.showError(error.message || 'Error al eliminar el insumo.');
+        }
+      });
+    }
+  }
+
+  getStockStatusClass(quantity: number): string {
+    if (quantity === 0) return 'stock-out';
+    if (quantity < this.lowStockThreshold) return 'stock-low';
+    return 'stock-ok';
+  }
+
+  getStockStatusText(quantity: number): string {
+    if (quantity === 0) return 'Agotado';
+    if (quantity < this.lowStockThreshold) return 'Stock Bajo';
+    return 'Disponible';
   }
 }
 

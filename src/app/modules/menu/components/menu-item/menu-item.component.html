@@ -28,6 +28,15 @@
       <span class="badge bg-primary price-badge">{{ price | currency:'COP':'symbol':'1.0-0' }}</span>
     </div>
     <p class="card-text">{{ description }}</p>
-    <span *ngIf="!available" class="badge bg-danger">No disponible</span>
+    <div class="availability-badges">
+      <span *ngIf="!available || stockStatus === 'out_of_stock'" class="badge bg-danger">
+        <i class="bi bi-x-circle me-1"></i>
+        No disponible
+      </span>
+      <span *ngIf="available && stockStatus === 'low_stock'" class="badge bg-warning text-dark">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        Stock bajo
+      </span>
+    </div>
   </div>
 </div>

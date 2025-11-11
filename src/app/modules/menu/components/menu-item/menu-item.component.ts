@@ -19,6 +19,7 @@ export class MenuItemComponent implements OnInit, OnChanges {
   @Input() imageUrl: string | undefined = '';
   @Input() available: boolean = true;
   @Input() dishId: number | string = 0;
+  @Input() stockStatus?: 'available' | 'low_stock' | 'out_of_stock';
   @Output() favoriteClick = new EventEmitter<{ dishId: number | string; action: 'add' | 'remove' | 'login' }>();
   
   isFavorite$: Observable<boolean> = new Observable();
