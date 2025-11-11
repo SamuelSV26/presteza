@@ -128,9 +128,9 @@
               </thead>
               <tbody>
                 <tr *ngFor="let order of orders.slice(0, 5)">
-                  <td>{{ order.id }}</td>
+                  <td>{{ order.id.slice(-8) }}</td>
                   <td>{{ formatDate(order.date) }}</td>
-                  <td>{{ order.deliveryAddress || 'N/A' }}</td>
+                  <td>{{ order.deliveryPhone || order.deliveryAddress || 'N/A' }}</td>
                   <td>${{ order.total | number }}</td>
                   <td>
                     <span class="status-badge" [ngClass]="getOrderStatusClass(order.status)">
@@ -138,7 +138,7 @@
                     </span>
                   </td>
                   <td>
-                    <button class="btn-icon-small" (click)="selectedOrder = order">
+                    <button class="btn-icon-small" (click)="selectedOrder = order; setActiveTab('orders')">
                       <i class="bi bi-eye"></i>
                     </button>
                   </td>
@@ -282,50 +282,147 @@
           <h2 class="section-title">Gestión de Pedidos</h2>
         </div>
 
-        <!-- Filtros -->
+        <!-- Filtros y Controles -->
         <div class="filters-section">
-          <div class="filter-tabs">
-            <button class="filter-tab" [class.active]="orderFilter === 'all'" (click)="orderFilter = 'all'">
-              Todos ({{ orders.length }})
-            </button>
-            <button class="filter-tab" [class.active]="orderFilter === 'pending'" (click)="orderFilter = 'pending'">
-              Pendientes ({{ pendingOrdersCount }})
-            </button>
-            <button class="filter-tab" [class.active]="orderFilter === 'preparing'" (click)="orderFilter = 'preparing'">
-              En Preparación ({{ preparingOrdersCount }})
-            </button>
-            <button class="filter-tab" [class.active]="orderFilter === 'ready'" (click)="orderFilter = 'ready'">
-              Listos ({{ readyOrdersCount }})
-            </button>
-            <button class="filter-tab" [class.active]="orderFilter === 'delivered'" (click)="orderFilter = 'delivered'">
-              Entregados ({{ deliveredOrdersCount }})
-            </button>
+          <div class="filters-top-row">
+            <div class="filter-tabs">
+              <button class="filter-tab" [class.active]="orderFilter === 'all'" (click)="orderFilter = 'all'">
+                Todos ({{ orders.length }})
+              </button>
+              <button class="filter-tab" [class.active]="orderFilter === 'pending'" (click)="orderFilter = 'pending'">
+                Pendientes ({{ pendingOrdersCount }})
+              </button>
+              <button class="filter-tab" [class.active]="orderFilter === 'preparing'" (click)="orderFilter = 'preparing'">
+                En Preparación ({{ preparingOrdersCount }})
+              </button>
+              <button class="filter-tab" [class.active]="orderFilter === 'ready'" (click)="orderFilter = 'ready'">
+                Listos ({{ readyOrdersCount }})
+              </button>
+              <button class="filter-tab" [class.active]="orderFilter === 'delivered'" (click)="orderFilter = 'delivered'">
+                Entregados ({{ deliveredOrdersCount }})
+              </button>
+            </div>
+            <div class="filters-actions">
+              <input
+                type="text"
+                class="search-input"
+                placeholder="Buscar pedidos..."
+                [(ngModel)]="searchTerm" />
+              <div class="view-mode-toggle">
+                <button 
+                  class="view-mode-btn" 
+                  [class.active]="orderViewMode === 'list'"
+                  (click)="orderViewMode = 'list'"
+                  title="Vista de lista">
+                  <i class="bi bi-list-ul"></i>
+                </button>
+                <button 
+                  class="view-mode-btn" 
+                  [class.active]="orderViewMode === 'grid'"
+                  (click)="orderViewMode = 'grid'"
+                  title="Vista de cuadrícula">
+                  <i class="bi bi-grid-3x3-gap"></i>
+                </button>
+              </div>
+            </div>
           </div>
-          <input
-            type="text"
-            class="search-input"
-            placeholder="Buscar pedidos..."
-            [(ngModel)]="searchTerm" />
         </div>
 
         <!-- Lista de Pedidos -->
-        <div class="orders-list-admin">
-          <div *ngFor="let order of getFilteredOrders()" class="order-card-admin">
+        <div class="orders-container-admin" [ngClass]="'view-' + orderViewMode">
+          <div *ngFor="let order of getFilteredOrders(); trackBy: trackByOrderId" 
+               class="order-card-admin"
+               [class.order-card-grid]="orderViewMode === 'grid'"
+               [class.order-card-list]="orderViewMode === 'list'">
             <div class="order-header-admin">
               <div class="order-info-admin">
-                <span class="order-id-admin">Pedido #{{ order.id }}</span>
+                <div class="order-id-row-admin">
+                  <span class="order-id-admin">Pedido #{{ order.id.slice(-8) }}</span>
+                  <span class="order-tracking-code-admin" *ngIf="order.trackingCode">
+                    <i class="bi bi-qr-code me-1"></i>
+                    {{ order.trackingCode }}
+                  </span>
+                </div>
                 <span class="order-date-admin">{{ formatDate(order.date) }}</span>
+                <div class="order-customer-info" *ngIf="order.userName || order.deliveryPhone || order.deliveryAddress">
+                  <i class="bi bi-person me-1"></i>
+                  <span *ngIf="order.userName" class="customer-name">{{ order.userName }}</span>
+                  <span *ngIf="order.deliveryPhone && !order.userName">{{ order.deliveryPhone }}</span>
+                  <span *ngIf="order.deliveryPhone && order.userName"> • {{ order.deliveryPhone }}</span>
+                  <span *ngIf="order.deliveryAddress"> • {{ order.deliveryAddress }}</span>
+                </div>
+                <div class="order-type-badge" *ngIf="order.orderType">
+                  <i class="bi" [class.bi-shop]="order.orderType === 'pickup'" [class.bi-truck]="order.orderType === 'delivery'"></i>
+                  {{ order.orderType === 'pickup' ? 'Recoger en Restaurante' : 'Entrega a Domicilio' }}
+                </div>
               </div>
               <span class="status-badge" [ngClass]="getOrderStatusClass(order.status)">
                 {{ getOrderStatusText(order.status) }}
               </span>
             </div>
 
-            <div class="order-items-admin">
-              <div *ngFor="let item of order.items" class="order-item-admin">
-                <span class="item-name-admin">{{ item.name }}</span>
-                <span class="item-quantity-admin">x{{ item.quantity }}</span>
-                <span class="item-price-admin">${{ (item.price * item.quantity) | number }}</span>
+            <div class="order-items-admin" *ngIf="orderViewMode === 'list' || orderViewMode === 'grid'">
+              <div *ngFor="let item of order.items; let itemIndex = index" 
+                   class="order-item-admin"
+                   [class.item-unavailable]="item.unavailable">
+                <div class="item-details-admin">
+                  <div class="item-main-info">
+                    <span class="item-name-admin">
+                      {{ item.name }}
+                      <span class="unavailable-badge" *ngIf="item.unavailable">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        No Disponible
+                      </span>
+                    </span>
+                    <span class="item-quantity-admin" *ngIf="!item.unavailable || item.quantity > 0">x{{ item.quantity }}</span>
+                    <span class="item-price-admin" *ngIf="!item.unavailable || item.quantity > 0">${{ (item.price * item.quantity) | number }}</span>
+                    <button class="btn-unavailable" 
+                            *ngIf="!item.unavailable && order.status !== 'delivered' && order.status !== 'cancelled'"
+                            (click)="markItemAsUnavailable(order, item, itemIndex)"
+                            title="Marcar como no disponible">
+                      <i class="bi bi-x-circle"></i>
+                      No disponible
+                    </button>
+                  </div>
+                  <div class="unavailable-reason" *ngIf="item.unavailable && item.unavailableReason">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <span>{{ item.unavailableReason }}</span>
+                  </div>
+                  <div class="item-options-admin" *ngIf="item.selectedOptions && item.selectedOptions.length > 0">
+                    <div *ngFor="let option of item.selectedOptions" class="option-badge-admin">
+                      <i class="bi bi-plus-circle me-1"></i>
+                      <span class="option-name">{{ option.name }}</span>
+                      <span class="option-price" *ngIf="option.price > 0">+${{ option.price | number }}</span>
+                    </div>
+                  </div>
+                  <div class="item-notes-admin" *ngIf="item.notes">
+                    <i class="bi bi-chat-left-text me-1"></i>
+                    <span>{{ item.notes }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Vista compacta para cuadrícula -->
+            <div class="order-items-compact" *ngIf="orderViewMode === 'grid'">
+              <div class="items-count-badge">
+                <i class="bi bi-bag-check me-1"></i>
+                {{ order.items.length }} {{ order.items.length === 1 ? 'item' : 'items' }}
+              </div>
+              <div class="order-total-compact">
+                <span class="total-label-compact">Total:</span>
+                <span class="total-value-compact">${{ order.total | number }}</span>
+              </div>
+            </div>
+
+            <div class="order-summary-admin" *ngIf="order.subtotal || order.additionalFees">
+              <div class="summary-row" *ngIf="order.subtotal">
+                <span>Subtotal:</span>
+                <span>${{ (order.subtotal || 0) | number }}</span>
+              </div>
+              <div class="summary-row" *ngIf="order.additionalFees">
+                <span>Costos adicionales:</span>
+                <span>${{ (order.additionalFees || 0) | number }}</span>
               </div>
             </div>
 
@@ -335,15 +432,174 @@
                 <span class="total-value">${{ order.total | number }}</span>
               </div>
               <div class="order-actions-admin">
-                <select class="status-select" [value]="order.status"
-                        (change)="updateOrderStatus(order, $any($event.target).value)">
-                  <option value="pending">Pendiente</option>
-                  <option value="preparing">Preparando</option>
-                  <option value="ready">Listo</option>
-                  <option value="delivered">Entregado</option>
-                  <option value="cancelled">Cancelado</option>
-                </select>
+                <div class="action-buttons-group">
+                  <button class="action-btn btn-view" (click)="viewOrderDetails(order)" title="Ver detalles">
+                    <i class="bi bi-eye"></i>
+                    <span *ngIf="orderViewMode === 'list'">Ver</span>
+                  </button>
+                  <button class="action-btn btn-print" (click)="printOrder(order)" title="Imprimir">
+                    <i class="bi bi-printer"></i>
+                    <span *ngIf="orderViewMode === 'list'">Imprimir</span>
+                  </button>
+                  <div class="status-select-wrapper">
+                    <select class="status-select" [value]="order.status"
+                            (change)="updateOrderStatus(order, $any($event.target).value)">
+                      <option value="pending">⏳ Pendiente</option>
+                      <option value="preparing">👨‍🍳 Preparando</option>
+                      <option value="ready">✅ Listo</option>
+                      <option value="delivered">🚚 Entregado</option>
+                      <option value="cancelled">❌ Cancelado</option>
+                    </select>
+                    <i class="bi bi-chevron-down status-select-icon"></i>
+                  </div>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal de Detalles del Pedido -->
+        <div class="modal-overlay" *ngIf="showOrderDetailsModal && selectedOrder" (click)="closeOrderDetailsModal()">
+          <div class="modal-content order-details-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h3>Detalles del Pedido #{{ selectedOrder.id.slice(-8) }}</h3>
+              <button class="modal-close-btn" (click)="closeOrderDetailsModal()">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="order-details-section">
+                <h4>Información General</h4>
+                <div class="details-grid">
+                  <div class="detail-item">
+                    <span class="detail-label">Fecha:</span>
+                    <span class="detail-value">{{ formatDate(selectedOrder.date) }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Cliente:</span>
+                    <span class="detail-value">{{ selectedOrder.userName || 'N/A' }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Estado:</span>
+                    <span class="status-badge" [ngClass]="getOrderStatusClass(selectedOrder.status)">
+                      {{ getOrderStatusText(selectedOrder.status) }}
+                    </span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Tipo:</span>
+                    <span class="detail-value">{{ selectedOrder.orderType === 'pickup' ? 'Recoger' : 'Entrega' }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="order-details-section">
+                <h4>Items del Pedido</h4>
+                <div class="order-items-admin">
+                  <div *ngFor="let item of selectedOrder.items" class="order-item-admin">
+                    <div class="item-details-admin">
+                      <div class="item-main-info">
+                        <span class="item-name-admin">{{ item.name }}</span>
+                        <span class="item-quantity-admin">x{{ item.quantity }}</span>
+                        <span class="item-price-admin">${{ (item.price * item.quantity) | number }}</span>
+                      </div>
+                      <div class="item-options-admin" *ngIf="item.selectedOptions && item.selectedOptions.length > 0">
+                        <div *ngFor="let option of item.selectedOptions" class="option-badge-admin">
+                          <i class="bi bi-plus-circle me-1"></i>
+                          <span class="option-name">{{ option.name }}</span>
+                          <span class="option-price" *ngIf="option.price > 0">+${{ option.price | number }}</span>
+                        </div>
+                      </div>
+                      <div class="item-notes-admin" *ngIf="item.notes">
+                        <i class="bi bi-chat-left-text me-1"></i>
+                        <span>{{ item.notes }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="order-details-section" *ngIf="selectedOrder.subtotal || selectedOrder.additionalFees">
+                <h4>Resumen Financiero</h4>
+                <div class="order-summary-admin">
+                  <div class="summary-row" *ngIf="selectedOrder.subtotal">
+                    <span>Subtotal:</span>
+                    <span>${{ (selectedOrder.subtotal || 0) | number }}</span>
+                  </div>
+                  <div class="summary-row" *ngIf="selectedOrder.additionalFees">
+                    <span>Costos adicionales:</span>
+                    <span>${{ (selectedOrder.additionalFees || 0) | number }}</span>
+                  </div>
+                  <div class="summary-row total-row">
+                    <span>Total:</span>
+                    <span class="total-value">${{ (selectedOrder.total || 0) | number }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer" *ngIf="selectedOrder">
+              <button class="btn-primary" (click)="printOrder(selectedOrder)">
+                <i class="bi bi-printer me-2"></i>
+                Imprimir
+              </button>
+              <button class="btn-outline" (click)="closeOrderDetailsModal()">
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal para Manejar Producto No Disponible -->
+        <div class="modal-overlay" *ngIf="showUnavailableModal" (click)="closeUnavailableModal()">
+          <div class="modal-content unavailable-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h3>Producto No Disponible</h3>
+              <button class="modal-close-btn" (click)="closeUnavailableModal()">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+            <div class="modal-body" *ngIf="selectedItemForUnavailable">
+              <div class="unavailable-item-info">
+                <p><strong>Producto:</strong> {{ selectedItemForUnavailable.item.name }}</p>
+                <p><strong>Cantidad:</strong> {{ selectedItemForUnavailable.item.quantity }}</p>
+                <p><strong>Pedido:</strong> #{{ selectedItemForUnavailable.order.id.slice(-8) }}</p>
+              </div>
+              
+              <div class="unavailable-actions">
+                <h4>¿Qué deseas hacer?</h4>
+                
+                <div class="action-option">
+                  <button class="action-option-btn" (click)="handleUnavailableItem('cancel', 'Producto agotado')">
+                    <i class="bi bi-x-circle"></i>
+                    <div>
+                      <strong>Cancelar Item</strong>
+                      <small>Eliminar del pedido y ajustar el total</small>
+                    </div>
+                  </button>
+                </div>
+                
+                <div class="action-option">
+                  <button class="action-option-btn" (click)="handleUnavailableItem('notify', 'Producto no disponible temporalmente')">
+                    <i class="bi bi-bell"></i>
+                    <div>
+                      <strong>Notificar al Cliente</strong>
+                      <small>Marcar como no disponible y notificar al cliente</small>
+                    </div>
+                  </button>
+                </div>
+                
+                <div class="action-option">
+                  <button class="action-option-btn" (click)="handleUnavailableItem('replace', 'Producto reemplazado')">
+                    <i class="bi bi-arrow-repeat"></i>
+                    <div>
+                      <strong>Reemplazar Producto</strong>
+                      <small>Reemplazar con otro producto similar</small>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-outline" (click)="closeUnavailableModal()">
+                Cancelar
+              </button>
             </div>
           </div>
         </div>

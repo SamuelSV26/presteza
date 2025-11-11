@@ -8,9 +8,11 @@ import { takeUntil, map } from 'rxjs/operators';
 import { NotificationService } from '../../core/services/notification.service';
 import { AuthService } from '../../core/services/auth.service';
 import { UserService } from '../../core/services/user.service';
+import { OrderService } from '../../core/services/order.service';
 import { PaymentMethod as SavedPaymentMethod } from '../../core/models/PaymentMethod';
 import { Address } from '../../core/models/Address';
 import { Order } from '../../core/models/Order';
+import { CreateOrderDto } from '../../core/models/CreateOrderDto';
 
 export type OrderType = 'pickup' | 'delivery';
 export type PaymentMethod = 'card' | 'cash' | 'nequi' | 'daviplata' | 'transfer';
@@ -69,7 +71,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private notificationService: NotificationService,
     private authService: AuthService,
-    private userService: UserService
+    private userService: UserService,
+    private orderService: OrderService
   ) {
     // Formulario de entrega
     this.deliveryForm = this.fb.group({
@@ -486,6 +489,14 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     });
     subscription.unsubscribe();
 
+    // Obtener información del usuario
+    const userInfo = this.authService.getUserInfo();
+    if (!userInfo || !userInfo.userId) {
+      this.notificationService.showError('No se pudo obtener la información del usuario. Por favor, inicia sesión nuevamente.');
+      this.router.navigate(['/login']);
+      return;
+    }
+
     // Preparar información de pago según el método
     let paymentInfo: any = null;
 
@@ -522,56 +533,79 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       };
     }
 
-    const orderData = {
-      items: items,
-      orderType: this.orderType,
-      paymentMethod: this.paymentMethod,
-      subtotal: this.subtotal,
-      additionalFees: this.additionalFees,
+    // Mapear payment method al formato del backend
+    const paymentMethodBackend = this.orderService.mapPaymentMethodToBackend(this.paymentMethod);
+
+    // Extraer los IDs de los productos del carrito
+    const productIds = items.map(item => String(item.productId));
+
+    // Crear el DTO para el backend
+    const createOrderDto: CreateOrderDto = {
+      usuarioId: userInfo.userId,
       total: this.total,
-      deliveryInfo: this.orderType === 'delivery' ? this.deliveryForm.value : null,
-      paymentInfo: paymentInfo,
-      timestamp: new Date().toISOString(),
-      userId: this.authService.getUserInfo()?.userId || null,
-      status: 'confirmed'
+      payment_method: paymentMethodBackend,
+      products: productIds,
+      status: 'pendiente',
+      user_name: userInfo.name || userInfo.email || 'Usuario'
     };
 
-    console.log('📦 Procesando pedido:', orderData);
+    console.log('📦 Creando orden en el backend:', createOrderDto);
 
-    // Guardar el pedido (en producción esto se enviaría al backend)
-    this.saveOrder(orderData);
+    // Crear la orden en el backend
+    this.orderService.createOrder(createOrderDto).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (response) => {
+        console.log('✅ Orden creada exitosamente:', response);
+        
+        // Guardar también en localStorage como respaldo
+        this.saveOrderLocally(items, paymentInfo, response.order);
 
-    // Mostrar confirmación según el método de pago
-    let successMessage = '';
-    let successTitle = '';
+        // Mostrar confirmación según el método de pago
+        let successMessage = '';
+        let successTitle = '';
 
-    if (this.paymentMethod === 'nequi' || this.paymentMethod === 'daviplata') {
-      successTitle = '¡Pago Confirmado!';
-      successMessage = `Tu pedido ha sido confirmado. Total: ${this.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}. Recibirás un correo con los detalles de tu pedido.`;
-    } else if (this.paymentMethod === 'transfer') {
-      successTitle = '¡Pago Confirmado!';
-      successMessage = `Tu pedido ha sido confirmado. Total: ${this.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}. Verificaremos tu transferencia y te notificaremos.`;
-    } else {
-      successTitle = '¡Pedido Confirmado!';
-      successMessage = `Tu pedido ha sido realizado exitosamente. Total: ${this.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}.`;
-    }
+        if (this.paymentMethod === 'nequi' || this.paymentMethod === 'daviplata') {
+          successTitle = '¡Pago Confirmado!';
+          successMessage = `Tu pedido ha sido confirmado. Total: ${this.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}. Recibirás un correo con los detalles de tu pedido.`;
+        } else if (this.paymentMethod === 'transfer') {
+          successTitle = '¡Pago Confirmado!';
+          successMessage = `Tu pedido ha sido confirmado. Total: ${this.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}. Verificaremos tu transferencia y te notificaremos.`;
+        } else {
+          successTitle = '¡Pedido Confirmado!';
+          successMessage = `Tu pedido ha sido realizado exitosamente. Total: ${this.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}.`;
+        }
 
-    this.notificationService.showSuccess(successMessage, successTitle);
+        this.notificationService.showSuccess(successMessage, successTitle);
 
-    // Marcar que se acaba de realizar un pago exitoso para evitar mostrar alerta de carrito vacío
-    sessionStorage.setItem('orderJustPlaced', 'true');
+        // Marcar que se acaba de realizar un pago exitoso para evitar mostrar alerta de carrito vacío
+        sessionStorage.setItem('orderJustPlaced', 'true');
 
-    // Limpiar carrito
-    this.cartService.clearCart();
+        // Limpiar carrito
+        this.cartService.clearCart();
 
-    // Redirigir a página de confirmación o perfil
-    setTimeout(() => {
-      this.router.navigate(['/perfil']);
-    }, 2000);
+        // Redirigir a página de confirmación o perfil
+        setTimeout(() => {
+          this.router.navigate(['/perfil']);
+        }, 2000);
+      },
+      error: (error) => {
+        console.error('❌ Error al crear la orden:', error);
+        this.isLoading = false;
+        
+        // Mostrar mensaje de error
+        this.notificationService.showError(
+          error.message || 'Hubo un error al procesar tu pedido. Por favor, intenta nuevamente.',
+          'Error al Procesar Pedido'
+        );
+      }
+    });
   }
 
-  private saveOrder(orderData: any): void {
-    // Guardar en localStorage (en producción esto se enviaría al backend)
+  /**
+   * Guardar orden en localStorage como respaldo (después de crear en el backend)
+   */
+  private saveOrderLocally(items: CartItem[], paymentInfo: any, backendOrder: any): void {
     const userInfo = this.authService.getUserInfo();
     const userId = userInfo?.userId || userInfo?.email || 'guest';
 
@@ -579,7 +613,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     const trackingCode = this.generateTrackingCode();
 
     // Calcular tiempo estimado
-    const estimatedPrepTime = this.calculateEstimatedPrepTime(orderData.items);
+    const estimatedPrepTime = this.calculateEstimatedPrepTime(items);
     const estimatedDeliveryTime = new Date();
     estimatedDeliveryTime.setMinutes(estimatedDeliveryTime.getMinutes() + estimatedPrepTime);
     if (this.orderType === 'delivery') {
@@ -593,21 +627,28 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       message: 'Pedido recibido y confirmado'
     }];
 
+    // Mapear la orden del backend al formato del frontend
+    const orderId = backendOrder._id || backendOrder.id || `order_${Date.now()}`;
+    
     const newOrder: Order = {
-      id: `order_${Date.now()}`,
+      id: orderId,
       trackingCode: trackingCode,
-      date: new Date(),
-      items: orderData.items.map((item: any) => ({
-        id: item.productId || item.id,
+      date: backendOrder.createdAt ? new Date(backendOrder.createdAt) : new Date(),
+      items: items.map((item: CartItem) => ({
+        id: Number(item.productId) || 0,
         name: item.productName,
         quantity: item.quantity,
-        price: item.price,
-        selectedOptions: item.selectedOptions || [],
-        notes: item.notes
+        price: item.basePrice,
+        selectedOptions: item.selectedOptions.map(opt => ({
+          id: opt.id,
+          name: opt.name,
+          price: opt.price
+        })),
+        notes: ''
       })),
-      subtotal: orderData.subtotal,
-      additionalFees: orderData.additionalFees,
-      total: orderData.total,
+      subtotal: this.subtotal,
+      additionalFees: this.additionalFees,
+      total: this.total,
       status: 'pending' as const,
       orderType: this.orderType,
       deliveryAddress: this.orderType === 'delivery' ? this.deliveryForm.value.address : undefined,
@@ -615,7 +656,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       deliveryPhone: this.orderType === 'delivery' ? this.deliveryForm.value.phone : undefined,
       deliveryInstructions: this.orderType === 'delivery' ? this.deliveryForm.value.deliveryInstructions : undefined,
       paymentMethod: this.paymentMethod,
-      paymentInfo: orderData.paymentInfo,
+      paymentInfo: paymentInfo,
       estimatedPrepTime: estimatedPrepTime,
       estimatedDeliveryTime: estimatedDeliveryTime,
       statusHistory: statusHistory,

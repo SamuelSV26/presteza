@@ -273,6 +273,22 @@
               <i class="bi bi-receipt me-2"></i>
               Historial de Pedidos
             </h2>
+            <div class="view-mode-toggle" *ngIf="orders.length > 0">
+              <button 
+                class="view-mode-btn" 
+                [class.active]="orderViewMode === 'list'"
+                (click)="orderViewMode = 'list'"
+                title="Vista de lista">
+                <i class="bi bi-list-ul"></i>
+              </button>
+              <button 
+                class="view-mode-btn" 
+                [class.active]="orderViewMode === 'grid'"
+                (click)="orderViewMode = 'grid'"
+                title="Vista de cuadrícula">
+                <i class="bi bi-grid-3x3-gap"></i>
+              </button>
+            </div>
           </div>
           <div *ngIf="orders.length === 0" class="empty-state">
             <i class="bi bi-inbox empty-icon"></i>
@@ -283,8 +299,13 @@
               Ver Menú
             </button>
           </div>
-          <div *ngIf="orders.length > 0" class="orders-list">
-            <div *ngFor="let order of orders" class="order-card">
+          <div *ngIf="orders.length > 0" 
+               class="orders-container" 
+               [ngClass]="'view-' + orderViewMode">
+            <div *ngFor="let order of orders; trackBy: trackByOrderId" 
+                 class="order-card"
+                 [class.order-card-grid]="orderViewMode === 'grid'"
+                 [class.order-card-list]="orderViewMode === 'list'">
               <div class="order-header">
                 <div class="order-info">
                   <div class="order-id-row">
@@ -307,8 +328,8 @@
               </div>
               
               <!-- Tracking Timeline -->
-              <div class="order-tracking" *ngIf="order.status !== 'cancelled'">
-                <div class="tracking-steps">
+              <div class="order-tracking" *ngIf="order.status !== 'cancelled' && (orderViewMode === 'list' || orderViewMode === 'grid')">
+                <div class="tracking-steps" [style.--progress]="getOrderProgress(order) + '%'">
                   <div *ngFor="let step of getOrderStatusSteps(order)" class="tracking-step" 
                        [class.completed]="step.completed" 
                        [class.current]="step.current">
@@ -320,7 +341,8 @@
                 </div>
               </div>
               
-              <div class="order-items">
+              <!-- Vista de Lista - Items completos -->
+              <div class="order-items" *ngIf="orderViewMode === 'list'">
                 <div *ngFor="let item of order.items" class="order-item">
                   <div class="item-main">
                     <span class="item-name">{{ item.name }}</span>
@@ -329,11 +351,26 @@
                   </div>
                   <div class="item-options" *ngIf="item.selectedOptions && item.selectedOptions.length > 0">
                     <small *ngFor="let option of item.selectedOptions" class="option-tag">
-                      {{ option.name }}
+                      <span class="option-name">{{ option.name }}</span>
+                      <span class="option-price" *ngIf="option.price > 0">+${{ option.price | number }}</span>
                     </small>
                   </div>
                   <div class="item-notes" *ngIf="item.notes">
                     <small><i class="bi bi-chat-left-text me-1"></i>{{ item.notes }}</small>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Vista de Cuadrícula - Resumen compacto -->
+              <div class="order-items-compact" *ngIf="orderViewMode === 'grid'">
+                <div class="items-summary">
+                  <div class="items-count-badge">
+                    <i class="bi bi-bag-check me-1"></i>
+                    {{ order.items.length }} {{ order.items.length === 1 ? 'item' : 'items' }}
+                  </div>
+                  <div class="order-total-compact">
+                    <span class="total-label-compact">Total:</span>
+                    <span class="total-value-compact">${{ order.total | number }}</span>
                   </div>
                 </div>
               </div>

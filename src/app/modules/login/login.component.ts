@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { filter, take } from 'rxjs/operators';
+import { timeout } from 'rxjs';
 
 @Component({
   selector: 'app-login',
@@ -130,105 +132,66 @@ export class LoginComponent implements OnInit {
         console.log('✅ Login exitoso, iniciando redirección...');
         
         // Función para realizar la redirección
-        const performRedirect = () => {
-          console.log('🚀 Ejecutando performRedirect...');
-          // Obtener el rol directamente del token decodificado para mayor confiabilidad
-          const token = this.authService.getToken();
-          console.log('🔑 Token obtenido en performRedirect:', token ? 'Sí' : 'No');
-          console.log('🔑 Token desde localStorage:', localStorage.getItem('authToken') ? 'Sí' : 'No');
-          console.log('🔑 Token desde sessionStorage:', sessionStorage.getItem('authToken') ? 'Sí' : 'No');
+        const performRedirect = (userInfo: any) => {
+          const userRole = userInfo?.role || this.authService.getRole();
+          const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : 'client';
           
-          if (token) {
-            try {
-              const base64Url = token.split('.')[1];
-              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-              const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-              }).join(''));
-              const payload = JSON.parse(jsonPayload);
-              
-              console.log('📋 Payload completo:', payload);
-              
-              const userRole = payload?.role || payload?.userRole || payload?.rol || payload?.type || 'client';
-              const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : 'client';
-              
-              console.log('🔍 Rol obtenido del token después del login:', normalizedRole);
-              
-              // Limpiar el returnUrl de sessionStorage
-              // Para admins, siempre redirigir a /admin, ignorando returnUrl
-              // Para clientes, siempre redirigir a /perfil, ignorando returnUrl
-              if (normalizedRole === 'admin') {
-                // Para admins, SIEMPRE redirigir a /admin, ignorando returnUrl
-                console.log('✅ Usuario es ADMIN - Redirigiendo a /admin (ignorando returnUrl)');
-                sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
-                this.router.navigateByUrl('/admin').then(success => {
-                  console.log('✅ Navegación a /admin:', success ? 'exitosa' : 'fallida');
-                  if (!success) {
-                    console.error('❌ Error al navegar a /admin, usando location.href como fallback');
-                    window.location.href = '/admin';
-                  }
-                }).catch(err => {
-                  console.error('❌ Excepción al navegar a /admin:', err);
-                  console.log('🔄 Usando location.href como fallback');
-                  window.location.href = '/admin';
-                });
-              } else {
-                // Para clientes, SIEMPRE redirigir a /perfil, ignorando returnUrl
-                console.log('✅ Usuario es CLIENTE - Redirigiendo a /perfil (ignorando returnUrl)');
-                sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
-                console.log('🔑 Token disponible antes de navegar:', this.authService.getToken() ? 'Sí' : 'No');
-                console.log('🔒 Usuario autenticado antes de navegar:', this.authService.isAuthenticated());
-                
-                // Forzar navegación con location.href como fallback
-                this.router.navigateByUrl('/perfil').then(success => {
-                  console.log('✅ Navegación a /perfil:', success ? 'exitosa' : 'fallida');
-                  if (!success) {
-                    console.error('❌ Error al navegar a /perfil, usando location.href como fallback');
-                    window.location.href = '/perfil';
-                  }
-                }).catch(err => {
-                  console.error('❌ Excepción al navegar a /perfil:', err);
-                  console.log('🔄 Usando location.href como fallback');
-                  window.location.href = '/perfil';
-                });
+          console.log('🔍 Rol obtenido:', normalizedRole);
+          console.log('📋 UserInfo completo:', userInfo);
+          
+          // Limpiar el returnUrl de sessionStorage
+          sessionStorage.removeItem('returnUrl');
+          
+          // Redirigir según el rol
+          if (normalizedRole === 'admin') {
+            console.log('✅ Usuario es ADMIN - Redirigiendo a /admin');
+            this.router.navigateByUrl('/admin').then(success => {
+              if (!success) {
+                console.log('🔄 Usando window.location.href como fallback');
+                window.location.href = '/admin';
               }
-            } catch (error) {
-              console.error('❌ Error al decodificar token para obtener rol:', error);
-              // Fallback: usar el método del servicio
-              const userInfo = this.authService.getUserInfo();
-              console.log('📋 UserInfo obtenido del servicio:', userInfo);
-              const userRole = userInfo?.role || this.authService.getRole();
-              const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : 'client';
-              
-              console.log('🔍 Rol obtenido del servicio:', normalizedRole);
-              
-              if (normalizedRole === 'admin') {
-                // Para admins, siempre a /admin
-                console.log('✅ Redirigiendo admin a /admin (fallback)');
-                sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
-                this.router.navigateByUrl('/admin');
-              } else {
-                // Para clientes, siempre a /perfil
-                console.log('✅ Redirigiendo cliente a /perfil (fallback)');
-                sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
-                this.router.navigateByUrl('/perfil');
-              }
-            }
+            }).catch(() => {
+              console.log('🔄 Usando window.location.href como fallback (catch)');
+              window.location.href = '/admin';
+            });
           } else {
-            console.error('❌ No se encontró token después del login');
-            // Redirigir a perfil por defecto si no hay token (asumiendo que es cliente)
-            console.log('✅ Redirigiendo a /perfil (sin token - asumiendo cliente)');
-            sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
-            this.router.navigateByUrl('/perfil');
+            console.log('✅ Usuario es CLIENTE - Redirigiendo a /perfil');
+            this.router.navigateByUrl('/perfil').then(success => {
+              if (!success) {
+                console.log('🔄 Usando window.location.href como fallback');
+                window.location.href = '/perfil';
+              }
+            }).catch(() => {
+              console.log('🔄 Usando window.location.href como fallback (catch)');
+              window.location.href = '/perfil';
+            });
           }
         };
         
-        // Redirigir inmediatamente - el token ya está guardado en el AuthService
-        // Usar setTimeout para asegurar que Angular haya procesado el cambio
-        setTimeout(() => {
-          console.log('⏰ Timeout ejecutado, llamando performRedirect...');
-          performRedirect();
-        }, 300);
+        // Intentar obtener userInfo inmediatamente
+        const currentUserInfo = this.authService.getUserInfo();
+        if (currentUserInfo) {
+          performRedirect(currentUserInfo);
+        } else {
+          // Si no está disponible, esperar al observable
+          this.authService.userInfo$
+            .pipe(
+              filter(userInfo => userInfo !== null),
+              take(1),
+              timeout(1000) // Timeout de 1 segundo
+            )
+            .subscribe({
+              next: (userInfo) => {
+                performRedirect(userInfo);
+              },
+              error: () => {
+                // Fallback: intentar de nuevo con getUserInfo()
+                console.log('⚠️ Timeout esperando userInfo, usando fallback');
+                const fallbackUserInfo = this.authService.getUserInfo();
+                performRedirect(fallbackUserInfo);
+              }
+            });
+        }
       },
       error: (error) => {
         console.error('❌ Error en el subscribe del login:', error);

@@ -9,28 +9,21 @@ export interface AppError {
   timestamp: Date;
 }
 
-/**
- * Servicio para manejar errores de manera centralizada
- */
 @Injectable({
   providedIn: 'root'
 })
 export class ErrorHandlerService {
   private errorSubject = new BehaviorSubject<AppError | null>(null);
-  
+
   error$ = this.errorSubject.asObservable();
 
-  /**
-   * Manejar error HTTP
-   */
+
   handleHttpError(error: HttpErrorResponse): AppError {
     let errorMessage = 'Ha ocurrido un error inesperado';
 
     if (error.error instanceof ErrorEvent) {
-      // Error del lado del cliente
       errorMessage = `Error: ${error.error.message}`;
     } else {
-      // Error del lado del servidor
       switch (error.status) {
         case 0:
           errorMessage = 'No se pudo conectar con el servidor. Verifique su conexión a internet.';

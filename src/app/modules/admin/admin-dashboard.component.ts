@@ -9,6 +9,8 @@ import { MenuCategory } from '../../core/models/MenuCategory';
 import { Order } from '../../core/models/Order';
 import { MenuService } from '../../core/services/menu.service';
 import { UserService } from '../../core/services/user.service';
+import { OrderService } from '../../core/services/order.service';
+import { OrderFromBackend } from '../../core/models/OrderResponse';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -44,12 +46,16 @@ export class AdminDashboardComponent implements OnInit {
   // Pedidos
   orders: Order[] = [];
   selectedOrder: Order | null = null;
+  showOrderDetailsModal = false;
+  showUnavailableModal = false;
+  selectedItemForUnavailable: { order: Order; item: any; itemIndex: number } | null = null;
 
   // Filtros
   orderFilter: 'all' | 'pending' | 'preparing' | 'ready' | 'delivered' = 'all';
   searchTerm = '';
   categoryFilter = '';
   productViewMode: 'grid' | 'list' = 'list';
+  orderViewMode: 'list' | 'grid' = 'list';
 
   // Configuración
   settingsForm!: FormGroup;
@@ -74,6 +80,7 @@ export class AdminDashboardComponent implements OnInit {
   constructor(
     private menuService: MenuService,
     private userService: UserService,
+    private orderService: OrderService,
     private authService: AuthService,
     private router: Router,
     private fb: FormBuilder,
@@ -120,11 +127,15 @@ export class AdminDashboardComponent implements OnInit {
     // Cargar todos los productos
     this.loadAllProducts();
 
-    // Cargar pedidos
-    this.userService.getOrders().subscribe(orders => {
-      this.orders = orders;
-      this.calculateStats();
-    });
+    // Cargar pedidos desde el backend
+    this.loadOrders();
+    
+    // Recargar pedidos cada 10 segundos para ver nuevos pedidos
+    setInterval(() => {
+      if (this.activeTab === 'orders' || this.activeTab === 'dashboard') {
+        this.loadOrders();
+      }
+    }, 10000);
   }
 
   loadCategories(): void {
@@ -170,6 +181,10 @@ export class AdminDashboardComponent implements OnInit {
 
   setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings'): void {
     this.activeTab = tab;
+    // Recargar pedidos cuando se cambia a la pestaña de pedidos
+    if (tab === 'orders') {
+      this.loadOrders();
+    }
   }
 
   // Gestión de Productos
@@ -374,10 +389,216 @@ export class AdminDashboardComponent implements OnInit {
     return filtered;
   }
 
+  loadOrders(): void {
+    this.orderService.findAll().subscribe({
+      next: (response) => {
+        console.log('✅ Pedidos cargados desde el backend:', response);
+        // Mapear pedidos del backend al formato del frontend
+        this.orders = response.orders.map(backendOrder => this.mapBackendOrderToFrontend(backendOrder));
+        
+        // Ordenar por fecha descendente (más reciente primero)
+        // Si las fechas son iguales, ordenar por ID (más reciente primero)
+        this.orders.sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          if (dateB !== dateA) {
+            return dateB - dateA; // Orden descendente por fecha
+          }
+          // Si las fechas son iguales, ordenar por ID (más reciente primero)
+          return String(b.id).localeCompare(String(a.id));
+        });
+        
+        this.calculateStats();
+      },
+      error: (error) => {
+        console.error('❌ Error al cargar pedidos:', error);
+        this.notificationService.showError('Error al cargar los pedidos');
+        // Fallback: cargar desde localStorage
+        this.userService.getOrders().subscribe(orders => {
+          // Ordenar por fecha descendente (más reciente primero)
+          // Si las fechas son iguales, ordenar por ID (más reciente primero)
+          this.orders = orders.sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            if (dateB !== dateA) {
+              return dateB - dateA; // Orden descendente por fecha
+            }
+            // Si las fechas son iguales, ordenar por ID (más reciente primero)
+            return String(b.id).localeCompare(String(a.id));
+          });
+          this.calculateStats();
+        });
+      }
+    });
+  }
+
+  private mapBackendOrderToFrontend(backendOrder: OrderFromBackend): Order {
+    const orderId = backendOrder._id || backendOrder.id || '';
+    
+    // Buscar detalles completos en localStorage de todos los usuarios
+    let detailedOrder: Order | null = null;
+    try {
+      // Buscar en todas las claves de localStorage que contengan "userOrders_"
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('userOrders_')) {
+          try {
+            const storedOrders = JSON.parse(localStorage.getItem(key) || '[]');
+            const found = storedOrders.find((o: Order) => {
+              // Buscar por ID completo o por coincidencia parcial
+              return o.id === orderId || 
+                     o.id.includes(orderId.substring(0, 8)) ||
+                     (o.trackingCode && orderId.includes(o.trackingCode));
+            });
+            if (found) {
+              detailedOrder = found;
+              break;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('No se pudieron obtener detalles del pedido desde localStorage:', e);
+    }
+
+    // Si encontramos el pedido detallado, usar sus items
+    let orderItems = detailedOrder?.items || [];
+    
+    // Si no hay items detallados, construir desde los IDs del backend
+    if (orderItems.length === 0) {
+      orderItems = backendOrder.products.map(productId => {
+        const product = this.products.find(p => String(p.id) === String(productId));
+        // Asegurar que id sea siempre un número
+        const productIdNumber = typeof product?.id === 'number' 
+          ? product.id 
+          : (typeof product?.id === 'string' ? Number(product.id) || 0 : 0);
+        return {
+          id: productIdNumber,
+          name: product?.name || `Producto #${productId}`,
+          quantity: 1,
+          price: product?.price || 0,
+          selectedOptions: []
+        };
+      });
+    }
+
+    return {
+      id: orderId,
+      date: backendOrder.createdAt ? new Date(backendOrder.createdAt) : new Date(),
+      items: orderItems,
+      total: backendOrder.total,
+      status: this.mapBackendStatusToFrontend(backendOrder.status),
+      paymentMethod: backendOrder.payment_method,
+      trackingCode: orderId.substring(0, 8).toUpperCase(),
+      // Información del backend
+      userName: backendOrder.user_name,
+      // Información adicional del backend o localStorage
+      deliveryAddress: detailedOrder?.deliveryAddress,
+      deliveryNeighborhood: detailedOrder?.deliveryNeighborhood,
+      deliveryPhone: detailedOrder?.deliveryPhone,
+      orderType: detailedOrder?.orderType,
+      subtotal: detailedOrder?.subtotal,
+      additionalFees: detailedOrder?.additionalFees,
+    };
+  }
+
+  private mapBackendStatusToFrontend(backendStatus: string): Order['status'] {
+    const statusMap: Record<string, Order['status']> = {
+      'pendiente': 'pending',
+      'en_proceso': 'preparing',
+      'completado': 'ready',
+      'entregado': 'delivered',
+      'cancelado': 'cancelled'
+    };
+    return statusMap[backendStatus] || 'pending';
+  }
+
+  private mapFrontendStatusToBackend(frontendStatus: Order['status']): 'pendiente' | 'en_proceso' | 'completado' | 'entregado' | 'cancelado' {
+    const statusMap: Record<Order['status'], 'pendiente' | 'en_proceso' | 'completado' | 'entregado' | 'cancelado'> = {
+      'pending': 'pendiente',
+      'preparing': 'en_proceso',
+      'ready': 'completado',
+      'delivered': 'completado', // Usar 'completado' si el backend no acepta 'entregado'
+      'cancelled': 'cancelado'
+    };
+    return statusMap[frontendStatus] || 'pendiente';
+  }
+
   updateOrderStatus(order: Order, newStatus: Order['status']): void {
-    order.status = newStatus;
-    console.log('Actualizar estado del pedido:', order.id, newStatus);
-    this.calculateStats();
+    const backendStatus = this.mapFrontendStatusToBackend(newStatus);
+    
+    console.log('🔄 Actualizando estado:', { 
+      orderId: order.id, 
+      frontendStatus: newStatus, 
+      backendStatus: backendStatus 
+    });
+    
+    // Si el estado es "delivered", intentar primero con "entregado", si falla usar "completado"
+    let statusToSend = backendStatus;
+    if (newStatus === 'delivered' && backendStatus === 'completado') {
+      // Intentar primero con "entregado" si el backend lo acepta
+      statusToSend = 'entregado';
+    }
+    
+    // Actualizar en el backend
+    this.orderService.update(order.id, { status: statusToSend }).subscribe({
+      next: (response) => {
+        console.log('✅ Estado actualizado:', response);
+        order.status = newStatus;
+        
+        // Si el estado es "delivered", guardar en localStorage para mantener la distinción
+        if (newStatus === 'delivered') {
+          this.userService.saveOrder(order);
+        }
+        
+        this.calculateStats();
+        this.notificationService.showSuccess('Estado del pedido actualizado');
+      },
+      error: (error) => {
+        console.error('❌ Error al actualizar estado:', error);
+        console.error('❌ Detalles del error:', {
+          status: error.status,
+          message: error.message,
+          error: error.error
+        });
+        
+        // Si falló con "entregado" y el estado es "delivered", intentar con "completado"
+        if (newStatus === 'delivered' && statusToSend === 'entregado' && error.status === 400) {
+          console.log('🔄 Reintentando con "completado" en lugar de "entregado"');
+          this.orderService.update(order.id, { status: 'completado' }).subscribe({
+            next: (response) => {
+              console.log('✅ Estado actualizado con "completado":', response);
+              order.status = newStatus; // Mantener "delivered" en el frontend
+              this.userService.saveOrder(order); // Guardar para mantener la distinción
+              this.calculateStats();
+              this.notificationService.showSuccess('Estado del pedido actualizado');
+            },
+            error: (retryError) => {
+              console.error('❌ Error al actualizar estado (reintento):', retryError);
+              let errorMessage = 'Error al actualizar el estado del pedido';
+              if (retryError.error && retryError.error.message) {
+                errorMessage = `Error: ${retryError.error.message}`;
+              } else if (retryError.message) {
+                errorMessage = `Error: ${retryError.message}`;
+              }
+              this.notificationService.showError(errorMessage);
+            }
+          });
+        } else {
+          // Mostrar mensaje de error más detallado
+          let errorMessage = 'Error al actualizar el estado del pedido';
+          if (error.error && error.error.message) {
+            errorMessage = `Error: ${error.error.message}`;
+          } else if (error.message) {
+            errorMessage = `Error: ${error.message}`;
+          }
+          
+          this.notificationService.showError(errorMessage);
+        }
+      }
+    });
   }
 
   getOrderStatusClass(status: string): string {
@@ -389,6 +610,151 @@ export class AdminDashboardComponent implements OnInit {
       'cancelled': 'status-cancelled'
     };
     return statusClasses[status] || '';
+  }
+
+  trackByOrderId(index: number, order: Order): string {
+    return order.id;
+  }
+
+  viewOrderDetails(order: Order): void {
+    this.selectedOrder = order;
+    this.showOrderDetailsModal = true;
+  }
+
+  closeOrderDetailsModal(): void {
+    this.showOrderDetailsModal = false;
+    this.selectedOrder = null;
+  }
+
+  markItemAsUnavailable(order: Order, item: any, itemIndex: number): void {
+    this.selectedItemForUnavailable = { order, item, itemIndex };
+    this.showUnavailableModal = true;
+  }
+
+  closeUnavailableModal(): void {
+    this.showUnavailableModal = false;
+    this.selectedItemForUnavailable = null;
+  }
+
+  handleUnavailableItem(action: 'cancel' | 'notify' | 'replace', reason?: string, replacementId?: number): void {
+    if (!this.selectedItemForUnavailable) return;
+
+    const { order, item, itemIndex } = this.selectedItemForUnavailable;
+    const orderIndex = this.orders.findIndex(o => o.id === order.id);
+    
+    if (orderIndex === -1) return;
+
+    const currentOrder = this.orders[orderIndex];
+    const updatedItems = [...currentOrder.items];
+
+    switch (action) {
+      case 'cancel':
+        // Marcar el item como no disponible y cancelarlo
+        updatedItems[itemIndex] = {
+          ...item,
+          unavailable: true,
+          unavailableReason: reason || 'Producto no disponible',
+          quantity: 0 // Reducir cantidad a 0 efectivamente lo cancela
+        };
+        // Recalcular total
+        const newTotal = updatedItems.reduce((sum, it) => {
+          const itemTotal = it.price * it.quantity;
+          const optionsTotal = (it.selectedOptions || []).reduce((optSum, opt) => optSum + (opt.price * it.quantity), 0);
+          return sum + itemTotal + optionsTotal;
+        }, 0);
+        this.orders[orderIndex].total = newTotal;
+        break;
+      
+      case 'notify':
+        // Marcar como no disponible pero mantener en el pedido (para notificar al cliente)
+        updatedItems[itemIndex] = {
+          ...item,
+          unavailable: true,
+          unavailableReason: reason || 'Producto no disponible temporalmente'
+        };
+        break;
+      
+      case 'replace':
+        // Reemplazar con otro producto
+        if (replacementId) {
+          updatedItems[itemIndex] = {
+            ...item,
+            unavailable: true,
+            unavailableReason: reason || 'Producto reemplazado',
+            replacedWith: replacementId
+          };
+        }
+        break;
+    }
+
+    // Actualizar el pedido
+    this.orders[orderIndex] = {
+      ...currentOrder,
+      items: updatedItems
+    };
+
+    // Guardar en localStorage también
+    this.userService.saveOrder(this.orders[orderIndex]);
+
+    // Actualizar en el backend (opcional, dependiendo de tu estructura)
+    this.orderService.update(order.id, {
+      // Aquí podrías enviar información sobre items no disponibles si el backend lo soporta
+    }).subscribe({
+      next: () => {
+        this.notificationService.showSuccess('Item actualizado correctamente');
+        this.calculateStats();
+      },
+      error: (error) => {
+        console.error('Error al actualizar pedido:', error);
+        // No mostrar error si el backend no soporta esta funcionalidad aún
+      }
+    });
+
+    this.closeUnavailableModal();
+  }
+
+  printOrder(order: Order): void {
+    // Crear una nueva ventana para imprimir
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Pedido #${order.id.slice(-8)}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h1 { color: #6b1d3d; }
+              .order-info { margin: 20px 0; }
+              .order-item { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+              .total { font-size: 1.5em; font-weight: bold; margin-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <h1>Pedido #${order.id.slice(-8)}</h1>
+            <div class="order-info">
+              <p><strong>Fecha:</strong> ${this.formatDate(order.date)}</p>
+              <p><strong>Cliente:</strong> ${order.userName || 'N/A'}</p>
+              <p><strong>Estado:</strong> ${this.getOrderStatusText(order.status)}</p>
+              <p><strong>Total:</strong> $${order.total.toLocaleString()}</p>
+            </div>
+            <h2>Items:</h2>
+            ${order.items.map(item => `
+              <div class="order-item">
+                <strong>${item.name}</strong> x${item.quantity} - $${(item.price * item.quantity).toLocaleString()}
+                ${item.selectedOptions && item.selectedOptions.length > 0 ? `
+                  <ul>
+                    ${item.selectedOptions.map(opt => `<li>${opt.name} ${opt.price > 0 ? '+$' + opt.price.toLocaleString() : ''}</li>`).join('')}
+                  </ul>
+                ` : ''}
+              </div>
+            `).join('')}
+            <div class="total">Total: $${order.total.toLocaleString()}</div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
   }
 
   getOrderStatusText(status: string): string {

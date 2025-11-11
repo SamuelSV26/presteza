@@ -27,4 +27,5 @@ export interface Order {
   paymentInfo?: any; // Información adicional del pago (puede variar según el método)
   subtotal?: number;
   additionalFees?: number;
+  userName?: string; // Nombre del usuario que hizo el pedido
 }

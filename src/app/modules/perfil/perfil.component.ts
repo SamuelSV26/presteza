@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
@@ -15,6 +15,8 @@ import { PaymentMethod } from '../../core/models/PaymentMethod';
 import { MenuItem } from '../../core/models/MenuItem';
 import { UserService } from '../../core/services/user.service';
 import { MenuService } from '../../core/services/menu.service';
+import { OrderService } from '../../core/services/order.service';
+import { OrderFromBackend } from '../../core/models/OrderResponse';
 
 @Component({
   selector: 'app-perfil',
@@ -46,8 +48,10 @@ export class PerfilComponent implements OnInit, OnDestroy {
   editingPaymentMethod: PaymentMethod | null = null;
   submitted = false;
   expandedOrders: Set<string> = new Set<string>();
+  orderViewMode: 'list' | 'grid' = 'list';
 
   private destroy$ = new Subject<void>();
+  private progressIntervals: Map<string, any> = new Map();
 
   constructor(
     private userService: UserService,
@@ -56,7 +60,9 @@ export class PerfilComponent implements OnInit, OnDestroy {
     private menuService: MenuService,
     private authService: AuthService,
     private notificationService: NotificationService,
-    private cartService: CartService
+    private cartService: CartService,
+    private cdr: ChangeDetectorRef,
+    private orderService: OrderService
   ) {
     this.profileForm = this.fb.group({
       fullName: ['', [Validators.required, Validators.minLength(3)]],
@@ -116,6 +122,16 @@ export class PerfilComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.loadUserProfile();
 
+    // Cargar pedidos inicialmente
+    this.loadOrders();
+
+    // Recargar pedidos cada 10 segundos para ver cambios del admin
+    setInterval(() => {
+      if (this.activeTab === 'orders') {
+        this.loadOrders();
+      }
+    }, 10000);
+
     // Suscribirse a cambios en la información del usuario
     this.authService.userInfo$.pipe(takeUntil(this.destroy$)).subscribe(userInfo => {
       if (userInfo) {
@@ -152,6 +168,10 @@ export class PerfilComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    // Limpiar todos los intervalos de progreso
+    this.progressIntervals.forEach(interval => clearInterval(interval));
+    this.progressIntervals.clear();
+    
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -514,11 +534,231 @@ export class PerfilComponent implements OnInit, OnDestroy {
   }
 
   loadOrders() {
-    this.userService.getOrders().subscribe(orders => {
-      this.orders = orders;
-      // Recargar recomendaciones cuando se actualicen las órdenes
-      this.loadRecommendedDishes();
+    const userInfo = this.authService.getUserInfo();
+    if (!userInfo || !userInfo.userId) {
+      // Fallback a localStorage si no hay usuario autenticado
+      this.userService.getOrders().subscribe(orders => {
+        // Ordenar por fecha descendente (más reciente primero)
+        // Si las fechas son iguales, ordenar por ID (más reciente primero)
+        this.orders = orders.sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          if (dateB !== dateA) {
+            return dateB - dateA; // Orden descendente por fecha
+          }
+          // Si las fechas son iguales, ordenar por ID (más reciente primero)
+          return String(b.id).localeCompare(String(a.id));
+        });
+        this.setupOrders(this.orders);
+      });
+      return;
+    }
+
+    // Obtener pedidos desde el backend
+    this.orderService.findByUser(userInfo.userId).pipe(
+      takeUntil(this.destroy$),
+      catchError(error => {
+        console.error('Error al cargar pedidos desde el backend:', error);
+        // Fallback a localStorage si falla el backend
+        return this.userService.getOrders();
+      })
+    ).subscribe(response => {
+      let backendOrders: OrderFromBackend[] = [];
+      
+      // Manejar tanto la respuesta del backend como la de localStorage
+      if (response && 'orders' in response) {
+        backendOrders = response.orders;
+      } else if (Array.isArray(response)) {
+        // Si es un array directo (desde localStorage), ordenarlo por fecha descendente
+        // Si las fechas son iguales, ordenar por ID (más reciente primero)
+        this.orders = response.sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          if (dateB !== dateA) {
+            return dateB - dateA; // Orden descendente por fecha
+          }
+          // Si las fechas son iguales, ordenar por ID (más reciente primero)
+          return String(b.id).localeCompare(String(a.id));
+        });
+        this.setupOrders(this.orders);
+        return;
+      }
+
+      // Mapear pedidos del backend al formato del frontend
+      this.orders = backendOrders.map(backendOrder => this.mapBackendOrderToFrontend(backendOrder));
+      
+      // Ordenar por fecha descendente (más reciente primero)
+      // Si las fechas son iguales, ordenar por ID (más reciente primero)
+      this.orders.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        if (dateB !== dateA) {
+          return dateB - dateA; // Orden descendente por fecha
+        }
+        // Si las fechas son iguales, ordenar por ID (más reciente primero)
+        return String(b.id).localeCompare(String(a.id));
+      });
+      
+      this.setupOrders(this.orders);
     });
+  }
+
+  private setupOrders(orders: Order[]): void {
+    // Limpiar intervalos anteriores
+    this.progressIntervals.forEach(interval => clearInterval(interval));
+    this.progressIntervals.clear();
+    
+    // Iniciar progreso automático para cada pedido activo
+    orders.forEach(order => {
+      if (order.status !== 'cancelled' && order.status !== 'delivered') {
+        this.startAutoProgress(order);
+      }
+    });
+    
+    // Recargar recomendaciones cuando se actualicen las órdenes
+    this.loadRecommendedDishes();
+  }
+
+  private mapBackendOrderToFrontend(backendOrder: OrderFromBackend): Order {
+    const orderId = backendOrder._id || backendOrder.id || '';
+
+    // Intentar obtener el pedido detallado desde localStorage (donde se guardan los detalles completos)
+    let detailedOrder: Order | null = null;
+    try {
+      const userInfo = this.authService.getUserInfo();
+      if (userInfo) {
+        const userId = userInfo.userId || userInfo.email;
+        const storedOrders = localStorage.getItem(`userOrders_${userId}`);
+        if (storedOrders) {
+          const orders = JSON.parse(storedOrders);
+          detailedOrder = orders.find((o: Order) => 
+            o.id === orderId || 
+            (typeof o.id === 'string' && typeof orderId === 'string' && o.id.includes(orderId.substring(0, 8))) ||
+            (o.trackingCode && orderId.includes(o.trackingCode))
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('No se pudieron obtener detalles del pedido desde localStorage:', e);
+    }
+
+    // Si encontramos el pedido detallado, usar sus items y detalles
+    // Si no hay items detallados, usar items básicos (los detalles completos vienen de localStorage)
+    const orderItems = detailedOrder?.items || [];
+
+    // Mapear estado del backend al frontend
+    const statusMap: Record<string, Order['status']> = {
+      'pendiente': 'pending',
+      'en_proceso': 'preparing',
+      'completado': 'ready',
+      'entregado': 'delivered',
+      'cancelado': 'cancelled'
+    };
+
+    // Si el backend devuelve "completado", verificar si el pedido detallado tiene "delivered"
+    let mappedStatus = statusMap[backendOrder.status] || 'pending';
+    if (backendOrder.status === 'completado' && detailedOrder?.status === 'delivered') {
+      mappedStatus = 'delivered'; // Mantener "delivered" si estaba guardado así
+    }
+
+    // Asegurar que la fecha sea correcta y consistente
+    let orderDate: Date;
+    if (backendOrder.createdAt) {
+      orderDate = new Date(backendOrder.createdAt);
+      // Validar que la fecha sea válida
+      if (isNaN(orderDate.getTime())) {
+        orderDate = detailedOrder?.date ? new Date(detailedOrder.date) : new Date();
+      }
+    } else {
+      orderDate = detailedOrder?.date ? new Date(detailedOrder.date) : new Date();
+    }
+
+    return {
+      id: orderId,
+      date: orderDate,
+      items: detailedOrder?.items || orderItems,
+      total: backendOrder.total,
+      status: mappedStatus,
+      paymentMethod: backendOrder.payment_method,
+      trackingCode: detailedOrder?.trackingCode || orderId.substring(0, 8).toUpperCase(),
+      // Información adicional del pedido detallado
+      deliveryAddress: detailedOrder?.deliveryAddress,
+      deliveryNeighborhood: detailedOrder?.deliveryNeighborhood,
+      deliveryPhone: detailedOrder?.deliveryPhone,
+      orderType: detailedOrder?.orderType,
+      subtotal: detailedOrder?.subtotal,
+      additionalFees: detailedOrder?.additionalFees,
+      estimatedDeliveryTime: detailedOrder?.estimatedDeliveryTime,
+      estimatedPrepTime: detailedOrder?.estimatedPrepTime,
+      statusHistory: detailedOrder?.statusHistory,
+      canCancel: detailedOrder?.canCancel
+    };
+  }
+
+  private startAutoProgress(order: Order): void {
+    // Limpiar intervalo anterior si existe
+    if (this.progressIntervals.has(order.id)) {
+      clearInterval(this.progressIntervals.get(order.id));
+    }
+
+    // Actualizar solo el progreso visual (el estado viene del backend)
+    const updateProgress = () => {
+      // Buscar el pedido actualizado en el array
+      const orderIndex = this.orders.findIndex(o => o.id === order.id);
+      if (orderIndex === -1) return;
+      
+      const currentOrder = this.orders[orderIndex];
+      if (currentOrder.status === 'cancelled' || currentOrder.status === 'delivered') {
+        return; // No actualizar si está cancelado o entregado
+      }
+
+      // Solo actualizar el progreso visual, no el estado
+      // El estado se actualiza desde el backend cada 10 segundos en loadOrders()
+      this.cdr.markForCheck();
+    };
+
+    // Actualizar inmediatamente
+    updateProgress();
+
+    // Actualizar cada 5 segundos para verificar cambios de estado
+    const interval = setInterval(updateProgress, 5000);
+    this.progressIntervals.set(order.id, interval);
+  }
+
+  private calculateTimeBasedProgress(order: Order): number {
+    if (order.status === 'cancelled') {
+      return 0;
+    }
+
+    const now = new Date();
+    const orderDate = new Date(order.date);
+    const timeElapsed = now.getTime() - orderDate.getTime();
+    const secondsElapsed = timeElapsed / 1000; // Convertir a segundos
+
+    // Cada estado toma 2 minutos (120 segundos)
+    const secondsPerState = 120;
+    
+    const statusOrder = ['pending', 'preparing', 'ready', 'delivered'];
+    const currentStatusIndex = statusOrder.indexOf(order.status);
+    
+    if (currentStatusIndex === -1) return 0;
+    
+    // Calcular el progreso total basado en el tiempo transcurrido
+    // Hay 3 segmentos entre 4 puntos (0% -> 33.33% -> 66.66% -> 100%)
+    const totalSeconds = secondsPerState * 3; // 3 segundos totales
+    
+    // Calcular el progreso total (0-100%)
+    let totalProgress = (secondsElapsed / totalSeconds) * 100;
+    
+    // Asegurar que no exceda el progreso máximo según el estado actual
+    const maxProgressForState = (currentStatusIndex + 1) * 33.33;
+    totalProgress = Math.min(totalProgress, maxProgressForState);
+    
+    // Asegurar que no sea menor que el progreso mínimo del estado actual
+    const minProgressForState = currentStatusIndex * 33.33;
+    totalProgress = Math.max(totalProgress, minProgressForState);
+    
+    return Math.min(Math.max(totalProgress, 0), 100);
   }
 
   loadAddresses() {
@@ -1031,6 +1271,15 @@ export class PerfilComponent implements OnInit, OnDestroy {
     }
 
     return steps;
+  }
+
+  trackByOrderId(index: number, order: Order): string {
+    return order.id;
+  }
+
+  getOrderProgress(order: Order): number {
+    // Usar el cálculo basado en tiempo para progreso automático
+    return this.calculateTimeBasedProgress(order);
   }
 
   expandOrderDetails(order: Order): void {
