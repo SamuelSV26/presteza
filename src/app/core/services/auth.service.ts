@@ -3,7 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, BehaviorSubject, throwError } from 'rxjs';
 import { catchError, tap, finalize } from 'rxjs/operators';
 import { Router } from '@angular/router';
-import { UserInfo } from '../models/userInfo';
+import { UserInfo } from '../models/UserInfo';
 import { NotificationService } from './notification.service';
 
 export interface LoginResponse {
@@ -101,11 +101,8 @@ export class AuthService {
   logout(): void {
     const userInfo = this.getUserInfo();
     const userEmail = userInfo?.email || localStorage.getItem('userEmail') || 'usuario';
-    localStorage.removeItem('authToken');
-    sessionStorage.removeItem('authToken');
-    localStorage.removeItem('userInfo');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
+    localStorage.clear();
+    sessionStorage.clear();
     this.tokenSubject.next(null);
     this.userInfoSubject.next(null);
     this.notificationService.showInfo(`Has cerrado sesión con el correo ${userEmail}`);

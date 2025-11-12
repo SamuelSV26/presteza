@@ -3,11 +3,10 @@
   <div class="hero-section">
     <div class="hero-particles"></div>
     <div class="video-background">
-      <img class="video-fallback" src="assets/fondo.jpg" alt="fondo" />
       <iframe
-        src="https://www.youtube.com/embed/32T8Oja5Yn4?autoplay=1&mute=1&controls=0&loop=1&playlist=32T8Oja5Yn4&modestbranding=1&showinfo=0&rel=0&playsinline=1&end=46"
+        src="https://www.youtube.com/embed/32T8Oja5Yn4?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&loop=1&playlist=32T8Oja5Yn4"
         frameborder="0"
-        allow="autoplay; fullscreen"
+        allow="autoplay; fullscreen; picture-in-picture"
         allowfullscreen
       ></iframe>
     </div>
@@ -28,14 +27,7 @@
       <p class="hero-subtitle">Sabores que despiertan emociones</p>
       <p class="hero-description">Disfruta de la mejor gastronomía en cada bocado, preparada con pasión y dedicación</p>
       <div class="hero-buttons">
-        <button class="btn-primary" (click)="navigateToMenu()">
-          <span class="btn-content">
-            <i class="bi bi-menu-button-wide"></i>
-            <span>Ver Menú Completo</span>
-          </span>
-          <div class="btn-shine"></div>
-        </button>
-        <button class="btn-secondary" (click)="navigateToMenu()">
+        <button class="btn-secondary" (click)="navigateTo('menu')">
           <span class="btn-content">
             <i class="bi bi-arrow-right"></i>
             <span>Pedir Ahora</span>
@@ -111,7 +103,7 @@
                       <span class="product-price">${{ product.price | number }}</span>
                       <span class="product-price-label">Precio</span>
                     </div>
-                    <button class="add-to-cart-btn" (click)="navigateToMenu()">
+                    <button class="add-to-cart-btn" (click)="navigateTo('menu')">
                       <i class="bi bi-cart-plus"></i>
                       <span class="btn-ripple"></span>
                     </button>
@@ -131,7 +123,7 @@
         </div>
       </div>
       <div class="text-center mt-5">
-        <button class="btn-primary-lg" (click)="navigateToMenu()">
+        <button class="btn-primary-lg" (click)="navigateTo('menu')">
           <span>Ver Todo el Menú</span>
           <i class="bi bi-arrow-right"></i>
           <div class="btn-shine"></div>
@@ -153,7 +145,7 @@
         <div class="no-categories-content">
           <i class="bi bi-inbox no-categories-icon"></i>
           <p>No hay categorías disponibles en este momento</p>
-          <button class="btn-primary-lg mt-3" (click)="navigateToMenu()">
+          <button class="btn-primary-lg mt-3" (click)="navigateTo('menu')">
             <i class="bi bi-menu-button-wide me-2"></i>
             Ver Menú Completo
           </button>
@@ -166,10 +158,10 @@
         </div>
       </div>
       <div class="categories-collage" *ngIf="featuredCategories.length > 0">
-        <div 
-          class="category-card-collage" 
+        <div
+          class="category-card-collage"
           *ngFor="let category of featuredCategories; let i = index"
-          (click)="navigateToCategory(category.id)" 
+          (click)="navigateToCategory(category.id)"
           [style.animation-delay]="i * 0.1 + 's'"
           [class.category-large]="i === 0 || i === 2"
           [class.category-medium]="i === 1 || i === 3"
@@ -240,14 +232,14 @@
         <h2 class="cta-title">¿Listo para disfrutar?</h2>
         <p class="cta-subtitle">Haz tu pedido ahora y disfruta de nuestros deliciosos platillos preparados con amor y dedicación</p>
         <div class="cta-buttons">
-          <button class="btn-primary-lg" (click)="navigateToMenu()">
+          <button class="btn-primary-lg" (click)="navigateTo('menu')">
             <span class="btn-content">
               <i class="bi bi-menu-button-wide"></i>
               <span>Ver Menú Completo</span>
             </span>
             <div class="btn-shine"></div>
           </button>
-          <button class="btn-outline-lg" (click)="navigateToMenu()">
+          <button class="btn-outline-lg" (click)="navigateTo('contact')">
             <span class="btn-content">
               <i class="bi bi-telephone-fill"></i>
               <span>Llamar Ahora</span>

@@ -25,6 +25,10 @@
   font-weight: 700;
 }
 
+.navbar-brand:hover {
+  border-bottom: 2px solid #662626;
+}
+
 /* LINKS */
 .nav-link {
   color: #fff !important;
@@ -124,7 +128,7 @@
   .navbar-collapse {
     display: flex !important;
   }
-  
+
   .navbar-collapse.collapse {
     display: flex !important;
   }

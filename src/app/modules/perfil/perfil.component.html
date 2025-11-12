@@ -22,16 +22,16 @@
   <div class="container py-5">
     <!-- Tabs de Navegación -->
     <div class="profile-tabs">
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'profile'"
         (click)="setActiveTab('profile')"
       >
         <i class="bi bi-person-circle me-2"></i>
         Mi Perfil
       </button>
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'orders'"
         (click)="setActiveTab('orders')"
       >
@@ -39,24 +39,24 @@
         Mis Pedidos
         <span class="badge" *ngIf="orders.length > 0">{{ orders.length }}</span>
       </button>
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'addresses'"
         (click)="setActiveTab('addresses')"
       >
         <i class="bi bi-geo-alt me-2"></i>
         Direcciones
       </button>
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'payment'"
         (click)="setActiveTab('payment')"
       >
         <i class="bi bi-credit-card me-2"></i>
         Métodos de Pago
       </button>
-      <button 
-        class="tab-btn" 
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'settings'"
         (click)="setActiveTab('settings')"
       >
@@ -191,8 +191,8 @@
           <div class="dishes-grid">
             <div *ngFor="let dish of recommendedDishes" class="dish-card" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
               <div class="dish-image-wrapper">
-                <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'" 
-                     [alt]="dish.name" 
+                <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'"
+                     [alt]="dish.name"
                      class="dish-image" />
                 <div class="dish-overlay">
                   <i class="bi bi-eye"></i>
@@ -234,8 +234,8 @@
                 <div class="favorite-badge">
                   <i class="bi bi-heart-fill"></i>
                 </div>
-                <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'" 
-                     [alt]="dish.name" 
+                <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'"
+                     [alt]="dish.name"
                      class="dish-image" />
                 <div class="dish-overlay">
                   <i class="bi bi-eye"></i>
@@ -274,15 +274,15 @@
               Historial de Pedidos
             </h2>
             <div class="view-mode-toggle" *ngIf="orders.length > 0">
-              <button 
-                class="view-mode-btn" 
+              <button
+                class="view-mode-btn"
                 [class.active]="orderViewMode === 'list'"
                 (click)="orderViewMode = 'list'"
                 title="Vista de lista">
                 <i class="bi bi-list-ul"></i>
               </button>
-              <button 
-                class="view-mode-btn" 
+              <button
+                class="view-mode-btn"
                 [class.active]="orderViewMode === 'grid'"
                 (click)="orderViewMode = 'grid'"
                 title="Vista de cuadrícula">
@@ -299,10 +299,10 @@
               Ver Menú
             </button>
           </div>
-          <div *ngIf="orders.length > 0" 
-               class="orders-container" 
+          <div *ngIf="orders.length > 0"
+               class="orders-container"
                [ngClass]="'view-' + orderViewMode">
-            <div *ngFor="let order of orders; trackBy: trackByOrderId" 
+            <div *ngFor="let order of orders; trackBy: trackByOrderId"
                  class="order-card"
                  [class.order-card-grid]="orderViewMode === 'grid'"
                  [class.order-card-list]="orderViewMode === 'list'">
@@ -326,12 +326,12 @@
                   {{ getOrderStatusText(order.status) }}
                 </span>
               </div>
-              
+
               <!-- Tracking Timeline -->
               <div class="order-tracking" *ngIf="order.status !== 'cancelled' && (orderViewMode === 'list' || orderViewMode === 'grid')">
                 <div class="tracking-steps" [style.--progress]="getOrderProgress(order) + '%'">
-                  <div *ngFor="let step of getOrderStatusSteps(order)" class="tracking-step" 
-                       [class.completed]="step.completed" 
+                  <div *ngFor="let step of getOrderStatusSteps(order)" class="tracking-step"
+                       [class.completed]="step.completed"
                        [class.current]="step.current">
                     <div class="step-icon">
                       <i [class]="'bi ' + step.icon"></i>
@@ -340,7 +340,7 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- Vista de Lista - Items completos -->
               <div class="order-items" *ngIf="orderViewMode === 'list'">
                 <div *ngFor="let item of order.items" class="order-item">
@@ -360,7 +360,7 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- Vista de Cuadrícula - Resumen compacto -->
               <div class="order-items-compact" *ngIf="orderViewMode === 'grid'">
                 <div class="items-summary">
@@ -374,13 +374,13 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- Order Details (Expandible) -->
               <div class="order-details-toggle" (click)="expandOrderDetails(order)">
                 <i class="bi" [ngClass]="isOrderExpanded(order) ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
                 <span>{{ isOrderExpanded(order) ? 'Ocultar' : 'Ver' }} detalles</span>
               </div>
-              
+
               <div class="order-details" *ngIf="isOrderExpanded(order)">
                 <div class="detail-row" *ngIf="order.orderType">
                   <span class="detail-label">Tipo de pedido:</span>
@@ -415,7 +415,7 @@
                   <span class="detail-value">{{ order.estimatedPrepTime }} minutos</span>
                 </div>
               </div>
-              
+
               <div class="order-footer">
                 <div class="order-total-section">
                   <span class="order-total-label">Total:</span>
@@ -426,7 +426,7 @@
                     <i class="bi bi-arrow-repeat me-2"></i>
                     Re-pedir
                   </button>
-                  <button class="btn-danger btn-sm" *ngIf="order.canCancel && order.status === 'pending'" 
+                  <button class="btn-danger btn-sm" *ngIf="order.canCancel && order.status === 'pending'"
                           (click)="cancelOrder(order)" title="Cancelar pedido">
                     <i class="bi bi-x-circle me-2"></i>
                     Cancelar
@@ -812,7 +812,7 @@
             </div>
           </div>
           <div class="settings-section danger-zone">
-            <h3 class="settings-title">Zona de Peligro</h3>
+            <h3 class="settings-title">Cerrar sesión</h3>
             <button class="btn-danger" (click)="logout()">
               <i class="bi bi-box-arrow-right me-2"></i>
               Cerrar Sesión
@@ -835,7 +835,7 @@
       <form [formGroup]="addressForm" (ngSubmit)="onAddressSubmit()" class="modal-form">
         <div class="form-group">
           <label class="form-label">Nombre de la dirección</label>
-          <input type="text" formControlName="title" class="form-control" placeholder="Ej: Casa, Trabajo" 
+          <input type="text" formControlName="title" class="form-control" placeholder="Ej: Casa, Trabajo"
                  [class.is-invalid]="submitted && addressForm.get('title')?.errors" />
           <div *ngIf="submitted && addressForm.get('title')?.errors" class="invalid-feedback">
             El nombre es requerido
@@ -851,7 +851,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Barrio</label>
-          <input type="text" formControlName="neighborhood" class="form-control" 
+          <input type="text" formControlName="neighborhood" class="form-control"
                  placeholder="Ej: Centro, Palogrande, La Enea"
                  [class.is-invalid]="submitted && addressForm.get('neighborhood')?.errors" />
           <div *ngIf="submitted && addressForm.get('neighborhood')?.errors" class="invalid-feedback">
@@ -862,7 +862,7 @@
           <div class="col-md-6">
             <div class="form-group">
               <label class="form-label">Ciudad</label>
-              <input type="text" formControlName="city" class="form-control" 
+              <input type="text" formControlName="city" class="form-control"
                      readonly
                      [class.is-invalid]="submitted && addressForm.get('city')?.errors" />
               <div *ngIf="submitted && addressForm.get('city')?.errors" class="invalid-feedback">
@@ -874,7 +874,7 @@
           <div class="col-md-6">
             <div class="form-group">
               <label class="form-label">Código Postal</label>
-              <input type="text" formControlName="postalCode" class="form-control" 
+              <input type="text" formControlName="postalCode" class="form-control"
                      readonly
                      [class.is-invalid]="submitted && addressForm.get('postalCode')?.errors" />
               <div *ngIf="submitted && addressForm.get('postalCode')?.errors" class="invalid-feedback">

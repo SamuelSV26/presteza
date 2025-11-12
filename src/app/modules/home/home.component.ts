@@ -18,22 +18,22 @@ export class HomeComponent implements OnInit {
   featuredCategories: any[] = [];
   loading = true;
   error: string | null = null;
-  
+
   valores = [
-    { 
-      icon: 'bi-award-fill', 
-      title: '100% Calidad', 
-      text: 'Escogimos la mejor carne para nuestros productos, haciéndolos únicos, jugosos y exquisitos al paladar.' 
+    {
+      icon: 'bi-award-fill',
+      title: '100% Calidad',
+      text: 'Escogimos la mejor carne para nuestros productos, haciéndolos únicos, jugosos y exquisitos al paladar.'
     },
-    { 
-      icon: 'bi-stars', 
-      title: 'Ingredientes Premium', 
-      text: 'Cada ingrediente es cuidadosamente seleccionado por un personal altamente capacitado para garantizar la mejor calidad.' 
+    {
+      icon: 'bi-stars',
+      title: 'Ingredientes Premium',
+      text: 'Cada ingrediente es cuidadosamente seleccionado por un personal altamente capacitado para garantizar la mejor calidad.'
     },
-    { 
-      icon: 'bi-trophy-fill', 
-      title: 'Reconocimiento Local', 
-      text: 'En poco tiempo logramos posicionar nuestra marca y obtener reconocimientos locales por nuestra excelencia y dedicación.' 
+    {
+      icon: 'bi-trophy-fill',
+      title: 'Reconocimiento Local',
+      text: 'En poco tiempo logramos posicionar nuestra marca y obtener reconocimientos locales por nuestra excelencia y dedicación.'
     }
   ];
 
@@ -174,8 +174,8 @@ export class HomeComponent implements OnInit {
     return badges[numericId] || 'Destacado';
   }
 
-  navigateToMenu() {
-    this.router.navigate(['/menu']);
+  navigateTo(path: string) {
+    this.router.navigate([path]);
   }
 
   navigateToProductDetail(productId: number | string): void {
@@ -191,10 +191,10 @@ export class HomeComponent implements OnInit {
     if (container) {
       const scrollAmount = 400;
       const currentScroll = container.scrollLeft;
-      const targetScroll = direction === 'left' 
-        ? currentScroll - scrollAmount 
+      const targetScroll = direction === 'left'
+        ? currentScroll - scrollAmount
         : currentScroll + scrollAmount;
-      
+
       container.scrollTo({
         left: targetScroll,
         behavior: 'smooth'
