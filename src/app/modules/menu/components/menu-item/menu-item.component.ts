@@ -36,14 +36,11 @@ export class MenuItemComponent implements OnInit, OnChanges {
     if (this.dishId && this.isLoggedIn) {
       this.isFavorite$ = this.userService.isFavorite(this.dishId);
     } else {
-      // Inicializar con observable que siempre retorna false
       this.isFavorite$ = new Observable(observer => {
         observer.next(false);
         observer.complete();
       });
     }
-
-    // Escuchar cuando el usuario inicie sesión
     window.addEventListener('userLoggedIn', () => {
       this.checkLoginStatus();
       if (this.dishId && this.isLoggedIn) {
@@ -53,7 +50,6 @@ export class MenuItemComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges() {
-    // Revisar estado de login cuando cambie el dishId
     this.checkLoginStatus();
     if (this.dishId && this.isLoggedIn) {
       this.isFavorite$ = this.userService.isFavorite(this.dishId);
@@ -66,21 +62,13 @@ export class MenuItemComponent implements OnInit, OnChanges {
 
   onFavoriteClick(event: Event) {
     event.stopPropagation();
-    
-    // Verificar el estado de autenticación en tiempo real
     this.checkLoginStatus();
-    
     if (!this.isLoggedIn) {
-      // Redirigir a la página de login
       this.router.navigate(['/login']);
       return;
     }
-
-    // Toggle favorite
     this.userService.toggleFavorite(this.dishId);
     this.isFavorite$ = this.userService.isFavorite(this.dishId);
-    
-    // Emitir evento para notificar al componente padre
     this.userService.isFavorite(this.dishId).subscribe(isFav => {
       this.favoriteClick.emit({ 
         dishId: this.dishId, 

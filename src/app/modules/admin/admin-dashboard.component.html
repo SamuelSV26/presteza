@@ -906,6 +906,11 @@
           <label class="form-label">Descripción</label>
           <textarea formControlName="description" class="form-control" rows="3" placeholder="Descripción de la categoría"></textarea>
         </div>
+        <div class="form-group">
+          <label class="form-label">URL de la Imagen (Opcional)</label>
+          <input type="url" formControlName="imageUrl" class="form-control" placeholder="https://ejemplo.com/imagen.jpg" />
+          <small class="form-text text-muted">URL de una imagen que represente esta categoría. Si no se proporciona, se usará una imagen por defecto.</small>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn-outline" (click)="closeCategoryModal()">Cancelar</button>
           <button type="submit" class="btn-primary">Guardar</button>

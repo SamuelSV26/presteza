@@ -14,13 +14,10 @@ export interface AppError {
 })
 export class ErrorHandlerService {
   private errorSubject = new BehaviorSubject<AppError | null>(null);
-
   error$ = this.errorSubject.asObservable();
-
 
   handleHttpError(error: HttpErrorResponse): AppError {
     let errorMessage = 'Ha ocurrido un error inesperado';
-
     if (error.error instanceof ErrorEvent) {
       errorMessage = `Error: ${error.error.message}`;
     } else {
@@ -50,24 +47,18 @@ export class ErrorHandlerService {
           errorMessage = error.error?.message || `Error ${error.status}: ${error.statusText}`;
       }
     }
-
     const appError: AppError = {
       message: errorMessage,
       code: error.error?.code,
       status: error.status,
       timestamp: new Date()
     };
-
     this.errorSubject.next(appError);
     return appError;
   }
 
-  /**
-   * Manejar error genérico
-   */
   handleError(error: any): AppError {
     let errorMessage = 'Ha ocurrido un error inesperado';
-
     if (error instanceof Error) {
       errorMessage = error.message;
     } else if (typeof error === 'string') {
@@ -75,28 +66,19 @@ export class ErrorHandlerService {
     } else if (error?.message) {
       errorMessage = error.message;
     }
-
     const appError: AppError = {
       message: errorMessage,
       timestamp: new Date()
     };
-
     this.errorSubject.next(appError);
     return appError;
   }
 
-  /**
-   * Limpiar error actual
-   */
   clearError(): void {
     this.errorSubject.next(null);
   }
 
-  /**
-   * Obtener el último error
-   */
   getLastError(): AppError | null {
     return this.errorSubject.value;
   }
 }
-

@@ -24,7 +24,6 @@ import { Supply, CreateSupplyDto, UpdateSupplyDto } from '../../core/models/Supp
 export class AdminDashboardComponent implements OnInit {
   activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' = 'dashboard';
 
-  // Estadísticas
   stats = {
     totalOrders: 0,
     pendingOrders: 0,
@@ -32,45 +31,31 @@ export class AdminDashboardComponent implements OnInit {
     totalProducts: 0,
     totalCustomers: 0
   };
-
-  // Productos
   products: MenuItem[] = [];
   categories: MenuCategory[] = [];
   selectedProduct: MenuItem | null = null;
   showProductModal = false;
   productForm: FormGroup;
-
-  // Categorías
   selectedCategory: MenuCategory | null = null;
   showCategoryModal = false;
   categoryForm: FormGroup;
-
-  // Pedidos
   orders: Order[] = [];
   selectedOrder: Order | null = null;
   showOrderDetailsModal = false;
   showUnavailableModal = false;
   selectedItemForUnavailable: { order: Order; item: any; itemIndex: number } | null = null;
-
-  // Inventario
   supplies: Supply[] = [];
   selectedSupply: Supply | null = null;
   showSupplyModal = false;
   supplyForm: FormGroup;
   supplyFilter: 'all' | 'low' | 'out' = 'all';
   lowStockThreshold = 10;
-
-  // Filtros
   orderFilter: 'all' | 'pending' | 'preparing' | 'ready' | 'delivered' = 'all';
   searchTerm = '';
   categoryFilter = '';
   productViewMode: 'grid' | 'list' = 'list';
   orderViewMode: 'list' | 'grid' = 'list';
-
-  // Configuración
   settingsForm!: FormGroup;
-
-  // Contadores de pedidos por estado
   get pendingOrdersCount(): number {
     return this.orders.filter(o => o.status === 'pending').length;
   }
@@ -102,7 +87,7 @@ export class AdminDashboardComponent implements OnInit {
       description: ['', [Validators.required, Validators.minLength(10)]],
       price: [0, [Validators.required, Validators.min(1)]],
       categoryId: ['', Validators.required],
-      imageUrl: [''], // Campo opcional - sin Validators.required
+      imageUrl: [''],
       available: [true]
     });
 
@@ -123,7 +108,8 @@ export class AdminDashboardComponent implements OnInit {
 
     this.categoryForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
-      description: ['', [Validators.required, Validators.minLength(5)]]
+      description: ['', [Validators.required, Validators.minLength(5)]],
+      imageUrl: ['']
     });
 
     this.supplyForm = this.fb.group({
@@ -139,16 +125,9 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   loadDashboardData(): void {
-    // Cargar categorías
     this.loadCategories();
-
-    // Cargar todos los productos
     this.loadAllProducts();
-
-    // Cargar pedidos desde el backend
     this.loadOrders();
-    
-    // Recargar pedidos cada 10 segundos para ver nuevos pedidos
     setInterval(() => {
       if (this.activeTab === 'orders' || this.activeTab === 'dashboard') {
         this.loadOrders();
@@ -163,25 +142,12 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   loadAllProducts(): void {
-    console.log('🔍 Cargando todos los productos desde el backend...');
-
-    // Usar getAllDishes() que obtiene todos los productos de una sola vez
     this.menuService.getAllDishes().subscribe({
       next: (products) => {
-        console.log(`✅ Productos cargados: ${products.length} productos`);
-
-        // Agregar logs detallados para debug
-        products.forEach((product, index) => {
-          console.log(`  ${index + 1}. ${product.name} (ID: ${product.id}, Categoría: ${product.categoryId})`);
-        });
-
         this.products = products;
         this.stats.totalProducts = products.length;
-
-        console.log(`📊 Total de productos en el sistema: ${this.stats.totalProducts}`);
       },
-      error: (error) => {
-        console.error('❌ Error al cargar productos:', error);
+      error: () => {
         this.products = [];
         this.stats.totalProducts = 0;
       }
@@ -191,55 +157,30 @@ export class AdminDashboardComponent implements OnInit {
   calculateStats(): void {
     this.stats.totalOrders = this.orders.length;
     this.stats.pendingOrders = this.orders.filter(o => o.status === 'pending' || o.status === 'preparing').length;
-    
-    // Calcular ingresos totales: Sumar TODOS los pedidos que no estén cancelados
-    // Esto incluye: pending, preparing, ready, delivered
-    // Solo excluimos 'cancelled' porque esos no generan ingresos
     const revenueOrders = this.orders.filter(o => o.status !== 'cancelled');
-    
     this.stats.totalRevenue = revenueOrders.reduce((sum, order) => {
       const orderTotal = Number(order.total) || 0;
-      if (orderTotal > 0) {
-        console.log(`💰 Sumando pedido ${order.id.slice(-8)}: estado=${order.status}, total=$${orderTotal.toLocaleString()}`);
-      }
       return sum + orderTotal;
     }, 0);
-    
-    // Calcular total de productos activos
     this.stats.totalProducts = this.products.filter(p => p.available !== false).length;
-    
-    // Calcular total de clientes únicos
     const uniqueUserIds = new Set(this.orders.map(o => {
-      // Intentar obtener userId de diferentes formas
       if (o.userName) return o.userName;
       if (o.deliveryPhone) return o.deliveryPhone;
       return o.id;
     }));
     this.stats.totalCustomers = uniqueUserIds.size;
-    
-    console.log('📊 Estadísticas calculadas:', {
-      totalOrders: this.stats.totalOrders,
-      pendingOrders: this.stats.pendingOrders,
-      totalRevenue: this.stats.totalRevenue,
-      totalProducts: this.stats.totalProducts,
-      totalCustomers: this.stats.totalCustomers,
-      revenueOrdersCount: revenueOrders.length
-    });
   }
 
-      setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory'): void {
-        this.activeTab = tab;
-        // Recargar pedidos cuando se cambia a la pestaña de pedidos
-        if (tab === 'orders') {
-          this.loadOrders();
-        }
-        // Recargar inventario cuando se cambia a la pestaña de inventario
-        if (tab === 'inventory') {
-          this.loadSupplies();
-        }
-      }
+  setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory'): void {
+    this.activeTab = tab;
+    if (tab === 'orders') {
+      this.loadOrders();
+    }
+    if (tab === 'inventory') {
+      this.loadSupplies();
+    }
+  }
 
-  // Gestión de Productos
   openProductModal(product?: MenuItem): void {
     this.selectedProduct = product || null;
     if (product) {
@@ -269,7 +210,6 @@ export class AdminDashboardComponent implements OnInit {
     if (this.productForm.valid) {
       const formValue = this.productForm.value;
 
-      // Validar que categoryId esté seleccionado
       if (!formValue.categoryId) {
         this.notificationService.showError('Por favor, selecciona una categoría');
         return;
@@ -278,35 +218,21 @@ export class AdminDashboardComponent implements OnInit {
       const productData = {
         name: formValue.name.trim(),
         description: formValue.description.trim(),
-        price: Number(formValue.price), // Asegurar que sea un número
+        price: Number(formValue.price),
         categoryId: formValue.categoryId,
-        imageUrl: (formValue.imageUrl && formValue.imageUrl.trim()) || '', // Enviar string vacío si no hay imagen
+        imageUrl: (formValue.imageUrl && formValue.imageUrl.trim()) || '',
         available: formValue.available !== false
       };
 
       if (this.selectedProduct) {
-        // Actualizar producto existente
-        console.log('📤 Datos del producto a actualizar:', productData);
-        console.log('📤 ID del producto:', this.selectedProduct.id);
         this.menuService.updateDish(this.selectedProduct.id, productData).subscribe({
-          next: (updatedProduct) => {
-            console.log('✅ Producto actualizado:', updatedProduct);
+          next: () => {
             this.notificationService.showSuccess('Producto actualizado correctamente');
             this.closeProductModal();
             this.loadAllProducts();
-            // Disparar evento para que los componentes del cliente recarguen datos
             window.dispatchEvent(new CustomEvent('productsUpdated'));
           },
           error: (error) => {
-            console.error('❌ Error al actualizar producto:', error);
-            console.error('❌ Detalles del error:', {
-              status: error.status,
-              statusText: error.statusText,
-              message: error.message,
-              error: error.error
-            });
-
-            // Mostrar mensaje de error más detallado
             let errorMessage = 'Error al actualizar el producto. Por favor, intenta nuevamente.';
             if (error.error && error.error.message) {
               errorMessage = `Error: ${error.error.message}`;
@@ -315,32 +241,18 @@ export class AdminDashboardComponent implements OnInit {
             } else if (error.message) {
               errorMessage = `Error: ${error.message}`;
             }
-
             this.notificationService.showError(errorMessage);
           }
         });
       } else {
-        // Crear nuevo producto
-        console.log('📤 Datos del producto a enviar:', productData);
         this.menuService.createDish(productData).subscribe({
-          next: (newProduct) => {
-            console.log('✅ Producto creado:', newProduct);
+          next: () => {
             this.notificationService.showSuccess('Producto creado correctamente');
             this.closeProductModal();
             this.loadAllProducts();
-            // Disparar evento para que los componentes del cliente recarguen datos
             window.dispatchEvent(new CustomEvent('productsUpdated'));
           },
           error: (error) => {
-            console.error('❌ Error al crear producto:', error);
-            console.error('❌ Detalles del error:', {
-              status: error.status,
-              statusText: error.statusText,
-              message: error.message,
-              error: error.error
-            });
-
-            // Mostrar mensaje de error más detallado
             let errorMessage = 'Error al crear el producto. Por favor, intenta nuevamente.';
             if (error.error && error.error.message) {
               errorMessage = `Error: ${error.error.message}`;
@@ -366,14 +278,11 @@ export class AdminDashboardComponent implements OnInit {
     if (confirmed) {
       this.menuService.deleteDish(productId).subscribe({
         next: () => {
-          console.log('✅ Producto eliminado:', productId);
           this.notificationService.showSuccess('Producto eliminado correctamente');
           this.loadAllProducts();
-          // Disparar evento para que los componentes del cliente recarguen datos
           window.dispatchEvent(new CustomEvent('productsUpdated'));
         },
-        error: (error) => {
-          console.error('❌ Error al eliminar producto:', error);
+        error: () => {
           this.notificationService.showError('Error al eliminar el producto. Por favor, intenta nuevamente.');
         }
       });
@@ -384,18 +293,14 @@ export class AdminDashboardComponent implements OnInit {
     const newAvailability = !product.available;
     this.menuService.updateDishAvailability(product.id, newAvailability).subscribe({
       next: (updatedProduct) => {
-        console.log('✅ Disponibilidad actualizada:', updatedProduct);
         product.available = updatedProduct.available;
         this.notificationService.showSuccess(
           `Producto ${updatedProduct.available ? 'activado' : 'desactivado'} correctamente`
         );
         this.loadAllProducts();
-        // Disparar evento para que los componentes del cliente recarguen datos
         window.dispatchEvent(new CustomEvent('productsUpdated'));
       },
-      error: (error) => {
-        console.error('❌ Error al actualizar disponibilidad:', error);
-        // Revertir el cambio visual si falla
+      error: () => {
         product.available = !newAvailability;
         this.notificationService.showError('Error al actualizar la disponibilidad. Por favor, intenta nuevamente.');
       }
@@ -422,8 +327,6 @@ export class AdminDashboardComponent implements OnInit {
 
     return filtered;
   }
-
-  // Gestión de Pedidos
   getFilteredOrders(): Order[] {
     let filtered = this.orders;
 
@@ -444,44 +347,26 @@ export class AdminDashboardComponent implements OnInit {
   loadOrders(): void {
     this.orderService.findAll().subscribe({
       next: (response) => {
-        console.log('✅ Pedidos cargados desde el backend:', response);
-        console.log('📦 Total de pedidos recibidos:', response.orders?.length || 0);
-        
-        // Mapear pedidos del backend al formato del frontend
         this.orders = response.orders.map(backendOrder => this.mapBackendOrderToFrontend(backendOrder));
-        
-        // Ordenar por fecha descendente (más reciente primero)
-        // Si las fechas son iguales, ordenar por ID (más reciente primero)
         this.orders.sort((a, b) => {
           const dateA = new Date(a.date).getTime();
           const dateB = new Date(b.date).getTime();
           if (dateB !== dateA) {
-            return dateB - dateA; // Orden descendente por fecha
+            return dateB - dateA;
           }
-          // Si las fechas son iguales, ordenar por ID (más reciente primero)
           return String(b.id).localeCompare(String(a.id));
         });
-        
-        console.log('📊 Pedidos mapeados y ordenados:', this.orders.length);
-        console.log('💰 Totales de pedidos:', this.orders.map(o => ({ id: o.id.slice(-8), total: o.total, status: o.status })));
-        
-        // Recalcular estadísticas después de cargar pedidos
         this.calculateStats();
       },
-      error: (error) => {
-        console.error('❌ Error al cargar pedidos:', error);
+      error: () => {
         this.notificationService.showError('Error al cargar los pedidos');
-        // Fallback: cargar desde localStorage
         this.userService.getOrders().subscribe(orders => {
-          // Ordenar por fecha descendente (más reciente primero)
-          // Si las fechas son iguales, ordenar por ID (más reciente primero)
           this.orders = orders.sort((a, b) => {
             const dateA = new Date(a.date).getTime();
             const dateB = new Date(b.date).getTime();
             if (dateB !== dateA) {
-              return dateB - dateA; // Orden descendente por fecha
+              return dateB - dateA;
             }
-            // Si las fechas son iguales, ordenar por ID (más reciente primero)
             return String(b.id).localeCompare(String(a.id));
           });
           this.calculateStats();
@@ -492,18 +377,14 @@ export class AdminDashboardComponent implements OnInit {
 
   private mapBackendOrderToFrontend(backendOrder: OrderFromBackend): Order {
     const orderId = backendOrder._id || backendOrder.id || '';
-    
-    // Buscar detalles completos en localStorage de todos los usuarios
     let detailedOrder: Order | null = null;
     try {
-      // Buscar en todas las claves de localStorage que contengan "userOrders_"
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith('userOrders_')) {
           try {
             const storedOrders = JSON.parse(localStorage.getItem(key) || '[]');
             const found = storedOrders.find((o: Order) => {
-              // Buscar por ID completo o por coincidencia parcial
               return o.id === orderId || 
                      o.id.includes(orderId.substring(0, 8)) ||
                      (o.trackingCode && orderId.includes(o.trackingCode));
@@ -512,23 +393,16 @@ export class AdminDashboardComponent implements OnInit {
               detailedOrder = found;
               break;
             }
-          } catch (e) {
+          } catch {
             continue;
           }
         }
       }
-    } catch (e) {
-      console.warn('No se pudieron obtener detalles del pedido desde localStorage:', e);
-    }
-
-    // Si encontramos el pedido detallado, usar sus items
+    } catch {}
     let orderItems = detailedOrder?.items || [];
-    
-    // Si no hay items detallados, construir desde los IDs del backend
     if (orderItems.length === 0) {
       orderItems = backendOrder.products.map(productId => {
         const product = this.products.find(p => String(p.id) === String(productId));
-        // Asegurar que id sea siempre un número
         const productIdNumber = typeof product?.id === 'number' 
           ? product.id 
           : (typeof product?.id === 'string' ? Number(product.id) || 0 : 0);
@@ -542,25 +416,11 @@ export class AdminDashboardComponent implements OnInit {
       });
     }
 
-    // Mapear estado del backend
     const mappedStatus = this.mapBackendStatusToFrontend(backendOrder.status);
-    
-    // Si el pedido detallado tiene estado 'delivered', mantenerlo
     const finalStatus = detailedOrder?.status === 'delivered' 
       ? 'delivered' 
       : mappedStatus;
-    
-    // Asegurar que el total venga del backend o del pedido detallado
     const orderTotal = backendOrder.total || detailedOrder?.total || 0;
-    
-    console.log(`🔄 Mapeando pedido ${orderId}:`, {
-      backendStatus: backendOrder.status,
-      mappedStatus: mappedStatus,
-      finalStatus: finalStatus,
-      backendTotal: backendOrder.total,
-      detailedTotal: detailedOrder?.total,
-      finalTotal: orderTotal
-    });
     
     return {
       id: orderId,
@@ -570,9 +430,7 @@ export class AdminDashboardComponent implements OnInit {
       status: finalStatus,
       paymentMethod: backendOrder.payment_method,
       trackingCode: orderId.substring(0, 8).toUpperCase(),
-      // Información del backend
       userName: backendOrder.user_name,
-      // Información adicional del backend o localStorage
       deliveryAddress: detailedOrder?.deliveryAddress,
       deliveryNeighborhood: detailedOrder?.deliveryNeighborhood,
       deliveryPhone: detailedOrder?.deliveryPhone,
@@ -598,7 +456,7 @@ export class AdminDashboardComponent implements OnInit {
       'pending': 'pendiente',
       'preparing': 'en_proceso',
       'ready': 'completado',
-      'delivered': 'completado', // Usar 'completado' si el backend no acepta 'entregado'
+      'delivered': 'completado',
       'cancelled': 'cancelado'
     };
     return statusMap[frontendStatus] || 'pendiente';
@@ -606,27 +464,13 @@ export class AdminDashboardComponent implements OnInit {
 
   updateOrderStatus(order: Order, newStatus: Order['status']): void {
     const backendStatus = this.mapFrontendStatusToBackend(newStatus);
-    
-    console.log('🔄 Actualizando estado:', { 
-      orderId: order.id, 
-      frontendStatus: newStatus, 
-      backendStatus: backendStatus 
-    });
-    
-    // Si el estado es "delivered", intentar primero con "entregado", si falla usar "completado"
     let statusToSend = backendStatus;
     if (newStatus === 'delivered' && backendStatus === 'completado') {
-      // Intentar primero con "entregado" si el backend lo acepta
       statusToSend = 'entregado';
     }
-    
-    // Actualizar en el backend
     this.orderService.update(order.id, { status: statusToSend }).subscribe({
-      next: (response) => {
-        console.log('✅ Estado actualizado:', response);
+      next: () => {
         order.status = newStatus;
-        
-        // Si el estado es "delivered", guardar en localStorage para mantener la distinción
         if (newStatus === 'delivered') {
           this.userService.saveOrder(order);
         }
@@ -635,26 +479,15 @@ export class AdminDashboardComponent implements OnInit {
         this.notificationService.showSuccess('Estado del pedido actualizado');
       },
       error: (error) => {
-        console.error('❌ Error al actualizar estado:', error);
-        console.error('❌ Detalles del error:', {
-          status: error.status,
-          message: error.message,
-          error: error.error
-        });
-        
-        // Si falló con "entregado" y el estado es "delivered", intentar con "completado"
         if (newStatus === 'delivered' && statusToSend === 'entregado' && error.status === 400) {
-          console.log('🔄 Reintentando con "completado" en lugar de "entregado"');
           this.orderService.update(order.id, { status: 'completado' }).subscribe({
-            next: (response) => {
-              console.log('✅ Estado actualizado con "completado":', response);
-              order.status = newStatus; // Mantener "delivered" en el frontend
-              this.userService.saveOrder(order); // Guardar para mantener la distinción
+            next: () => {
+              order.status = newStatus;
+              this.userService.saveOrder(order);
               this.calculateStats();
               this.notificationService.showSuccess('Estado del pedido actualizado');
             },
             error: (retryError) => {
-              console.error('❌ Error al actualizar estado (reintento):', retryError);
               let errorMessage = 'Error al actualizar el estado del pedido';
               if (retryError.error && retryError.error.message) {
                 errorMessage = `Error: ${retryError.error.message}`;
@@ -665,7 +498,6 @@ export class AdminDashboardComponent implements OnInit {
             }
           });
         } else {
-          // Mostrar mensaje de error más detallado
           let errorMessage = 'Error al actualizar el estado del pedido';
           if (error.error && error.error.message) {
             errorMessage = `Error: ${error.error.message}`;
@@ -727,14 +559,12 @@ export class AdminDashboardComponent implements OnInit {
 
     switch (action) {
       case 'cancel':
-        // Marcar el item como no disponible y cancelarlo
         updatedItems[itemIndex] = {
           ...item,
           unavailable: true,
           unavailableReason: reason || 'Producto no disponible',
-          quantity: 0 // Reducir cantidad a 0 efectivamente lo cancela
+          quantity: 0
         };
-        // Recalcular total
         const newTotal = updatedItems.reduce((sum, it) => {
           const itemTotal = it.price * it.quantity;
           const optionsTotal = (it.selectedOptions || []).reduce((optSum, opt) => optSum + (opt.price * it.quantity), 0);
@@ -742,18 +572,14 @@ export class AdminDashboardComponent implements OnInit {
         }, 0);
         this.orders[orderIndex].total = newTotal;
         break;
-      
       case 'notify':
-        // Marcar como no disponible pero mantener en el pedido (para notificar al cliente)
         updatedItems[itemIndex] = {
           ...item,
           unavailable: true,
           unavailableReason: reason || 'Producto no disponible temporalmente'
         };
         break;
-      
       case 'replace':
-        // Reemplazar con otro producto
         if (replacementId) {
           updatedItems[itemIndex] = {
             ...item,
@@ -764,35 +590,23 @@ export class AdminDashboardComponent implements OnInit {
         }
         break;
     }
-
-    // Actualizar el pedido
     this.orders[orderIndex] = {
       ...currentOrder,
       items: updatedItems
     };
-
-    // Guardar en localStorage también
     this.userService.saveOrder(this.orders[orderIndex]);
-
-    // Actualizar en el backend (opcional, dependiendo de tu estructura)
-    this.orderService.update(order.id, {
-      // Aquí podrías enviar información sobre items no disponibles si el backend lo soporta
-    }).subscribe({
+    this.orderService.update(order.id, {}).subscribe({
       next: () => {
         this.notificationService.showSuccess('Item actualizado correctamente');
         this.calculateStats();
       },
-      error: (error) => {
-        console.error('Error al actualizar pedido:', error);
-        // No mostrar error si el backend no soporta esta funcionalidad aún
-      }
+      error: () => {}
     });
 
     this.closeUnavailableModal();
   }
 
   printOrder(order: Order): void {
-    // Crear una nueva ventana para imprimir
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(`
@@ -858,22 +672,22 @@ export class AdminDashboardComponent implements OnInit {
 
   onSettingsSubmit(): void {
     if (this.settingsForm.valid) {
-      console.log('Guardar configuración:', this.settingsForm.value);
       this.notificationService.showSuccess('Configuración guardada correctamente');
-      // Aquí iría la lógica para guardar en el backend
     }
   }
 
-  // Gestión de Categorías
   openCategoryModal(category?: MenuCategory): void {
     this.selectedCategory = category || null;
     if (category) {
       this.categoryForm.patchValue({
         name: category.name,
-        description: category.description
+        description: category.description,
+        imageUrl: category.imageUrl || ''
       });
     } else {
-      this.categoryForm.reset();
+      this.categoryForm.reset({
+        imageUrl: ''
+      });
     }
     this.showCategoryModal = true;
   }
@@ -889,23 +703,19 @@ export class AdminDashboardComponent implements OnInit {
       const formValue = this.categoryForm.value;
       const categoryData = {
         name: formValue.name.trim(),
-        description: formValue.description.trim()
+        description: formValue.description.trim(),
+        imageUrl: formValue.imageUrl?.trim() || undefined
       };
 
       if (this.selectedCategory) {
-        // Actualizar categoría existente
-        console.log('📤 Actualizando categoría:', categoryData);
         this.menuService.updateCategory(this.selectedCategory.id, categoryData).subscribe({
-          next: (updatedCategory) => {
-            console.log('✅ Categoría actualizada:', updatedCategory);
+          next: () => {
             this.notificationService.showSuccess('Categoría actualizada correctamente');
             this.closeCategoryModal();
             this.loadCategories();
-            // Disparar evento para que los componentes recarguen datos
             window.dispatchEvent(new CustomEvent('categoriesUpdated'));
           },
           error: (error) => {
-            console.error('❌ Error al actualizar categoría:', error);
             let errorMessage = 'Error al actualizar la categoría. Por favor, intenta nuevamente.';
             if (error.error && error.error.message) {
               errorMessage = `Error: ${error.error.message}`;
@@ -914,19 +724,14 @@ export class AdminDashboardComponent implements OnInit {
           }
         });
       } else {
-        // Crear nueva categoría
-        console.log('📤 Creando categoría:', categoryData);
         this.menuService.createCategory(categoryData).subscribe({
-          next: (newCategory) => {
-            console.log('✅ Categoría creada:', newCategory);
+          next: () => {
             this.notificationService.showSuccess('Categoría creada correctamente');
             this.closeCategoryModal();
             this.loadCategories();
-            // Disparar evento para que los componentes recarguen datos
             window.dispatchEvent(new CustomEvent('categoriesUpdated'));
           },
           error: (error) => {
-            console.error('❌ Error al crear categoría:', error);
             let errorMessage = 'Error al crear la categoría. Por favor, intenta nuevamente.';
             if (error.error && error.error.message) {
               errorMessage = `Error: ${error.error.message}`;
@@ -949,11 +754,9 @@ export class AdminDashboardComponent implements OnInit {
         next: () => {
           this.notificationService.showSuccess('Categoría eliminada correctamente');
           this.loadCategories();
-          // Disparar evento para que los componentes recarguen datos
           window.dispatchEvent(new CustomEvent('categoriesUpdated'));
         },
         error: (error) => {
-          console.error('❌ Error al eliminar categoría:', error);
           let errorMessage = 'Error al eliminar la categoría. Por favor, intenta nuevamente.';
           if (error.error && error.error.message) {
             errorMessage = `Error: ${error.error.message}`;
@@ -965,11 +768,9 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   logout(): void {
-    // Usar el método logout del AuthService que limpia todo correctamente
     this.authService.logout();
   }
 
-  // Gestión de Inventario
   loadSupplies(): void {
     switch (this.supplyFilter) {
       case 'low':
@@ -977,8 +778,7 @@ export class AdminDashboardComponent implements OnInit {
           next: (response) => {
             this.supplies = response.supplies;
           },
-          error: (error) => {
-            console.error('Error al cargar insumos con stock bajo:', error);
+          error: () => {
             this.notificationService.showError('Error al cargar el inventario');
           }
         });
@@ -988,8 +788,7 @@ export class AdminDashboardComponent implements OnInit {
           next: (response) => {
             this.supplies = response.supplies;
           },
-          error: (error) => {
-            console.error('Error al cargar insumos agotados:', error);
+          error: () => {
             this.notificationService.showError('Error al cargar el inventario');
           }
         });
@@ -999,8 +798,7 @@ export class AdminDashboardComponent implements OnInit {
           next: (response) => {
             this.supplies = response.supplies;
           },
-          error: (error) => {
-            console.error('Error al cargar inventario:', error);
+          error: () => {
             this.notificationService.showError('Error al cargar el inventario');
           }
         });
@@ -1043,7 +841,6 @@ export class AdminDashboardComponent implements OnInit {
       };
 
       if (this.selectedSupply) {
-        // Actualizar insumo existente
         this.supplyService.update(this.selectedSupply._id || this.selectedSupply.id || '', supplyData).subscribe({
           next: () => {
             this.notificationService.showSuccess('Insumo actualizado correctamente');
@@ -1051,12 +848,10 @@ export class AdminDashboardComponent implements OnInit {
             this.loadSupplies();
           },
           error: (error) => {
-            console.error('Error al actualizar insumo:', error);
             this.notificationService.showError(error.message || 'Error al actualizar el insumo.');
           }
         });
       } else {
-        // Crear nuevo insumo
         this.supplyService.create(supplyData as CreateSupplyDto).subscribe({
           next: () => {
             this.notificationService.showSuccess('Insumo creado correctamente');
@@ -1064,7 +859,6 @@ export class AdminDashboardComponent implements OnInit {
             this.loadSupplies();
           },
           error: (error) => {
-            console.error('Error al crear insumo:', error);
             this.notificationService.showError(error.message || 'Error al crear el insumo.');
           }
         });
@@ -1080,7 +874,6 @@ export class AdminDashboardComponent implements OnInit {
           this.loadSupplies();
         },
         error: (error) => {
-          console.error('Error al eliminar insumo:', error);
           this.notificationService.showError(error.message || 'Error al eliminar el insumo.');
         }
       });

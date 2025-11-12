@@ -57,36 +57,22 @@ export class RegistroComponent implements OnInit {
         email: this.registroForm.value.email,
         phone_number: this.registroForm.value.phone,
         password: this.registroForm.value.password,
-        role: 'client' // Por defecto cliente
+        role: 'client'
       };
 
       this.authService.register(registerData).subscribe({
         next: (response) => {
-          console.log('Registro exitoso, respuesta:', response);
           this.isLoading = false;
           this.formSuccess = true;
-          
-          // Guardar nombre, email y teléfono temporalmente en localStorage antes del login
           localStorage.setItem('userName', registerData.complete_name);
           localStorage.setItem('userEmail', registerData.email);
           localStorage.setItem('userPhone', registerData.phone_number);
-          
-          // Verificar que la respuesta sea válida
           if (response && (response.message || response.userId)) {
-            console.log('Usuario registrado correctamente en la base de datos');
-            
-            // Hacer login automático después del registro
             setTimeout(() => {
               this.authService.login(registerData.email, registerData.password, false).subscribe({
                 next: () => {
-                  console.log('✅ Login automático exitoso después del registro');
-                  
-                  // Función para realizar la redirección
                   const performRedirect = () => {
-                    // Obtener el rol directamente del token decodificado
                     const token = this.authService.getToken();
-                    console.log('🔑 Token obtenido después del registro:', token ? 'Sí' : 'No');
-                    
                     if (token) {
                       try {
                         const base64Url = token.split('.')[1];
@@ -95,46 +81,23 @@ export class RegistroComponent implements OnInit {
                           return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
                         }).join(''));
                         const payload = JSON.parse(jsonPayload);
-                        
                         const userRole = payload?.role || payload?.userRole || payload?.rol || payload?.type || 'client';
                         const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : 'client';
-                        
-                        console.log('🔍 Rol obtenido después del registro:', normalizedRole);
-                        
-                        // Redirigir según el rol
                         if (normalizedRole === 'admin') {
-                          console.log('✅ Redirigiendo a /admin');
-                          this.router.navigateByUrl('/admin').then(success => {
-                            console.log('✅ Navegación a /admin:', success ? 'exitosa' : 'fallida');
-                            if (!success) {
-                              console.error('❌ Error al navegar a /admin');
-                            }
-                          }).catch(err => {
-                            console.error('❌ Excepción al navegar a /admin:', err);
-                          });
+                          this.router.navigateByUrl('/admin').then(() => {}).catch(() => {});
                         } else {
-                          console.log('✅ Redirigiendo a /perfil');
                           this.router.navigateByUrl('/perfil').then(success => {
-                            console.log('✅ Navegación a /perfil:', success ? 'exitosa' : 'fallida');
                             if (!success) {
-                              console.error('❌ Error al navegar a /perfil');
-                              // Intentar de nuevo después de un breve delay
                               setTimeout(() => {
-                                console.log('🔄 Reintentando navegación a /perfil...');
                                 this.router.navigateByUrl('/perfil');
                               }, 500);
                             }
-                          }).catch(err => {
-                            console.error('❌ Excepción al navegar a /perfil:', err);
-                          });
+                          }).catch(() => {});
                         }
                       } catch (error) {
-                        console.error('❌ Error al decodificar token para obtener rol:', error);
-                        // Fallback: usar el método del servicio
                         const userInfo = this.authService.getUserInfo();
                         const userRole = userInfo?.role || this.authService.getRole();
                         const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : 'client';
-                        
                         if (normalizedRole === 'admin') {
                           this.router.navigateByUrl('/admin');
                         } else {
@@ -142,13 +105,9 @@ export class RegistroComponent implements OnInit {
                         }
                       }
                     } else {
-                      console.error('❌ No se encontró token después del registro');
-                      // Redirigir a perfil por defecto si no hay token
                       this.router.navigateByUrl('/perfil');
                     }
                   };
-                  
-                  // Verificar que el token esté disponible antes de redirigir
                   let attempts = 0;
                   const maxAttempts = 10;
                   const checkTokenAndRedirect = () => {
@@ -157,35 +116,23 @@ export class RegistroComponent implements OnInit {
                       performRedirect();
                     } else {
                       attempts++;
-                      console.log(`⏳ Esperando token... Intento ${attempts}/${maxAttempts}`);
                       setTimeout(checkTokenAndRedirect, 100);
                     }
                   };
-                  
-                  // Iniciar verificación
                   checkTokenAndRedirect();
                 },
-                error: (loginError) => {
-                  console.error('❌ Error en login automático:', loginError);
-                  // Si el login automático falla, redirigir al login para que inicie sesión manualmente
+                error: () => {
                   this.router.navigate(['/login']);
                 }
               });
             }, 1500);
           } else {
-            console.warn('Registro completado pero respuesta inesperada:', response);
             this.formError = 'Registro completado pero respuesta inesperada del servidor';
           }
         },
         error: (error) => {
-          console.error('Error completo en el registro:', error);
           this.isLoading = false;
           this.formError = error.message || 'Error al registrar. Por favor intenta nuevamente.';
-          
-          // Mostrar detalles adicionales del error para debugging
-          if (error.error) {
-            console.error('Detalles del error:', error.error);
-          }
         }
       });
     }
@@ -196,15 +143,12 @@ export class RegistroComponent implements OnInit {
   }
 
   ngOnInit() {
-    // No necesita escuchar eventos de modal ahora que tenemos página dedicada
   }
 
   navigateToLogin(event?: Event) {
     if (event) {
       event.preventDefault();
     }
-    
-    // Redirigir a la página de login
     this.router.navigate(['/login']);
   }
 }

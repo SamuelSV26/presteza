@@ -1,9 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 
-/**
- * Servicio para manejar estados de carga globalmente
- */
 @Injectable({
   providedIn: 'root'
 })
@@ -12,31 +9,18 @@ export class LoadingService {
   private loadingMessageSubject = new BehaviorSubject<string>('');
   private loadingCount = 0;
 
-  /**
-   * Observable para suscribirse al estado de carga
-   */
   get loading$(): Observable<boolean> {
     return this.loadingSubject.asObservable();
   }
 
-  /**
-   * Observable para el mensaje de carga
-   */
   get loadingMessage$(): Observable<string> {
     return this.loadingMessageSubject.asObservable();
   }
 
-  /**
-   * Obtener el estado actual de carga
-   */
   get isLoading(): boolean {
     return this.loadingSubject.value;
   }
 
-  /**
-   * Iniciar carga
-   * @param message Mensaje opcional para mostrar durante la carga
-   */
   startLoading(message: string = ''): void {
     this.loadingCount++;
     this.loadingSubject.next(true);
@@ -45,9 +29,6 @@ export class LoadingService {
     }
   }
 
-  /**
-   * Detener carga
-   */
   stopLoading(): void {
     this.loadingCount = Math.max(0, this.loadingCount - 1);
     if (this.loadingCount === 0) {
@@ -56,18 +37,12 @@ export class LoadingService {
     }
   }
 
-  /**
-   * Forzar detención de carga (útil en caso de errores)
-   */
   forceStopLoading(): void {
     this.loadingCount = 0;
     this.loadingSubject.next(false);
     this.loadingMessageSubject.next('');
   }
 
-  /**
-   * Ejecutar una función asíncrona con loading automático
-   */
   async executeWithLoading<T>(
     fn: () => Promise<T>,
     message: string = 'Cargando...'
@@ -81,4 +56,3 @@ export class LoadingService {
     }
   }
 }
-

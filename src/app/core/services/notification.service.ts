@@ -25,10 +25,8 @@ export interface ConfirmDialog {
 export class NotificationService {
   private notificationsSubject = new BehaviorSubject<Notification[]>([]);
   public notifications$ = this.notificationsSubject.asObservable();
-
   private confirmDialogSubject = new BehaviorSubject<ConfirmDialog | null>(null);
   public confirmDialog$ = this.confirmDialogSubject.asObservable();
-
   private confirmResponseSubject = new BehaviorSubject<{ id: string; confirmed: boolean } | null>(null);
   public confirmResponse$ = this.confirmResponseSubject.asObservable();
 
@@ -82,10 +80,7 @@ export class NotificationService {
         confirmText,
         cancelText
       };
-
       this.confirmDialogSubject.next(dialog);
-
-      // Escuchar la respuesta
       const subscription = this.confirmResponse$.subscribe(response => {
         if (response && response.id === dialogId) {
           subscription.unsubscribe();
@@ -105,8 +100,6 @@ export class NotificationService {
   private addNotification(notification: Notification): void {
     const current = this.notificationsSubject.value;
     this.notificationsSubject.next([...current, notification]);
-
-    // Auto-remover después de la duración
     if (notification.duration && notification.duration > 0) {
       setTimeout(() => {
         this.removeNotification(notification.id);

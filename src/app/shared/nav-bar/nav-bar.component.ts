@@ -36,7 +36,6 @@ export class NavbarComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    // Verificar si hay usuario autenticado
     const userInfo = this.authService.getUserInfo();
     if (userInfo) {
       this.userName = userInfo.name;
@@ -47,18 +46,12 @@ export class NavbarComponent implements OnInit {
       this.userName = storedUser ? storedUser : null;
       this.userEmail = storedEmail ? storedEmail : null;
     }
-    
-    // Verificar la ruta actual
     this.checkCurrentRoute();
-    
-    // Escuchar cambios de ruta
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
       this.checkCurrentRoute();
     });
-    
-    // Escuchar cambios en el token
     this.authService.userInfo$.subscribe(userInfo => {
       if (userInfo) {
         this.userName = userInfo.name;
@@ -68,14 +61,10 @@ export class NavbarComponent implements OnInit {
         this.userEmail = null;
       }
     });
-    
-    // Escuchar evento para mostrar modal de login desde otros componentes
     window.addEventListener('showLoginModal', () => {
       this.showLoginModal = true;
-      this.cdr.detectChanges(); // Forzar detección de cambios
+      this.cdr.detectChanges();
     });
-
-    // Escuchar evento de login exitoso
     window.addEventListener('userLoggedIn', () => {
       const userInfo = this.authService.getUserInfo();
       if (userInfo) {
@@ -123,7 +112,6 @@ export class NavbarComponent implements OnInit {
 
   navigateTo(path: string) {
     this.router.navigate([path]);
-    // Cerrar el navbar en móviles después de navegar
     this.isNavbarCollapsed = true;
   }
 
@@ -137,16 +125,12 @@ export class NavbarComponent implements OnInit {
 
   onAccountClick(event: Event) {
     event.stopPropagation();
-    // Verificar si el usuario está autenticado
     const isAuthenticated = this.authService.isAuthenticated();
     const userInfo = this.authService.getUserInfo();
-    
     if (isAuthenticated && userInfo && this.userName) {
-      // Si está autenticado, mostrar/ocultar el dropdown del usuario
       this.showUserDropdown = !this.showUserDropdown;
       this.showLoginModal = false;
     } else {
-      // Si no está autenticado, mostrar el modal de login
       this.showLoginModal = !this.showLoginModal;
       this.showUserDropdown = false;
     }
@@ -154,10 +138,8 @@ export class NavbarComponent implements OnInit {
 
   navigateToProfile() {
     this.showUserDropdown = false;
-    // Verificar el rol del usuario para redirigir correctamente
     const userRole = this.authService.getRole();
     const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : null;
-    
     if (normalizedRole === 'admin') {
       this.router.navigate(['/admin']);
     } else {
@@ -170,7 +152,6 @@ export class NavbarComponent implements OnInit {
     this.loginError = null;
     this.loginEmail = '';
     this.loginPassword = '';
-    // Disparar evento para notificar que el modal se cerró
     window.dispatchEvent(new CustomEvent('closeLoginModal'));
   }
 
@@ -199,23 +180,17 @@ export class NavbarComponent implements OnInit {
         this.closeLoginModal();
         this.loginEmail = '';
         this.loginPassword = '';
-        
-        // El userName se actualizará automáticamente a través del observable
         const userInfo = this.authService.getUserInfo();
         if (userInfo) {
           this.userName = userInfo.name;
         }
-        
-        // Redirigir según el rol
         setTimeout(() => {
           const role = this.authService.getRole();
           const normalizedRole = role ? role.toString().toLowerCase().trim() : 'client';
-          
           if (normalizedRole === 'admin') {
             this.router.navigate(['/admin']);
           } else {
-            // Para clientes, siempre redirigir a /perfil
-            sessionStorage.removeItem('returnUrl'); // Limpiar returnUrl
+            sessionStorage.removeItem('returnUrl');
             this.router.navigate(['/perfil']);
           }
         }, 300);

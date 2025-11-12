@@ -2,14 +2,12 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { CartItem, CartItemOption } from '../models/CartItem';
 
-
 @Injectable({
   providedIn: 'root'
 })
 export class CartService {
   private cartItemsSubject = new BehaviorSubject<CartItem[]>([]);
   public cartItems$ = this.cartItemsSubject.asObservable();
-
 
   private get cartItems(): CartItem[] {
     return this.cartItemsSubject.value;
@@ -18,13 +16,11 @@ export class CartService {
   addItem(item: Omit<CartItem, 'id' | 'totalPrice'>): void {
     const id = `${item.productId}-${Date.now()}-${Math.random()}`;
     const totalPrice = this.calculateTotalPrice(item.basePrice, item.selectedOptions) * item.quantity;
-
     const cartItem: CartItem = {
       ...item,
       id,
       totalPrice
     };
-
     const currentItems = this.cartItems;
     currentItems.push(cartItem);
     this.cartItemsSubject.next([...currentItems]);
@@ -54,7 +50,6 @@ export class CartService {
         observer.next(total);
       });
     });
-    
   }
 
   getTotalPrice(): Observable<number> {

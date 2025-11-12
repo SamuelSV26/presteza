@@ -14,41 +14,31 @@ export interface HomeData {
   error: string | null;
 }
 
-/**
- * Resolver para precargar datos de la página de inicio
- * Asegura que los datos estén disponibles antes de mostrar el componente
- */
 export const homeResolver: ResolveFn<HomeData> = (route, state): Observable<HomeData> => {
   const menuService = inject(MenuService);
-
-  // Precargar categorías y productos destacados
   return forkJoin({
     categories: menuService.getCategories().pipe(
-      catchError(error => {
-        console.error('Error loading categories:', error);
+      catchError(() => {
         return of([]);
       })
     ),
     featuredItems: menuService.getFeaturedItems().pipe(
-      catchError(error => {
-        console.error('Error loading featured items:', error);
+      catchError(() => {
         return of([]);
       })
     )
   }).pipe(
     map(({ categories, featuredItems }) => {
-      // Priorizar categorías con icono, pero si no hay ninguna, mostrar todas
       const categoriesWithIcon = categories.filter((cat: any) => cat.icon && cat.icon.trim() !== '');
       const categoriesToShow = categoriesWithIcon.length > 0 ? categoriesWithIcon : categories;
       return {
-        categories: categoriesToShow.slice(0, 5), // Limitar a 5 categorías
+        categories: categoriesToShow.slice(0, 5),
         featuredProducts: featuredItems,
         loading: false,
         error: null
       };
     }),
-    catchError(error => {
-      console.error('Error in home resolver:', error);
+    catchError(() => {
       return of({
         categories: [],
         featuredProducts: [],

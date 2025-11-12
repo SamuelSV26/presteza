@@ -81,42 +81,24 @@ export class HomeComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    // Escuchar eventos de actualización de productos desde el admin
     window.addEventListener('productsUpdated', () => {
-      console.log('🔄 Productos actualizados, recargando datos de inicio...');
       this.loadData();
     });
-
-    // Escuchar eventos de actualización de categorías desde el admin
     window.addEventListener('categoriesUpdated', () => {
-      console.log('🔄 Categorías actualizadas, recargando datos de inicio...');
       this.loadData();
     });
-
-    // Inicializar animación de números cuando la sección sea visible
     setTimeout(() => {
       this.animateStats();
     }, 1000);
-
-    // Obtener datos del resolver
     const resolvedData = this.route.snapshot.data['homeData'] as HomeData;
-    
     if (resolvedData) {
       if (resolvedData.error) {
         this.error = resolvedData.error;
-        console.error('❌ Error en resolver:', resolvedData.error);
       } else {
-        // Mostrar todas las categorías disponibles, no solo las que tienen icono
         this.featuredCategories = resolvedData.categories || [];
-        console.log('✅ Categorías cargadas desde resolver:', this.featuredCategories.length);
-        console.log('📋 Categorías:', this.featuredCategories);
-        
-        // Si no hay categorías con icono, intentar cargar todas las categorías
         if (this.featuredCategories.length === 0) {
-          console.log('⚠️ No hay categorías con icono, cargando todas las categorías...');
           this.loadData();
         }
-        
         this.featuredProducts = resolvedData.featuredProducts.map(item => ({
           id: item.id,
           name: item.name,
@@ -125,16 +107,11 @@ export class HomeComponent implements OnInit {
           imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80',
           badge: this.getBadgeForProduct(item.id)
         }));
-        console.log('✅ Productos destacados cargados:', this.featuredProducts.length);
         this.loading = false;
       }
     } else {
-      // Fallback: cargar datos manualmente si el resolver no está disponible
-      console.log('⚠️ Resolver no disponible, cargando datos manualmente...');
       this.loadData();
     }
-
-    // Suscribirse a errores globales
     this.errorHandler.error$.subscribe(error => {
       if (error) {
         this.error = error.message;
@@ -148,23 +125,13 @@ export class HomeComponent implements OnInit {
 
     this.menuService.getCategories().subscribe({
       next: (categories) => {
-        console.log('📦 Todas las categorías recibidas:', categories.length);
-        console.log('📋 Lista completa:', categories);
-        
-        // Mostrar todas las categorías disponibles, priorizando las que tienen icono
         const categoriesWithIcon = categories.filter(cat => cat.icon && cat.icon.trim() !== '');
         const allCategories = categoriesWithIcon.length > 0 ? categoriesWithIcon : categories;
-        
-        console.log('✅ Categorías disponibles:', allCategories.length);
-        console.log('📋 Categorías:', allCategories);
-        
         this.featuredCategories = allCategories.slice(0, 5);
         this.loading = false;
         this.loadingService.stopLoading();
-        console.log('🎯 Categorías destacadas mostradas:', this.featuredCategories.length);
       },
       error: (error) => {
-        console.error('❌ Error al cargar categorías:', error);
         this.error = 'Error al cargar las categorías';
         this.loading = false;
         this.loadingService.stopLoading();
@@ -195,7 +162,6 @@ export class HomeComponent implements OnInit {
   }
 
   private getBadgeForProduct(id: number | string): string {
-    // Si es un ObjectId de MongoDB (string de 24 caracteres), usar badge por defecto
     if (typeof id === 'string' && id.length === 24) {
       return 'Destacado';
     }

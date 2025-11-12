@@ -1,0 +1,296 @@
+<section class="reservas-page">
+  <div class="hero-section">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <h1 class="hero-title">Reservas</h1>
+      <p class="hero-subtitle">Selecciona tu mesa y reserva tu experiencia</p>
+    </div>
+  </div>
+
+  <div class="container py-5">
+    <div class="row g-5">
+      <div class="col-lg-8">
+        <div class="tables-section">
+          <div class="section-header">
+            <h2 class="section-title">
+              <i class="bi bi-grid-3x3-gap-fill me-2"></i>
+              Distribución de Mesas
+            </h2>
+            <p class="section-subtitle">Haz clic en una mesa para seleccionarla</p>
+          </div>
+
+          <div class="legend">
+            <div class="legend-item">
+              <div class="legend-color available"></div>
+              <span>Disponible</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color selected"></div>
+              <span>Seleccionada</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color unavailable"></div>
+              <span>Ocupada</span>
+            </div>
+          </div>
+
+          <div class="tables-layout">
+            <div class="restaurant-floor">
+              <!-- Paredes -->
+              <div class="wall wall-top"></div>
+              <div class="wall wall-right"></div>
+              <div class="wall wall-bottom"></div>
+              <div class="wall wall-left"></div>
+
+              <!-- Ventanas -->
+              <div class="window window-top-left" title="Ventana"></div>
+              <div class="window window-top-right" title="Ventana"></div>
+              <div class="window window-right-top" title="Ventana"></div>
+              <div class="window window-right-bottom" title="Ventana"></div>
+              <div class="window window-bottom-left" title="Ventana"></div>
+              <div class="window window-bottom-right" title="Ventana"></div>
+
+              <!-- Cocina -->
+              <div class="kitchen-area" title="Cocina">
+                <div class="kitchen-label">
+                  <i class="bi bi-fire"></i>
+                  <span>COCINA</span>
+                </div>
+                <div class="kitchen-equipment">
+                  <div class="equipment-item"></div>
+                  <div class="equipment-item"></div>
+                  <div class="equipment-item"></div>
+                </div>
+              </div>
+
+              <!-- Puerta de Entrada -->
+              <div class="entrance-door" title="Entrada">
+                <div class="entrance-label-simple">ENTRADA</div>
+                <div class="door-frame">
+                  <div class="door-left"></div>
+                  <div class="door-right"></div>
+                </div>
+              </div>
+
+              <!-- Barra Comunal -->
+              <div
+                class="bar-container"
+                [class.selected]="selectedBar"
+                (click)="selectBar()"
+                title="Barra comunal - Reserva individual o grupal"
+              >
+                <div class="bar-top">
+                  <div class="bar-label">BARRA</div>
+                  <div class="bar-subtitle">1+ personas</div>
+                </div>
+                <div class="bar-chairs">
+                  <div class="bar-chair" *ngFor="let i of [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]"></div>
+                </div>
+              </div>
+
+              <!-- Opción de Mesa Personalizada -->
+              <div
+                class="custom-table-wrapper"
+                [class.selected]="showCustomInput"
+                (click)="selectCustomCapacity()"
+                title="Mesa personalizada"
+              >
+                <div class="custom-table-container">
+                  <div class="chairs-container" data-capacity="custom">
+                    <div class="chair" *ngFor="let i of [0,1,2,3,4,5]"
+                         [style.transform]="getChairPosition(i, 6)">
+                    </div>
+                  </div>
+                  <div class="table-top table-custom">
+                    <div class="custom-icon">
+                      <i class="bi bi-plus-circle-fill"></i>
+                    </div>
+                    <div class="custom-label">PERSONALIZAR</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mesas -->
+              <div
+                *ngFor="let table of tables"
+                class="table-container"
+                [class]="getTableClass(table)"
+                [style.left.%]="table.x"
+                [style.top.%]="table.y"
+                (click)="selectTable(table)"
+                [title]="'Mesa ' + table.id + ' - ' + table.capacity + ' personas'"
+              >
+                <!-- Sillas alrededor de la mesa -->
+                <div class="chairs-container" [attr.data-capacity]="table.capacity">
+                  <div class="chair" *ngFor="let chair of getChairsForTable(table.capacity); let i = index"
+                       [style.transform]="getChairPosition(i, table.capacity)">
+                  </div>
+                </div>
+
+                <!-- Mesa -->
+                <div class="table-top" [class]="getTableShape(table.capacity)">
+                  <div class="table-number">{{ table.id }}</div>
+                  <div class="table-capacity-badge">{{ table.capacity }}</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Selector de Capacidad Personalizada -->
+          <div *ngIf="showCustomInput || (selectedTable && reservationForm.get('guests')?.value === 1) || (selectedBar && reservationForm.get('guests')?.value === 1)" class="custom-capacity-selector">
+            <div class="selector-header">
+              <i class="bi bi-people-fill"></i>
+              <h3>Selecciona el número de personas</h3>
+            </div>
+            <div class="slider-container">
+              <input
+                type="range"
+                id="customCapacity"
+                class="capacity-slider"
+                [(ngModel)]="customCapacity"
+                (ngModelChange)="onCustomCapacityChange()"
+                min="1"
+                max="20"
+                step="1"
+                [ngModelOptions]="{standalone: true}"
+              />
+              <div class="slider-labels">
+                <span>1</span>
+                <span class="current-value">{{ customCapacity }}</span>
+                <span>20</span>
+              </div>
+            </div>
+            <div class="selector-footer">
+              <div class="capacity-display">
+                <i class="bi bi-person-fill"></i>
+                <span>{{ customCapacity }} {{ customCapacity === 1 ? 'persona' : 'personas' }}</span>
+              </div>
+            </div>
+            <div *ngIf="selectedTable && !showCustomInput" class="selected-table-info">
+              <i class="bi bi-info-circle"></i>
+              <span>Mesa seleccionada: {{ selectedTable.id }}</span>
+            </div>
+            <div *ngIf="selectedBar && !showCustomInput" class="selected-table-info">
+              <i class="bi bi-info-circle"></i>
+              <span>Barra comunal seleccionada</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="form-card">
+          <div class="form-header">
+            <div class="form-icon-wrapper">
+              <i class="bi bi-calendar-check-fill form-icon"></i>
+            </div>
+            <h2 class="form-title">Completa tu Reserva</h2>
+            <p class="form-subtitle" *ngIf="selectedTable">
+              Mesa seleccionada: {{ selectedTable.id }} ({{ selectedTable.capacity }} personas)
+            </p>
+            <p class="form-subtitle" *ngIf="selectedBar">
+              Barra comunal seleccionada (1+ personas)
+            </p>
+            <p class="form-subtitle" *ngIf="showCustomInput && !selectedTable && !selectedBar">
+              Capacidad personalizada: {{ customCapacity }} personas
+            </p>
+            <p class="form-subtitle" *ngIf="!selectedTable && !showCustomInput && !selectedBar">
+              Selecciona una mesa o la barra primero
+            </p>
+          </div>
+
+          <div *ngIf="formSuccess" class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            ¡Reserva realizada exitosamente! Te esperamos.
+          </div>
+
+          <form [formGroup]="reservationForm" (ngSubmit)="onSubmit()" class="reservation-form">
+            <!-- Fecha -->
+            <div class="form-group mb-4">
+              <label for="date" class="form-label">
+                <i class="bi bi-calendar-event me-2"></i>Fecha
+              </label>
+              <input
+                type="date"
+                id="date"
+                formControlName="date"
+                class="form-control"
+                [class.is-invalid]="submitted && f['date'].errors"
+                [min]="minDate"
+              />
+              <div *ngIf="submitted && f['date'].errors" class="invalid-feedback">
+                <span *ngIf="f['date'].errors?.['required']">La fecha es requerida</span>
+              </div>
+            </div>
+
+            <div class="form-group mb-4">
+              <label for="time" class="form-label">
+                <i class="bi bi-clock me-2"></i>Hora
+              </label>
+              <input
+                type="time"
+                id="time"
+                formControlName="time"
+                class="form-control"
+                [class.is-invalid]="submitted && f['time'].errors"
+              />
+              <div *ngIf="submitted && f['time'].errors" class="invalid-feedback">
+                <span *ngIf="f['time'].errors?.['required']">La hora es requerida</span>
+              </div>
+            </div>
+
+            <div class="form-group mb-4">
+              <label for="guests" class="form-label">
+                <i class="bi bi-people-fill me-2"></i>Número de Personas
+              </label>
+              <input
+                type="number"
+                id="guests"
+                formControlName="guests"
+                class="form-control"
+                [class.is-invalid]="submitted && f['guests'].errors"
+                min="1"
+                max="20"
+                [readonly]="false"
+                (input)="onGuestsChange()"
+              />
+              <div *ngIf="submitted && f['guests'].errors" class="invalid-feedback">
+                <span *ngIf="f['guests'].errors?.['required']">El número de personas es requerido</span>
+                <span *ngIf="f['guests'].errors?.['min']">Mínimo 1 persona</span>
+                <span *ngIf="f['guests'].errors?.['max']">Máximo 20 personas</span>
+              </div>
+            </div>
+
+            <div class="form-group mb-4">
+              <label for="specialRequests" class="form-label">
+                <i class="bi bi-chat-left-text me-2"></i>Solicitudes Especiales (Opcional)
+              </label>
+              <textarea
+                id="specialRequests"
+                formControlName="specialRequests"
+                class="form-control"
+                rows="3"
+                placeholder="Ej: Mesa cerca de la ventana, celebración de cumpleaños, etc."
+              ></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="submit-btn" [disabled]="isLoading || (!selectedTable && !showCustomInput && !selectedBar)">
+                <span *ngIf="!isLoading">
+                  <i class="bi bi-check-circle me-2"></i>
+                  Confirmar Reserva
+                </span>
+                <span *ngIf="isLoading">
+                  <i class="bi bi-hourglass-split me-2"></i>
+                  Procesando...
+                </span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+

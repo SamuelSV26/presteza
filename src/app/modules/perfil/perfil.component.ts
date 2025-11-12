@@ -95,8 +95,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
       brand: ['Visa', [Validators.required]],
       isDefault: [false]
     });
-
-    // Validación condicional: solo requerir campos de tarjeta si el tipo es 'card'
     this.paymentMethodForm.get('type')?.valueChanges.subscribe(type => {
       if (type === 'card') {
         this.paymentMethodForm.get('cardNumber')?.setValidators([Validators.required, Validators.pattern(/^[0-9\s]{13,19}$/)]);
@@ -121,54 +119,36 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadUserProfile();
-
-    // Cargar pedidos inicialmente
     this.loadOrders();
-
-    // Recargar pedidos cada 10 segundos para ver cambios del admin
     setInterval(() => {
       if (this.activeTab === 'orders') {
         this.loadOrders();
       }
     }, 10000);
-
-    // Suscribirse a cambios en la información del usuario
     this.authService.userInfo$.pipe(takeUntil(this.destroy$)).subscribe(userInfo => {
       if (userInfo) {
-        console.log('🔄 userInfo$ cambió, recargando perfil completo...');
         this.loadUserProfile();
         this.loadFavoriteDishes();
         this.loadAddresses();
       }
     });
-
-    // Escuchar evento personalizado cuando el usuario inicia sesión
     window.addEventListener('userInfoUpdated', () => {
-      console.log('🔄 userInfoUpdated en PerfilComponent, recargando datos...');
       this.loadUserProfile();
       this.loadFavoriteDishes();
       this.loadAddresses();
       this.loadPaymentMethods();
     });
-
-    // Escuchar eventos de actualización de productos desde el admin
     window.addEventListener('productsUpdated', () => {
-      console.log('🔄 Productos actualizados, recargando recomendaciones...');
       this.loadRecommendedDishes();
       this.loadFavoriteDishes();
     });
-
-    // Cargar platos recomendados y favoritos
     this.loadRecommendedDishes();
     this.loadFavoriteDishes();
     this.loadAddresses();
-
-    // Suscribirse a cambios en favoritos (revisar cada vez que cambie localStorage)
     this.setupFavoriteListener();
   }
 
   ngOnDestroy() {
-    // Limpiar todos los intervalos de progreso
     this.progressIntervals.forEach(interval => clearInterval(interval));
     this.progressIntervals.clear();
     
@@ -177,54 +157,40 @@ export class PerfilComponent implements OnInit, OnDestroy {
   }
 
   private setupFavoriteListener() {
-    // Escuchar eventos personalizados cuando se agregan/eliminan favoritos
     window.addEventListener('favoritesChanged', () => {
       this.loadFavoriteDishes();
     });
   }
 
   private loadUserProfile() {
-    // Obtener información del usuario autenticado directamente del token
     const userInfo = this.authService.getUserInfo();
-
     if (!userInfo) {
-      // No hay usuario autenticado, no cargar datos
-      // El usuario debería estar autenticado para ver el perfil
       return;
     }
-
-    // Obtener fecha de registro guardada
     const userId = userInfo.userId || userInfo.email;
-    let registrationDate: Date = new Date(); // Por defecto fecha actual
-
-    // Intentar obtener la fecha de registro guardada
+    let registrationDate: Date = new Date();
     const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
                          localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
 
     if (savedDateStr) {
-      try {
-        registrationDate = new Date(savedDateStr);
-        // Validar que la fecha sea válida
+        try {
+          registrationDate = new Date(savedDateStr);
         if (isNaN(registrationDate.getTime())) {
           registrationDate = new Date();
         }
       } catch (e) {
-        console.error('Error al parsear fecha de registro:', e);
         registrationDate = new Date();
       }
     } else {
-      // Si no hay fecha guardada, guardar la fecha actual como fecha de registro
       localStorage.setItem(`userRegistrationDate_${userId}`, registrationDate.toISOString());
       localStorage.setItem(`userRegistrationDate_${userInfo.email}`, registrationDate.toISOString());
     }
-
-    // Usar SOLO los datos del token/UserInfo, no de localStorage que puede tener datos viejos
     const userProfile: UserProfile = {
       id: userInfo.userId || 'user_' + Date.now(),
       fullName: userInfo.name || 'Usuario',
       email: userInfo.email || '',
-      phone: localStorage.getItem('userPhone') || '', // Solo el teléfono puede venir de localStorage
-      memberSince: registrationDate, // Usar la fecha de registro guardada
+      phone: localStorage.getItem('userPhone') || '',
+      memberSince: registrationDate,
       preferences: {
         notifications: true,
         emailNotifications: true,
@@ -233,11 +199,8 @@ export class PerfilComponent implements OnInit, OnDestroy {
       }
     };
 
-    // Intentar obtener el perfil guardado del servicio, pero validar que sea del usuario actual
     this.userService.getUserProfile().subscribe(profile => {
-      // Verificar que el perfil guardado pertenezca al usuario actual
       if (profile && (profile.email === userInfo.email || profile.id === userInfo.userId)) {
-        // Asegurar que la fecha de registro se preserve desde localStorage
         const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
                              localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
         if (savedDateStr) {
@@ -246,9 +209,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
             if (!isNaN(savedDate.getTime())) {
               profile.memberSince = savedDate;
             }
-          } catch (e) {
-            console.error('Error al actualizar fecha de registro:', e);
-          }
+          } catch (e) {}
         }
 
         this.userProfile = profile;
@@ -258,14 +219,12 @@ export class PerfilComponent implements OnInit, OnDestroy {
           phone: profile.phone
         });
       } else {
-        // Si no hay perfil o es de otro usuario, usar el perfil del token
         this.userProfile = userProfile;
         this.profileForm.patchValue({
           fullName: userProfile.fullName,
           email: userProfile.email,
           phone: userProfile.phone
         });
-        // Inicializar el perfil en el servicio
         this.userService.initializeUserProfile(userProfile);
       }
     });
@@ -276,15 +235,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
   }
 
   private loadRecommendedDishes() {
-    // Obtener órdenes del usuario para generar recomendaciones basadas en compras previas
     this.userService.getOrders().pipe(takeUntil(this.destroy$)).subscribe(orders => {
       if (!orders || orders.length === 0) {
-        // Si no hay órdenes, mostrar productos destacados
         this.loadFallbackRecommendedDishes();
         return;
       }
-
-      // Extraer IDs únicos de productos comprados
       const purchasedProductIds = new Set<string | number>();
       orders.forEach(order => {
         if (order.items && order.items.length > 0) {
@@ -293,11 +248,9 @@ export class PerfilComponent implements OnInit, OnDestroy {
           });
         }
       });
-
-      // Obtener información completa de todos los productos comprados para conocer sus categorías
       const productObservables = Array.from(purchasedProductIds).map(productId =>
         this.menuService.getItemById(productId).pipe(
-          catchError(() => of(null)) // Manejar errores si el producto ya no existe
+          catchError(() => of(null))
         )
       );
 
@@ -305,9 +258,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
         this.loadFallbackRecommendedDishes();
         return;
       }
-
       forkJoin(productObservables).pipe(takeUntil(this.destroy$)).subscribe(products => {
-        // Filtrar productos nulos y obtener sus categorías
         const validProducts = products.filter(p => p !== null && p !== undefined) as MenuItem[];
         const categoryFrequency = new Map<string, number>();
 
@@ -318,7 +269,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
           }
         });
 
-        // Generar recomendaciones basadas en las categorías más frecuentes
         this.generateRecommendationsFromOrders(purchasedProductIds, categoryFrequency);
       });
     });
@@ -328,16 +278,12 @@ export class PerfilComponent implements OnInit, OnDestroy {
     purchasedProductIds: Set<string | number>,
     categoryFrequency: Map<string, number>
   ) {
-    // Ordenar categorías por frecuencia (más compradas primero)
     const sortedCategories = Array.from(categoryFrequency.entries())
       .sort((a, b) => b[1] - a[1])
       .map(entry => entry[0]);
-
-    // Si hay categorías compradas, obtener productos de esas categorías
     if (sortedCategories.length > 0) {
       this.getRecommendedProductsFromCategories(sortedCategories, purchasedProductIds);
     } else {
-      // Si no hay categorías identificadas, usar fallback
       this.loadFallbackRecommendedDishes();
     }
   }
@@ -348,55 +294,29 @@ export class PerfilComponent implements OnInit, OnDestroy {
   ) {
     const recommendedProducts: MenuItem[] = [];
     const maxRecommendations = 4;
-
-    // Obtener productos de las categorías más frecuentes que el usuario NO haya comprado
     const categoryObservables = categoryIds.map(categoryId =>
       this.menuService.getItemsByCategory(categoryId).pipe(
-        catchError(error => {
-          console.error(`Error al obtener productos de categoría ${categoryId}:`, error);
-          return of([]); // Retornar array vacío en caso de error
+        catchError(() => {
+          return of([]);
         })
       )
     );
 
     forkJoin(categoryObservables).pipe(takeUntil(this.destroy$)).subscribe(categoryProductsArrays => {
-      // Combinar todos los productos de las categorías relevantes
       const allProducts = categoryProductsArrays.flat();
-
-      // Filtrar productos que el usuario NO haya comprado y que estén disponibles
-      // Solo productos que realmente existen en la base de datos (vienen del backend)
       const newProducts = allProducts.filter(product => {
         if (!product || !product.available) return false;
-        if (!product.id) return false; // Debe tener ID válido
+        if (!product.id) return false;
         if (purchasedProductIds.has(product.id)) return false;
-        
-        // Excluir productos específicos que no deben aparecer
         const nameLower = product.name?.toLowerCase() || '';
-        
-        // Excluir "Hamburguesa Doble BBQ"
-        if (nameLower.includes('bbq') && nameLower.includes('doble')) {
-          console.warn('⚠️ Producto con BBQ detectado, excluyendo:', product.name);
-          return false;
-        }
-        
-        // Excluir "Hamburguesa Vegetariana"
-        if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) {
-          console.warn('⚠️ Producto vegetariano detectado, excluyendo:', product.name);
-          return false;
-        }
-        
+        if (nameLower.includes('bbq') && nameLower.includes('doble')) return false;
+        if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) return false;
         return true;
       });
-
-      // Eliminar duplicados por ID
       const uniqueProducts = Array.from(
         new Map(newProducts.map(item => [item.id, item])).values()
       );
-
-      // Tomar hasta 4 productos
       recommendedProducts.push(...uniqueProducts.slice(0, maxRecommendations));
-
-      // Si no hay suficientes recomendaciones, completar con productos destacados
       if (recommendedProducts.length < maxRecommendations) {
         this.menuService.getFeaturedItems().pipe(takeUntil(this.destroy$)).subscribe(featuredItems => {
           const additionalProducts = featuredItems
@@ -404,16 +324,10 @@ export class PerfilComponent implements OnInit, OnDestroy {
               if (!item || !item.available || !item.id) return false;
               if (purchasedProductIds.has(item.id)) return false;
               if (recommendedProducts.some(rec => rec.id === item.id)) return false;
-              
-              // Excluir productos específicos que no deben aparecer
               const nameLower = item.name?.toLowerCase() || '';
-              
-              // Excluir "Hamburguesa Doble BBQ"
               if (nameLower.includes('bbq') && nameLower.includes('doble')) {
                 return false;
               }
-              
-              // Excluir "Hamburguesa Vegetariana"
               if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) {
                 return false;
               }
@@ -423,13 +337,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
             .slice(0, maxRecommendations - recommendedProducts.length);
 
           recommendedProducts.push(...additionalProducts);
-          // Asegurar que solo productos con ID válido se muestren
           this.recommendedDishes = recommendedProducts
             .filter(item => item && item.id)
             .slice(0, maxRecommendations);
         });
       } else {
-        // Asegurar que solo productos con ID válido se muestren
         this.recommendedDishes = recommendedProducts
           .filter(item => item && item.id)
           .slice(0, maxRecommendations);
@@ -438,63 +350,36 @@ export class PerfilComponent implements OnInit, OnDestroy {
   }
 
   private loadFallbackRecommendedDishes() {
-    // Cargar productos destacados como recomendados cuando no hay historial de compras
     this.menuService.getFeaturedItems().pipe(takeUntil(this.destroy$)).subscribe(items => {
-      // Filtrar solo productos disponibles y que existan en la base de datos
-      // Solo productos que vienen del backend (tienen ID válido)
       this.recommendedDishes = items
         .filter(item => {
           if (!item || !item.available || !item.id) return false;
-          // Excluir productos específicos que no deben aparecer
           const nameLower = item.name?.toLowerCase() || '';
-          
-          // Excluir "Hamburguesa Doble BBQ"
-          if (nameLower.includes('bbq') && nameLower.includes('doble')) {
-            console.warn('⚠️ Producto con BBQ detectado, excluyendo:', item.name);
-            return false;
-          }
-          
-          // Excluir "Hamburguesa Vegetariana"
-          if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) {
-            console.warn('⚠️ Producto vegetariano detectado, excluyendo:', item.name);
-            return false;
-          }
-          
+          if (nameLower.includes('bbq') && nameLower.includes('doble')) return false;
+          if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) return false;
           return true;
         })
         .slice(0, 4);
-      
-      console.log('✅ Productos recomendados cargados desde BD:', this.recommendedDishes.map(d => d.name));
-      
-      // Verificar que no haya productos hardcodeados (IDs numéricos pequeños)
-      // Los productos de MongoDB tienen ObjectIds de 24 caracteres (strings)
       const hasHardcodedProducts = this.recommendedDishes.some(d => typeof d.id === 'number' && d.id < 100);
       if (hasHardcodedProducts) {
-        console.warn('⚠️ Se detectaron productos con IDs numéricos pequeños (posiblemente hardcodeados). Filtrando...');
-        // Filtrar productos con IDs numéricos pequeños (probablemente hardcodeados)
         this.recommendedDishes = this.recommendedDishes.filter(d => 
           typeof d.id === 'string' || (typeof d.id === 'number' && d.id >= 100)
         );
-        console.log('✅ Productos recomendados después de filtrar hardcodeados:', this.recommendedDishes.map(d => d.name));
       }
     });
   }
 
   private loadFavoriteDishes() {
-    // Cargar favoritos desde el servicio
     this.userService.getFavoriteDishes().pipe(takeUntil(this.destroy$)).subscribe(favoriteIds => {
       if (favoriteIds && favoriteIds.length > 0) {
-        // Cargar todos los items de favoritos usando forkJoin para manejar múltiples suscripciones
         const favoriteObservables = favoriteIds.map(id =>
           this.menuService.getItemById(id)
         );
 
         forkJoin(favoriteObservables).pipe(takeUntil(this.destroy$)).subscribe(items => {
-          // Filtrar items nulos/undefined y asegurarse de que solo incluya los que existen
           this.favoriteDishes = items.filter(item => item !== null && item !== undefined) as MenuItem[];
         });
       } else {
-        // Si no hay favoritos guardados, mostrar array vacío
         this.favoriteDishes = [];
       }
     });
@@ -519,11 +404,8 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
   navigateToProductDetail(productId: number | string, categoryId?: string | null): void {
     if (!productId) {
-      console.error('❌ Intento de navegar a producto sin ID');
       return;
     }
-    // Navegar al detalle del producto
-    // Si tenemos categoryId, pasarlo como query param para poder volver a la categoría
     if (categoryId) {
       this.router.navigate(['/menu/producto', productId], {
         queryParams: { categoryId: categoryId }
@@ -536,66 +418,47 @@ export class PerfilComponent implements OnInit, OnDestroy {
   loadOrders() {
     const userInfo = this.authService.getUserInfo();
     if (!userInfo || !userInfo.userId) {
-      // Fallback a localStorage si no hay usuario autenticado
       this.userService.getOrders().subscribe(orders => {
-        // Ordenar por fecha descendente (más reciente primero)
-        // Si las fechas son iguales, ordenar por ID (más reciente primero)
         this.orders = orders.sort((a, b) => {
           const dateA = new Date(a.date).getTime();
           const dateB = new Date(b.date).getTime();
           if (dateB !== dateA) {
-            return dateB - dateA; // Orden descendente por fecha
+            return dateB - dateA;
           }
-          // Si las fechas son iguales, ordenar por ID (más reciente primero)
           return String(b.id).localeCompare(String(a.id));
         });
         this.setupOrders(this.orders);
       });
       return;
     }
-
-    // Obtener pedidos desde el backend
     this.orderService.findByUser(userInfo.userId).pipe(
       takeUntil(this.destroy$),
-      catchError(error => {
-        console.error('Error al cargar pedidos desde el backend:', error);
-        // Fallback a localStorage si falla el backend
+      catchError(() => {
         return this.userService.getOrders();
       })
     ).subscribe(response => {
       let backendOrders: OrderFromBackend[] = [];
-      
-      // Manejar tanto la respuesta del backend como la de localStorage
       if (response && 'orders' in response) {
         backendOrders = response.orders;
       } else if (Array.isArray(response)) {
-        // Si es un array directo (desde localStorage), ordenarlo por fecha descendente
-        // Si las fechas son iguales, ordenar por ID (más reciente primero)
         this.orders = response.sort((a, b) => {
           const dateA = new Date(a.date).getTime();
           const dateB = new Date(b.date).getTime();
           if (dateB !== dateA) {
-            return dateB - dateA; // Orden descendente por fecha
+            return dateB - dateA;
           }
-          // Si las fechas son iguales, ordenar por ID (más reciente primero)
           return String(b.id).localeCompare(String(a.id));
         });
         this.setupOrders(this.orders);
         return;
       }
-
-      // Mapear pedidos del backend al formato del frontend
       this.orders = backendOrders.map(backendOrder => this.mapBackendOrderToFrontend(backendOrder));
-      
-      // Ordenar por fecha descendente (más reciente primero)
-      // Si las fechas son iguales, ordenar por ID (más reciente primero)
       this.orders.sort((a, b) => {
         const dateA = new Date(a.date).getTime();
         const dateB = new Date(b.date).getTime();
         if (dateB !== dateA) {
-          return dateB - dateA; // Orden descendente por fecha
+          return dateB - dateA;
         }
-        // Si las fechas son iguales, ordenar por ID (más reciente primero)
         return String(b.id).localeCompare(String(a.id));
       });
       
@@ -604,25 +467,18 @@ export class PerfilComponent implements OnInit, OnDestroy {
   }
 
   private setupOrders(orders: Order[]): void {
-    // Limpiar intervalos anteriores
     this.progressIntervals.forEach(interval => clearInterval(interval));
     this.progressIntervals.clear();
-    
-    // Iniciar progreso automático para cada pedido activo
     orders.forEach(order => {
       if (order.status !== 'cancelled' && order.status !== 'delivered') {
         this.startAutoProgress(order);
       }
     });
-    
-    // Recargar recomendaciones cuando se actualicen las órdenes
     this.loadRecommendedDishes();
   }
 
   private mapBackendOrderToFrontend(backendOrder: OrderFromBackend): Order {
     const orderId = backendOrder._id || backendOrder.id || '';
-
-    // Intentar obtener el pedido detallado desde localStorage (donde se guardan los detalles completos)
     let detailedOrder: Order | null = null;
     try {
       const userInfo = this.authService.getUserInfo();
@@ -638,15 +494,8 @@ export class PerfilComponent implements OnInit, OnDestroy {
           );
         }
       }
-    } catch (e) {
-      console.warn('No se pudieron obtener detalles del pedido desde localStorage:', e);
-    }
-
-    // Si encontramos el pedido detallado, usar sus items y detalles
-    // Si no hay items detallados, usar items básicos (los detalles completos vienen de localStorage)
+    } catch {}
     const orderItems = detailedOrder?.items || [];
-
-    // Mapear estado del backend al frontend
     const statusMap: Record<string, Order['status']> = {
       'pendiente': 'pending',
       'en_proceso': 'preparing',
@@ -654,18 +503,13 @@ export class PerfilComponent implements OnInit, OnDestroy {
       'entregado': 'delivered',
       'cancelado': 'cancelled'
     };
-
-    // Si el backend devuelve "completado", verificar si el pedido detallado tiene "delivered"
     let mappedStatus = statusMap[backendOrder.status] || 'pending';
     if (backendOrder.status === 'completado' && detailedOrder?.status === 'delivered') {
-      mappedStatus = 'delivered'; // Mantener "delivered" si estaba guardado así
+      mappedStatus = 'delivered';
     }
-
-    // Asegurar que la fecha sea correcta y consistente
     let orderDate: Date;
     if (backendOrder.createdAt) {
       orderDate = new Date(backendOrder.createdAt);
-      // Validar que la fecha sea válida
       if (isNaN(orderDate.getTime())) {
         orderDate = detailedOrder?.date ? new Date(detailedOrder.date) : new Date();
       }
@@ -681,7 +525,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
       status: mappedStatus,
       paymentMethod: backendOrder.payment_method,
       trackingCode: detailedOrder?.trackingCode || orderId.substring(0, 8).toUpperCase(),
-      // Información adicional del pedido detallado
       deliveryAddress: detailedOrder?.deliveryAddress,
       deliveryNeighborhood: detailedOrder?.deliveryNeighborhood,
       deliveryPhone: detailedOrder?.deliveryPhone,
@@ -696,31 +539,19 @@ export class PerfilComponent implements OnInit, OnDestroy {
   }
 
   private startAutoProgress(order: Order): void {
-    // Limpiar intervalo anterior si existe
     if (this.progressIntervals.has(order.id)) {
       clearInterval(this.progressIntervals.get(order.id));
     }
-
-    // Actualizar solo el progreso visual (el estado viene del backend)
     const updateProgress = () => {
-      // Buscar el pedido actualizado en el array
       const orderIndex = this.orders.findIndex(o => o.id === order.id);
       if (orderIndex === -1) return;
-      
       const currentOrder = this.orders[orderIndex];
       if (currentOrder.status === 'cancelled' || currentOrder.status === 'delivered') {
-        return; // No actualizar si está cancelado o entregado
+        return;
       }
-
-      // Solo actualizar el progreso visual, no el estado
-      // El estado se actualiza desde el backend cada 10 segundos en loadOrders()
       this.cdr.markForCheck();
     };
-
-    // Actualizar inmediatamente
     updateProgress();
-
-    // Actualizar cada 5 segundos para verificar cambios de estado
     const interval = setInterval(updateProgress, 5000);
     this.progressIntervals.set(order.id, interval);
   }
@@ -733,28 +564,15 @@ export class PerfilComponent implements OnInit, OnDestroy {
     const now = new Date();
     const orderDate = new Date(order.date);
     const timeElapsed = now.getTime() - orderDate.getTime();
-    const secondsElapsed = timeElapsed / 1000; // Convertir a segundos
-
-    // Cada estado toma 2 minutos (120 segundos)
+    const secondsElapsed = timeElapsed / 1000;
     const secondsPerState = 120;
-    
     const statusOrder = ['pending', 'preparing', 'ready', 'delivered'];
     const currentStatusIndex = statusOrder.indexOf(order.status);
-    
     if (currentStatusIndex === -1) return 0;
-    
-    // Calcular el progreso total basado en el tiempo transcurrido
-    // Hay 3 segmentos entre 4 puntos (0% -> 33.33% -> 66.66% -> 100%)
-    const totalSeconds = secondsPerState * 3; // 3 segundos totales
-    
-    // Calcular el progreso total (0-100%)
+    const totalSeconds = secondsPerState * 3;
     let totalProgress = (secondsElapsed / totalSeconds) * 100;
-    
-    // Asegurar que no exceda el progreso máximo según el estado actual
     const maxProgressForState = (currentStatusIndex + 1) * 33.33;
     totalProgress = Math.min(totalProgress, maxProgressForState);
-    
-    // Asegurar que no sea menor que el progreso mínimo del estado actual
     const minProgressForState = currentStatusIndex * 33.33;
     totalProgress = Math.max(totalProgress, minProgressForState);
     
@@ -792,11 +610,8 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
   onPaymentMethodSubmit() {
     this.submitted = true;
-
-    // Validar según el tipo de método
     const formValue = this.paymentMethodForm.value;
     if (formValue.type === 'card') {
-      // Validar campos de tarjeta
       if (!this.paymentMethodForm.get('cardNumber')?.valid ||
           !this.paymentMethodForm.get('cardHolder')?.valid ||
           !this.paymentMethodForm.get('expiryMonth')?.valid ||
@@ -811,7 +626,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
       const isDefault = formValue.isDefault || this.paymentMethods.length === 0;
 
       if (this.editingPaymentMethod) {
-        // Editar método existente
         const updatedMethod: PaymentMethod = {
           ...this.editingPaymentMethod,
           type: formValue.type,
@@ -820,7 +634,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
           isDefault: isDefault
         };
 
-        // Si se marca como principal, quitar el estado de los demás
         if (isDefault) {
           this.paymentMethods.forEach(m => {
             if (m.id !== updatedMethod.id && m.isDefault) {
@@ -833,7 +646,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
         this.userService.updatePaymentMethod(updatedMethod);
         this.notificationService.showSuccess('Método de pago actualizado correctamente');
       } else {
-        // Crear nuevo método
         const newMethod: PaymentMethod = {
           id: 'pm_' + Date.now(),
           type: formValue.type,
@@ -841,8 +653,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
           brand: formValue.brand || 'Visa',
           isDefault: isDefault
         };
-
-        // Si se marca como principal, quitar el estado de los demás
         if (isDefault) {
           this.paymentMethods.forEach(m => {
             if (m.isDefault) {
@@ -899,14 +709,10 @@ export class PerfilComponent implements OnInit, OnDestroy {
   onProfileSubmit() {
     this.submitted = true;
     if (this.profileForm.valid) {
-      // Actualizar el perfil en el servicio
       this.userService.updateUserProfile(this.profileForm.value);
-
-      // Actualizar el perfil local también
       this.userService.getUserProfile().subscribe(updatedProfile => {
         if (updatedProfile) {
           this.userProfile = updatedProfile;
-          // Actualizar el formulario con los valores guardados
           this.profileForm.patchValue({
             fullName: updatedProfile.fullName,
             email: updatedProfile.email,
@@ -919,7 +725,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
       this.submitted = false;
       this.showProfileModal = false;
     } else {
-      // Mostrar errores de validación
       this.notificationService.showError('Por favor, completa todos los campos correctamente');
     }
   }
@@ -931,14 +736,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
       this.userService.getAddresses().subscribe(addresses => {
         if (this.editingAddress) {
-          // Editar dirección existente
           const updatedAddress: Address = {
             ...this.editingAddress,
             ...this.addressForm.value,
             isDefault: isDefault
           };
-
-          // Si se marca como principal, quitar el estado de las demás
           if (isDefault) {
             addresses.forEach(addr => {
               if (addr.id !== updatedAddress.id && addr.isDefault) {
@@ -949,14 +751,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
           }
           this.updateAddress(updatedAddress);
         } else {
-          // Crear nueva dirección
           const newAddress: Address = {
             id: 'addr_' + Date.now(),
             ...this.addressForm.value,
-            isDefault: isDefault || addresses.length === 0 // Si no hay direcciones, esta será la principal
+            isDefault: isDefault || addresses.length === 0
           };
-
-          // Si se marca como principal, quitar el estado de las demás
           if (isDefault) {
             addresses.forEach(addr => {
               if (addr.isDefault) {
@@ -967,11 +766,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
           }
           this.userService.saveAddress(newAddress);
         }
-
-        // Recargar direcciones después de guardar
         this.loadAddresses();
-
-        // Cerrar modal y limpiar formulario
         this.addressForm.reset();
         this.addressForm.patchValue({
           city: 'Manizales',
@@ -993,8 +788,8 @@ export class PerfilComponent implements OnInit, OnDestroy {
       title: address.title,
       address: address.address,
       neighborhood: address.neighborhood || '',
-      city: 'Manizales', // Forzar Manizales al editar
-      postalCode: '170001', // Forzar código postal al editar
+      city: 'Manizales',
+      postalCode: '170001',
       isDefault: address.isDefault || false
     });
     this.showEditAddressModal = true;
@@ -1015,7 +810,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
   setDefaultAddress(address: Address) {
     this.userService.getAddresses().subscribe(addresses => {
-      // Actualizar todas las direcciones: quitar principal de todas y ponerla solo en la seleccionada
       const updatedAddresses = addresses.map(a => {
         if (a.id === address.id) {
           return { ...a, isDefault: true };
@@ -1023,13 +817,9 @@ export class PerfilComponent implements OnInit, OnDestroy {
           return { ...a, isDefault: false };
         }
       });
-
-      // Guardar usando el servicio que ya maneja el userId
       updatedAddresses.forEach(addr => {
         this.userService.updateAddress(addr);
       });
-
-      // Recargar las direcciones para actualizar la vista
       this.loadAddresses();
       this.notificationService.showSuccess('Dirección principal actualizada');
     });
@@ -1042,7 +832,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
     );
 
     if (confirmed) {
-      // Obtener userId del usuario actual
       const userInfoStr = localStorage.getItem('userInfo');
       if (!userInfoStr) {
         this.notificationService.showError('Error: No se encontró información del usuario');
@@ -1059,15 +848,13 @@ export class PerfilComponent implements OnInit, OnDestroy {
           this.loadAddresses();
           this.notificationService.showSuccess('Dirección eliminada correctamente');
         });
-      } catch (e) {
-        console.error('Error al eliminar dirección:', e);
+      } catch {
         this.notificationService.showError('Error al eliminar la dirección');
       }
     }
   }
 
   updateAddress(updatedAddress: Address) {
-    // Usar el método del servicio que ya maneja el userId
     this.userService.updateAddress(updatedAddress);
   }
 
@@ -1098,7 +885,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
   onPasswordSubmit() {
     this.submitted = true;
     if (this.passwordForm.valid) {
-      // Aquí iría la lógica de cambio de contraseña
       this.notificationService.showSuccess('Contraseña actualizada correctamente');
       this.passwordForm.reset();
       this.showPasswordModal = false;
@@ -1182,15 +968,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
   }
 
   reorder(order: Order): void {
-    // Agregar todos los items del pedido al carrito
     let itemsAdded = 0;
     const totalItems = order.items.reduce((sum, it) => sum + it.quantity, 0);
-
     order.items.forEach(item => {
-      // Buscar el producto en el menú
       this.menuService.getItemById(item.id).subscribe(product => {
         if (product) {
-          // Mapear las opciones para incluir el id requerido por CartItemOption
           const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
             id: opt.id || `opt_${item.id}_${index}`,
             name: opt.name,
@@ -1216,8 +998,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
             }, 1000);
           }
         } else {
-          // Si no se encuentra el producto, usar la información del pedido
-          // Mapear las opciones para incluir el id requerido por CartItemOption
           const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
             id: opt.id || `opt_${item.id}_${index}`,
             name: opt.name,
@@ -1278,12 +1058,10 @@ export class PerfilComponent implements OnInit, OnDestroy {
   }
 
   getOrderProgress(order: Order): number {
-    // Usar el cálculo basado en tiempo para progreso automático
     return this.calculateTimeBasedProgress(order);
   }
 
   expandOrderDetails(order: Order): void {
-    // Toggle para expandir/colapsar detalles del pedido
     if (!this.expandedOrders) {
       this.expandedOrders = new Set<string>();
     }
@@ -1313,7 +1091,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
     );
 
     if (confirmed) {
-      // Usar authService.logout() que limpia todo correctamente y actualiza los observables
       this.authService.logout();
     }
   }
@@ -1329,14 +1106,8 @@ export class PerfilComponent implements OnInit, OnDestroy {
     
     const name = this.userProfile.fullName?.toLowerCase() || '';
     const email = this.userProfile.email?.toLowerCase() || '';
-    
-    // Nombres comunes de mujer en español
     const femaleNames = ['maria', 'maría', 'ana', 'carmen', 'laura', 'patricia', 'guadalupe', 'rosa', 'marta', 'andrea', 'fernanda', 'valentina', 'sofia', 'sofía', 'isabella', 'camila', 'valeria', 'daniela', 'natalia', 'paula', 'carolina', 'alejandra', 'diana', 'monica', 'mónica', 'claudia', 'juliana', 'lucia', 'lucía', 'elena', 'cristina', 'isabel', 'beatriz', 'adriana', 'gabriela', 'vanessa', 'jessica', 'karen', 'katherine', 'kathryn', 'liliana', 'mariana', 'michelle', 'nancy', 'olga', 'raquel', 'sandra', 'tania', 'veronica', 'verónica', 'yolanda', 'zulema'];
-    
-    // Nombres comunes de hombre en español
     const maleNames = ['juan', 'carlos', 'jose', 'josé', 'luis', 'miguel', 'antonio', 'francisco', 'manuel', 'pedro', 'david', 'javier', 'jorge', 'alejandro', 'roberto', 'fernando', 'ricardo', 'daniel', 'pablo', 'sergio', 'eduardo', 'mario', 'alberto', 'oscar', 'óscar', 'rafael', 'raul', 'raúl', 'victor', 'victor', 'andres', 'andrés', 'felipe', 'sebastian', 'sebastián', 'nicolas', 'nicolás', 'cristian', 'esteban', 'gabriel', 'hugo', 'ignacio', 'ivan', 'iván', 'leonardo', 'marcos', 'martin', 'martín', 'rodrigo', 'simon', 'simón', 'tomas', 'tomás'];
-    
-    // Detectar género por nombre
     const firstName = name.split(' ')[0];
     let isFemale = false;
     
@@ -1345,21 +1116,16 @@ export class PerfilComponent implements OnInit, OnDestroy {
     } else if (maleNames.includes(firstName)) {
       isFemale = false;
     } else {
-      // Si no se encuentra en las listas, intentar detectar por terminaciones comunes
       const femaleEndings = ['a', 'ia', 'ina', 'ela', 'ana', 'ina'];
       const maleEndings = ['o', 'io', 'in', 'el', 'an', 'on'];
-      
       if (femaleEndings.some(ending => firstName.endsWith(ending))) {
         isFemale = true;
       } else if (maleEndings.some(ending => firstName.endsWith(ending))) {
         isFemale = false;
       } else {
-        // Por defecto, si el nombre termina en 'a' es probablemente mujer
         isFemale = firstName.endsWith('a') && !firstName.endsWith('ma') && !firstName.endsWith('pa');
       }
     }
-    
-    // Si no se puede determinar por nombre, intentar por email
     if (!firstName || firstName.length < 2) {
       const emailName = email.split('@')[0]?.toLowerCase() || '';
       if (emailName) {
@@ -1370,18 +1136,13 @@ export class PerfilComponent implements OnInit, OnDestroy {
         }
       }
     }
-    
-    // URLs de avatares de muñecas animadas - determinístico basado en el nombre
-    // Usar el hash del nombre para seleccionar siempre el mismo avatar
     let hash = 0;
     const nameForHash = name || email;
     for (let i = 0; i < nameForHash.length; i++) {
       hash = nameForHash.charCodeAt(i) + ((hash << 5) - hash);
     }
     const index = Math.abs(hash) % 8;
-    
     if (isFemale) {
-      // Muñecas animadas de niña - usando diferentes estilos
       const girlAvatars = [
         'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede,ffd5dc,ffdfbf',
         'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede,ffd5dc',
@@ -1394,7 +1155,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
       ];
       return girlAvatars[index];
     } else {
-      // Muñecas animadas de niño - usando diferentes estilos
       const boyAvatars = [
         'https://api.dicebear.com/7.x/adventurer/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede,ffdfbf',
         'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede',

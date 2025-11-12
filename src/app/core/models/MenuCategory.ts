@@ -3,4 +3,5 @@ export interface MenuCategory {
   name: string;
   description: string;
   icon?: string;
+  imageUrl?: string;
 }

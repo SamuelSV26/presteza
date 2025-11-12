@@ -44,17 +44,10 @@ export class ContactoComponent {
 
   onSubmit() {
     this.submitted = true;
-    
     if (this.contactForm.valid) {
-      // Aquí puedes agregar la lógica para enviar el formulario
-      console.log('Formulario enviado:', this.contactForm.value);
-      
-      // Simular envío exitoso
       this.formSuccess = true;
       this.contactForm.reset();
       this.submitted = false;
-      
-      // Ocultar mensaje de éxito después de 5 segundos
       setTimeout(() => {
         this.formSuccess = false;
       }, 5000);
@@ -65,4 +58,3 @@ export class ContactoComponent {
     return this.contactForm.controls;
   }
 }
-
