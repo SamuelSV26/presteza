@@ -87,11 +87,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
     this.paymentMethodForm = this.fb.group({
       type: ['card', [Validators.required]],
-      cardNumber: ['', []], // Validación condicional
-      cardHolder: ['', []], // Validación condicional
-      expiryMonth: ['', []], // Validación condicional
-      expiryYear: ['', []], // Validación condicional
-      cvv: ['', []], // Validación condicional
+      cardNumber: ['', []],
+      cardHolder: ['', []],
+      expiryMonth: ['', []],
+      expiryYear: ['', []],
+      cvv: ['', []],
       brand: ['Visa', [Validators.required]],
       isDefault: [false]
     });
@@ -151,7 +151,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.progressIntervals.forEach(interval => clearInterval(interval));
     this.progressIntervals.clear();
-    
+
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -331,7 +331,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
               if (nameLower.includes('vegetariana') || nameLower.includes('veggie')) {
                 return false;
               }
-              
+
               return true;
             })
             .slice(0, maxRecommendations - recommendedProducts.length);
@@ -362,7 +362,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
         .slice(0, 4);
       const hasHardcodedProducts = this.recommendedDishes.some(d => typeof d.id === 'number' && d.id < 100);
       if (hasHardcodedProducts) {
-        this.recommendedDishes = this.recommendedDishes.filter(d => 
+        this.recommendedDishes = this.recommendedDishes.filter(d =>
           typeof d.id === 'string' || (typeof d.id === 'number' && d.id >= 100)
         );
       }
@@ -461,7 +461,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
         }
         return String(b.id).localeCompare(String(a.id));
       });
-      
+
       this.setupOrders(this.orders);
     });
   }
@@ -487,8 +487,8 @@ export class PerfilComponent implements OnInit, OnDestroy {
         const storedOrders = localStorage.getItem(`userOrders_${userId}`);
         if (storedOrders) {
           const orders = JSON.parse(storedOrders);
-          detailedOrder = orders.find((o: Order) => 
-            o.id === orderId || 
+          detailedOrder = orders.find((o: Order) =>
+            o.id === orderId ||
             (typeof o.id === 'string' && typeof orderId === 'string' && o.id.includes(orderId.substring(0, 8))) ||
             (o.trackingCode && orderId.includes(o.trackingCode))
           );
@@ -575,7 +575,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
     totalProgress = Math.min(totalProgress, maxProgressForState);
     const minProgressForState = currentStatusIndex * 33.33;
     totalProgress = Math.max(totalProgress, minProgressForState);
-    
+
     return Math.min(Math.max(totalProgress, 0), 100);
   }
 
@@ -1092,6 +1092,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
     if (confirmed) {
       this.authService.logout();
+      this.router.navigate(['/']);
     }
   }
 
@@ -1103,14 +1104,14 @@ export class PerfilComponent implements OnInit, OnDestroy {
     if (!this.userProfile) {
       return 'https://i.pravatar.cc/150?img=1';
     }
-    
+
     const name = this.userProfile.fullName?.toLowerCase() || '';
     const email = this.userProfile.email?.toLowerCase() || '';
     const femaleNames = ['maria', 'maría', 'ana', 'carmen', 'laura', 'patricia', 'guadalupe', 'rosa', 'marta', 'andrea', 'fernanda', 'valentina', 'sofia', 'sofía', 'isabella', 'camila', 'valeria', 'daniela', 'natalia', 'paula', 'carolina', 'alejandra', 'diana', 'monica', 'mónica', 'claudia', 'juliana', 'lucia', 'lucía', 'elena', 'cristina', 'isabel', 'beatriz', 'adriana', 'gabriela', 'vanessa', 'jessica', 'karen', 'katherine', 'kathryn', 'liliana', 'mariana', 'michelle', 'nancy', 'olga', 'raquel', 'sandra', 'tania', 'veronica', 'verónica', 'yolanda', 'zulema'];
     const maleNames = ['juan', 'carlos', 'jose', 'josé', 'luis', 'miguel', 'antonio', 'francisco', 'manuel', 'pedro', 'david', 'javier', 'jorge', 'alejandro', 'roberto', 'fernando', 'ricardo', 'daniel', 'pablo', 'sergio', 'eduardo', 'mario', 'alberto', 'oscar', 'óscar', 'rafael', 'raul', 'raúl', 'victor', 'victor', 'andres', 'andrés', 'felipe', 'sebastian', 'sebastián', 'nicolas', 'nicolás', 'cristian', 'esteban', 'gabriel', 'hugo', 'ignacio', 'ivan', 'iván', 'leonardo', 'marcos', 'martin', 'martín', 'rodrigo', 'simon', 'simón', 'tomas', 'tomás'];
     const firstName = name.split(' ')[0];
     let isFemale = false;
-    
+
     if (femaleNames.includes(firstName)) {
       isFemale = true;
     } else if (maleNames.includes(firstName)) {

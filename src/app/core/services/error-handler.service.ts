@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { BehaviorSubject } from 'rxjs';
-
+import { BehaviorSubject, Observable, throwError } from 'rxjs';
+import { NotificationService } from './notification.service';
 export interface AppError {
   message: string;
   code?: string;
@@ -15,7 +15,7 @@ export interface AppError {
 export class ErrorHandlerService {
   private errorSubject = new BehaviorSubject<AppError | null>(null);
   error$ = this.errorSubject.asObservable();
-
+  constructor(private notificationService: NotificationService) {}
   handleHttpError(error: HttpErrorResponse): AppError {
     let errorMessage = 'Ha ocurrido un error inesperado';
     if (error.error instanceof ErrorEvent) {
@@ -81,4 +81,34 @@ export class ErrorHandlerService {
   getLastError(): AppError | null {
     return this.errorSubject.value;
   }
+
+  public handleErrorToAuth(error: HttpErrorResponse): Observable<never> {
+    let errorMessage = 'Ocurrió un error';
+    if (error.error instanceof ErrorEvent) {
+      errorMessage = `Error: ${error.error.message}`;
+    } else {
+      if (error.status === 0) {
+        errorMessage = 'No se pudo conectar con el servidor. Por favor, verifica que el servidor backend esté corriendo en http://localhost:4000';
+        this.notificationService.showError(errorMessage);
+      } else {
+        switch (error.status) {
+          case 401:
+            errorMessage = 'Credenciales inválidas';
+            this.notificationService.showError(errorMessage);
+            break;
+          case 409:
+            errorMessage = 'El email ya está registrado';
+            this.notificationService.showError(errorMessage);
+            break;
+          case 400:
+            errorMessage = error.error?.message || 'Datos inválidos';
+            this.notificationService.showError(errorMessage);
+            break;
+          default:
+            errorMessage = `Error ${error.status}: ${error.error?.message || error.message}`;
+        }
+      }
+    }
+    return throwError(() => new Error(errorMessage));
+  };
 }

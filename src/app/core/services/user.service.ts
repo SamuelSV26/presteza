@@ -17,10 +17,8 @@ export class UserService {
   userProfile$ = this.userProfileSubject.asObservable();
 
   constructor() {
-    // Cargar perfil cuando se inicializa el servicio
     this.loadUserProfile();
 
-    // Escuchar cambios en userInfo para recargar el perfil cuando el usuario inicie sesión
     const userInfoStr = localStorage.getItem('userInfo');
     if (userInfoStr) {
       try {
@@ -33,16 +31,12 @@ export class UserService {
       }
     }
 
-    // Escuchar cuando el usuario inicia sesión (evento personalizado desde AuthService)
     window.addEventListener('userInfoUpdated', () => {
-      console.log('🔄 userInfoUpdated detectado en UserService, recargando perfil del usuario...');
       this.loadUserProfile();
     });
 
-    // También escuchar cambios en localStorage (para cuando se actualiza userInfo en otra pestaña)
     window.addEventListener('storage', (e) => {
       if (e.key === 'userInfo' && e.newValue) {
-        console.log('🔄 Cambio en userInfo detectado en storage, recargando perfil...');
         this.loadUserProfile();
       }
     });
@@ -60,7 +54,6 @@ export class UserService {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
 
-      // Cargar perfil desde localStorage asociado al usuario actual
       const storedProfile = localStorage.getItem(`userProfile_${userId}`);
       if (storedProfile) {
         const profile = JSON.parse(storedProfile);
@@ -174,7 +167,7 @@ export class UserService {
         }
       }
 
-      const userName = localStorage.getItem('userName');
+      const userName = localStorage.getItem('userInfo');
       const userEmail = localStorage.getItem('userEmail');
       const userPhone = localStorage.getItem('userPhone');
 

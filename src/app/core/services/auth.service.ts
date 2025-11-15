@@ -1,10 +1,12 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Observable, BehaviorSubject } from 'rxjs';
 import { catchError, tap, finalize } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { UserInfo } from '../models/UserInfo';
 import { NotificationService } from './notification.service';
+import { environment } from '../../../environments/environment';
+import { ErrorHandlerService } from './error-handler.service';
 
 export interface LoginResponse {
   token?: string;
@@ -30,7 +32,7 @@ export interface RegisterResponse {
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:4000';
+  private apiUrl = environment.apiUrl + '/auth';
   private tokenSubject = new BehaviorSubject<string | null>(this.getToken());
   public token$ = this.tokenSubject.asObservable();
   private userInfoSubject = new BehaviorSubject<UserInfo | null>(this.getUserInfo());
@@ -39,13 +41,14 @@ export class AuthService {
   constructor(
     private http: HttpClient,
     private router: Router,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private errorHandler: ErrorHandlerService
   ) {
     this.checkTokenExpiration();
   }
 
   login(email: string, password: string, rememberMe: boolean = false): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.apiUrl}/auth/login`, {
+    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, {
       email,
       password
     }).pipe(
@@ -75,7 +78,7 @@ export class AuthService {
         window.dispatchEvent(event);
       }),
       finalize(() => {}),
-      catchError(this.handleError)
+      catchError((error) => (this.errorHandler.handleErrorToAuth(error)))
     );
   }
 
@@ -87,42 +90,39 @@ export class AuthService {
     role?: string;
   }): Observable<RegisterResponse> {
     const registrationDate = new Date();
-    return this.http.post<RegisterResponse>(`${this.apiUrl}/auth/register`, registerData).pipe(
+    return this.http.post<RegisterResponse>(`${this.apiUrl}/register`, registerData).pipe(
       tap(response => {
         if (response.userId) {
           localStorage.setItem(`userRegistrationDate_${response.userId}`, registrationDate.toISOString());
         }
         localStorage.setItem(`userRegistrationDate_${registerData.email}`, registrationDate.toISOString());
       }),
-      catchError((error) => this.handleError(error))
+      catchError((error) => this.errorHandler.handleErrorToAuth(error))
     );
   }
 
   logout(): void {
-    const userInfo = this.getUserInfo();
-    const userEmail = userInfo?.email || localStorage.getItem('userEmail') || 'usuario';
     localStorage.clear();
     sessionStorage.clear();
     this.tokenSubject.next(null);
     this.userInfoSubject.next(null);
-    this.notificationService.showInfo(`Has cerrado sesión con el correo ${userEmail}`);
-    this.router.navigate(['/']);
+    this.notificationService.showInfo('Has cerrado sesión correctamente');
   }
 
   forgotPassword(email: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/forgot-password`, {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/forgot-password`, {
       email
     }).pipe(
-      catchError(this.handleError)
+      catchError((error) => this.errorHandler.handleErrorToAuth(error))
     );
   }
 
   resetPassword(token: string, newPassword: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/reset-password`, {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/reset-password`, {
       token,
       newPassword
     }).pipe(
-      catchError(this.handleError)
+      catchError((error) => this.errorHandler.handleErrorToAuth(error))
     );
   }
 
@@ -252,8 +252,6 @@ export class AuthService {
         localStorage.setItem(`userRegistrationDate_${userInfo.email}`, registrationDate.toISOString());
       }
       localStorage.setItem('userInfo', JSON.stringify(userInfo));
-      localStorage.setItem('userName', userInfo.name);
-      localStorage.setItem('userEmail', userInfo.email);
       if (payload.phone || payload.phone_number) {
         localStorage.setItem('userPhone', payload.phone || payload.phone_number);
       }
@@ -281,29 +279,5 @@ export class AuthService {
     }
   }
 
-  private handleError = (error: HttpErrorResponse): Observable<never> => {
-    let errorMessage = 'Ocurrió un error';
-    if (error.error instanceof ErrorEvent) {
-      errorMessage = `Error: ${error.error.message}`;
-    } else {
-      if (error.status === 0) {
-        errorMessage = 'No se pudo conectar con el servidor. Por favor, verifica que el servidor backend esté corriendo en http://localhost:4000';
-      } else {
-        switch (error.status) {
-          case 401:
-            errorMessage = 'Credenciales inválidas';
-            break;
-          case 409:
-            errorMessage = 'El email ya está registrado';
-            break;
-          case 400:
-            errorMessage = error.error?.message || 'Datos inválidos';
-            break;
-          default:
-            errorMessage = `Error ${error.status}: ${error.error?.message || error.message}`;
-        }
-      }
-    }
-    return throwError(() => new Error(errorMessage));
-  };
+
 }

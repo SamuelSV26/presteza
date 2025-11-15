@@ -28,13 +28,6 @@
               ¡Cuenta creada exitosamente! Redirigiendo...
             </div>
 
-            <!-- Mensaje de error -->
-            <div *ngIf="formError" class="alert alert-danger alert-dismissible fade show" role="alert">
-              <i class="bi bi-exclamation-triangle-fill me-2"></i>
-              {{ formError }}
-              <button type="button" class="btn-close" (click)="formError = null" aria-label="Close"></button>
-            </div>
-
             <!-- Nombre -->
             <div class="form-group mb-4">
               <label for="name" class="form-label">
