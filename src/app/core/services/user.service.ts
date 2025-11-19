@@ -6,12 +6,11 @@ import { Order } from '../models/Order';
 import { OrderItem } from '../models/OrderItem';
 import { Address } from '../models/Address';
 import { PaymentMethod } from '../models/PaymentMethod';
-
-// Re-exportar tipos para facilitar importaciones
 export { Order, OrderItem, Address, PaymentMethod };
 @Injectable({
   providedIn: 'root'
 })
+
 export class UserService {
   private userProfileSubject = new BehaviorSubject<UserProfile | null>(null);
   userProfile$ = this.userProfileSubject.asObservable();
@@ -43,7 +42,6 @@ export class UserService {
   }
 
   private loadUserProfile(): void {
-    // Obtener información del usuario actual desde userInfo
     const userInfoStr = localStorage.getItem('userInfo');
     if (!userInfoStr) {
       this.userProfileSubject.next(null);
@@ -197,7 +195,6 @@ export class UserService {
   }
 
   private saveUserProfile(profile: UserProfile): void {
-    // Obtener userId del usuario actual
     const userInfoStr = localStorage.getItem('userInfo');
     let userId: string | null = null;
 
@@ -216,15 +213,6 @@ export class UserService {
     } else {
       // Fallback: guardar sin userId (compatibilidad)
       localStorage.setItem('userProfile', JSON.stringify(profile));
-    }
-
-    // Actualizar datos básicos en localStorage
-    localStorage.setItem('userName', profile.fullName);
-    if (profile.email) {
-      localStorage.setItem('userEmail', profile.email);
-    }
-    if (profile.phone) {
-      localStorage.setItem('userPhone', profile.phone);
     }
   }
 
@@ -615,19 +603,6 @@ export class UserService {
       }
     });
   }
-
-  logout(): void {
-    // NO eliminar datos del usuario - estos deben persistir
-    // Solo limpiar el estado del servicio
-    this.userProfileSubject.next(null);
-    // Los datos en localStorage se mantienen asociados al userId
-    // y se cargarán automáticamente cuando el usuario vuelva a iniciar sesión
-  }
-
-  /**
-   * Recarga el perfil del usuario desde localStorage
-   * Útil cuando el usuario vuelve a iniciar sesión
-   */
   reloadUserProfile(): void {
     this.loadUserProfile();
   }

@@ -6,6 +6,7 @@ import { LoadingService } from '../services/loading.service';
 import { ErrorHandlerService } from '../services/error-handler.service';
 import { AuthService } from '../services/auth.service';
 import { Router } from '@angular/router';
+import { TokenService } from '../services/token.service';
 
 export const httpInterceptor: HttpInterceptorFn = (
   req: HttpRequest<unknown>,
@@ -20,7 +21,8 @@ export const httpInterceptor: HttpInterceptorFn = (
     loadingService.startLoading();
   }
 
-  const token = authService.getToken();
+  const tokenService = inject(TokenService);
+  const token = tokenService.getToken();
   let clonedRequest = req.clone({
     setHeaders: {
       'Content-Type': 'application/json',

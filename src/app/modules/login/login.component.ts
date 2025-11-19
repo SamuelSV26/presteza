@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { filter, take } from 'rxjs/operators';
 import { timeout } from 'rxjs';
+import { TokenService } from '../../core/services/token.service';
 
 @Component({
   selector: 'app-login',
@@ -29,7 +30,8 @@ export class LoginComponent implements OnInit {
     private authService: AuthService,
     private router: Router,
     private route: ActivatedRoute,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private tokenService: TokenService
   ) {}
 
   ngOnInit() {
@@ -51,7 +53,7 @@ export class LoginComponent implements OnInit {
   }
 
   private handlePostLoginRedirect() {
-    const token = this.authService.getToken();
+    const token = this.tokenService.getToken();
     if (!token) {
       setTimeout(() => this.handlePostLoginRedirect(), 200);
       return;

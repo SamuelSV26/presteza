@@ -7,6 +7,7 @@ import { UserInfo } from '../models/UserInfo';
 import { NotificationService } from './notification.service';
 import { environment } from '../../../environments/environment';
 import { ErrorHandlerService } from './error-handler.service';
+import { TokenService } from './token.service';
 
 export interface LoginResponse {
   token?: string;
@@ -33,19 +34,18 @@ export interface RegisterResponse {
 })
 export class AuthService {
   private apiUrl = environment.apiUrl + '/auth';
-  private tokenSubject = new BehaviorSubject<string | null>(this.getToken());
+  private tokenSubject = new BehaviorSubject<string | null>(this.tokenService.getToken());
   public token$ = this.tokenSubject.asObservable();
   private userInfoSubject = new BehaviorSubject<UserInfo | null>(this.getUserInfo());
   public userInfo$ = this.userInfoSubject.asObservable();
 
-  constructor(
-    private http: HttpClient,
-    private router: Router,
-    private notificationService: NotificationService,
-    private errorHandler: ErrorHandlerService
-  ) {
-    this.checkTokenExpiration();
-  }
+constructor(
+  private http: HttpClient,
+  private router: Router,
+  private tokenService: TokenService,
+  private notificationService: NotificationService,
+  private errorHandler: ErrorHandlerService
+) { }
 
   login(email: string, password: string, rememberMe: boolean = false): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.apiUrl}/login`, {
@@ -66,7 +66,7 @@ export class AuthService {
           token = response.data.access_token;
         }
         if (!token) return;
-        this.setToken(token, rememberMe);
+        this.tokenService.setToken(token, rememberMe);
         const payload = this.decodeToken(token);
         const userRole = payload?.role || payload?.userRole || payload?.rol || payload?.type || 'client';
         this.decodeAndStoreUserInfo(token);
@@ -106,7 +106,9 @@ export class AuthService {
     sessionStorage.clear();
     this.tokenSubject.next(null);
     this.userInfoSubject.next(null);
+    this.tokenService.deleteToken();
     this.notificationService.showInfo('Has cerrado sesión correctamente');
+    this.router.navigate(['/']);
   }
 
   forgotPassword(email: string): Observable<{ message: string }> {
@@ -126,14 +128,8 @@ export class AuthService {
     );
   }
 
-  getToken(): string | null {
-    const token = localStorage.getItem('authToken');
-    if (token) return token;
-    return sessionStorage.getItem('authToken');
-  }
-
   isAuthenticated(): boolean {
-    const token = this.getToken();
+    const token = this.tokenService.getToken();
     if (!token) return false;
     try {
       const payload = this.decodeToken(token);
@@ -179,16 +175,6 @@ export class AuthService {
       this.router.navigate(['/perfil']);
     } else {
       this.router.navigate(['/perfil']);
-    }
-  }
-
-  private setToken(token: string, rememberMe: boolean = false): void {
-    if (rememberMe) {
-      localStorage.setItem('authToken', token);
-      sessionStorage.removeItem('authToken');
-    } else {
-      sessionStorage.setItem('authToken', token);
-      localStorage.removeItem('authToken');
     }
   }
 
@@ -261,7 +247,7 @@ export class AuthService {
   }
 
   private checkTokenExpiration(): void {
-    const token = this.getToken();
+    const token = this.tokenService.getToken();
     if (token) {
       try {
         const payload = this.decodeToken(token);

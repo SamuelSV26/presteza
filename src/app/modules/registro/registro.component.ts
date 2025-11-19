@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { TokenService } from '../../core/services/token.service';
 
 @Component({
   selector: 'app-registro',
@@ -20,15 +21,16 @@ export class RegistroComponent implements OnInit {
   loginModalOpen = false;
 
   constructor(
-    private fb: FormBuilder, 
+    private fb: FormBuilder,
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private tokenService: TokenService
   ) {
     this.registroForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       email: ['', [Validators.required, Validators.email]],
       phone: ['', [Validators.required, Validators.pattern(/^[0-9]{10}$/)]],
-      password: ['', [Validators.required, Validators.minLength(8), 
+      password: ['', [Validators.required, Validators.minLength(8),
         Validators.pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)]],
       confirmPassword: ['', [Validators.required]],
       acceptTerms: [false, [Validators.requiredTrue]]
@@ -48,10 +50,10 @@ export class RegistroComponent implements OnInit {
   onSubmit() {
     this.submitted = true;
     this.formError = null;
-    
+
     if (this.registroForm.valid) {
       this.isLoading = true;
-      
+
       const registerData = {
         complete_name: this.registroForm.value.name,
         email: this.registroForm.value.email,
@@ -72,7 +74,7 @@ export class RegistroComponent implements OnInit {
               this.authService.login(registerData.email, registerData.password, false).subscribe({
                 next: () => {
                   const performRedirect = () => {
-                    const token = this.authService.getToken();
+                    const token = this.tokenService.getToken();
                     if (token) {
                       try {
                         const base64Url = token.split('.')[1];
@@ -111,7 +113,7 @@ export class RegistroComponent implements OnInit {
                   let attempts = 0;
                   const maxAttempts = 10;
                   const checkTokenAndRedirect = () => {
-                    const token = this.authService.getToken();
+                    const token = this.tokenService.getToken();
                     if (token || attempts >= maxAttempts) {
                       performRedirect();
                     } else {

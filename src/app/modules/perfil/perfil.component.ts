@@ -162,31 +162,47 @@ export class PerfilComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadUserProfile() {
-    const userInfo = this.authService.getUserInfo();
-    if (!userInfo) {
+private loadUserProfile() {
+  const userInfo = this.authService.getUserInfo();
+  if (!userInfo) return;
+
+  const userId = userInfo.userId || userInfo.email;
+  const storageKey = `userRegistrationDate_${userId}`;
+
+  // Obtener o crear fecha de registro
+  let registrationDate: Date;
+  const savedDate = localStorage.getItem(storageKey);
+
+  if (savedDate) {
+    const parsed = new Date(savedDate);
+    registrationDate = isNaN(parsed.getTime()) ? new Date() : parsed;
+  } else {
+    registrationDate = new Date();
+    localStorage.setItem(storageKey, registrationDate.toISOString());
+  }
+
+  // Intentar cargar perfil desde backend
+  this.userService.getUserProfile().subscribe(profile => {
+
+    // Si coincide con el usuario -> usar ese perfil
+    if (profile && (profile.email === userInfo.email || profile.id === userInfo.userId)) {
+
+      // Insertar fecha guardada
+      profile.memberSince = registrationDate;
+
+      this.userProfile = profile;
+      this.profileForm.patchValue({
+        fullName: profile.fullName,
+        email: profile.email,
+        phone: profile.phone
+      });
+
       return;
     }
-    const userId = userInfo.userId || userInfo.email;
-    let registrationDate: Date = new Date();
-    const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
-                         localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
 
-    if (savedDateStr) {
-        try {
-          registrationDate = new Date(savedDateStr);
-        if (isNaN(registrationDate.getTime())) {
-          registrationDate = new Date();
-        }
-      } catch (e) {
-        registrationDate = new Date();
-      }
-    } else {
-      localStorage.setItem(`userRegistrationDate_${userId}`, registrationDate.toISOString());
-      localStorage.setItem(`userRegistrationDate_${userInfo.email}`, registrationDate.toISOString());
-    }
-    const userProfile: UserProfile = {
-      id: userInfo.userId || 'user_' + Date.now(),
+    // Si no existe perfil en backend, crear uno local
+    const newUserProfile: UserProfile = {
+      id: userId,
       fullName: userInfo.name || 'Usuario',
       email: userInfo.email || '',
       phone: localStorage.getItem('userPhone') || '',
@@ -199,40 +215,22 @@ export class PerfilComponent implements OnInit, OnDestroy {
       }
     };
 
-    this.userService.getUserProfile().subscribe(profile => {
-      if (profile && (profile.email === userInfo.email || profile.id === userInfo.userId)) {
-        const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
-                             localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
-        if (savedDateStr) {
-          try {
-            const savedDate = new Date(savedDateStr);
-            if (!isNaN(savedDate.getTime())) {
-              profile.memberSince = savedDate;
-            }
-          } catch (e) {}
-        }
-
-        this.userProfile = profile;
-        this.profileForm.patchValue({
-          fullName: profile.fullName,
-          email: profile.email,
-          phone: profile.phone
-        });
-      } else {
-        this.userProfile = userProfile;
-        this.profileForm.patchValue({
-          fullName: userProfile.fullName,
-          email: userProfile.email,
-          phone: userProfile.phone
-        });
-        this.userService.initializeUserProfile(userProfile);
-      }
+    this.userProfile = newUserProfile;
+    this.profileForm.patchValue({
+      fullName: newUserProfile.fullName,
+      email: newUserProfile.email,
+      phone: newUserProfile.phone
     });
 
-    this.loadOrders();
-    this.loadAddresses();
-    this.loadPaymentMethods();
-  }
+    this.userService.initializeUserProfile(newUserProfile);
+  });
+
+  // Cargar datos secundarios
+  this.loadOrders();
+  this.loadAddresses();
+  this.loadPaymentMethods();
+}
+
 
   private loadRecommendedDishes() {
     this.userService.getOrders().pipe(takeUntil(this.destroy$)).subscribe(orders => {
