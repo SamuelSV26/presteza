@@ -17,6 +17,9 @@ import { UserService } from '../../core/services/user.service';
 import { MenuService } from '../../core/services/menu.service';
 import { OrderService } from '../../core/services/order.service';
 import { OrderFromBackend } from '../../core/models/OrderResponse';
+import { ReservationsService } from '../../core/services/reservations.service';
+import { Reservation, ReservationFromBackend } from '../../core/models/ReservationResponse';
+import { UpdateReservationDto } from '../../core/models/UpdateReservationDto';
 
 @Component({
   selector: 'app-perfil',
@@ -26,13 +29,14 @@ import { OrderFromBackend } from '../../core/models/OrderResponse';
   styleUrls: ['./perfil.component.css']
 })
 export class PerfilComponent implements OnInit, OnDestroy {
-  activeTab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings' = 'profile';
+  activeTab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings' | 'reservations' = 'profile';
   userProfile: UserProfile | null = null;
   orders: Order[] = [];
   addresses: Address[] = [];
   paymentMethods: PaymentMethod[] = [];
   recommendedDishes: MenuItem[] = [];
   favoriteDishes: MenuItem[] = [];
+  reservations: Reservation[] = [];
 
   profileForm: FormGroup;
   addressForm: FormGroup;
@@ -49,6 +53,9 @@ export class PerfilComponent implements OnInit, OnDestroy {
   submitted = false;
   expandedOrders: Set<string> = new Set<string>();
   orderViewMode: 'list' | 'grid' = 'list';
+  showEditReservationModal = false;
+  editingReservation: Reservation | null = null;
+  reservationForm: FormGroup;
 
   private destroy$ = new Subject<void>();
   private progressIntervals: Map<string, any> = new Map();
@@ -62,7 +69,8 @@ export class PerfilComponent implements OnInit, OnDestroy {
     private notificationService: NotificationService,
     private cartService: CartService,
     private cdr: ChangeDetectorRef,
-    private orderService: OrderService
+    private orderService: OrderService,
+    private reservationsService: ReservationsService
   ) {
     this.profileForm = this.fb.group({
       fullName: ['', [Validators.required, Validators.minLength(3)]],
@@ -95,6 +103,13 @@ export class PerfilComponent implements OnInit, OnDestroy {
       brand: ['Visa', [Validators.required]],
       isDefault: [false]
     });
+
+    this.reservationForm = this.fb.group({
+      date: ['', [Validators.required]],
+      time: ['', [Validators.required]],
+      numberOfPeople: [2, [Validators.required, Validators.min(1), Validators.max(20)]],
+      specialRequests: ['']
+    });
     this.paymentMethodForm.get('type')?.valueChanges.subscribe(type => {
       if (type === 'card') {
         this.paymentMethodForm.get('cardNumber')?.setValidators([Validators.required, Validators.pattern(/^[0-9\s]{13,19}$/)]);
@@ -117,12 +132,21 @@ export class PerfilComponent implements OnInit, OnDestroy {
     });
   }
 
+  minDate: string = '';
+
   ngOnInit() {
+    const today = new Date().toISOString().split('T')[0];
+    this.minDate = today;
+    
     this.loadUserProfile();
     this.loadOrders();
+    this.loadReservations();
     setInterval(() => {
       if (this.activeTab === 'orders') {
         this.loadOrders();
+      }
+      if (this.activeTab === 'reservations') {
+        this.loadReservations();
       }
     }, 10000);
     this.authService.userInfo$.pipe(takeUntil(this.destroy$)).subscribe(userInfo => {
@@ -396,8 +420,11 @@ private loadUserProfile() {
     return null;
   }
 
-  setActiveTab(tab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings') {
+  setActiveTab(tab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings' | 'reservations') {
     this.activeTab = tab;
+    if (tab === 'reservations') {
+      this.loadReservations();
+    }
   }
 
   navigateToProductDetail(productId: number | string, categoryId?: string | null): void {
@@ -1177,6 +1204,204 @@ private loadUserProfile() {
       'transfer': 'Transferencia Bancaria'
     };
     return methods[method] || method;
+  }
+
+  // Métodos para Reservas
+  loadReservations(): void {
+    this.reservationsService.findMyReservations().subscribe({
+      next: (reservations) => {
+        this.reservations = reservations.map(r => this.reservationsService.mapBackendReservationToFrontend(r));
+        this.reservations.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+      },
+      error: (error) => {
+        console.error('Error loading reservations:', error);
+        this.reservations = [];
+      }
+    });
+  }
+
+  getReservationStatusClass(status: string): string {
+    const statusClasses: { [key: string]: string } = {
+      'pending': 'status-pending',
+      'confirmed': 'status-confirmed',
+      'cancelled': 'status-cancelled',
+      'completed': 'status-completed'
+    };
+    return statusClasses[status] || '';
+  }
+
+  getReservationStatusText(status: string): string {
+    const statusTexts: { [key: string]: string } = {
+      'pending': 'Pendiente',
+      'confirmed': 'Confirmada',
+      'cancelled': 'Cancelada',
+      'completed': 'Completada'
+    };
+    return statusTexts[status] || status;
+  }
+
+  getReservationStatusIcon(status: string): string {
+    const statusIcons: { [key: string]: string } = {
+      'pending': 'bi-clock-history',
+      'confirmed': 'bi-check-circle-fill',
+      'cancelled': 'bi-x-circle',
+      'completed': 'bi-check2-all'
+    };
+    return statusIcons[status] || 'bi-circle';
+  }
+
+  canEditReservation(reservation: Reservation): boolean {
+    return reservation.status === 'pending' || reservation.status === 'confirmed';
+  }
+
+  canDeleteReservation(reservation: Reservation): boolean {
+    return reservation.status === 'pending' || reservation.status === 'confirmed';
+  }
+
+  openEditReservationModal(reservation: Reservation): void {
+    if (!this.canEditReservation(reservation)) {
+      this.notificationService.showError('Solo puedes editar reservas pendientes o confirmadas');
+      return;
+    }
+
+    this.editingReservation = reservation;
+    
+    // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para el input
+    let formattedDate = '';
+    try {
+      const dateParts = reservation.date.split('/');
+      if (dateParts.length === 3) {
+        const [day, month, year] = dateParts;
+        formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      } else {
+        // Si ya está en formato YYYY-MM-DD, usarlo directamente
+        formattedDate = reservation.date;
+      }
+    } catch (error) {
+      const today = new Date().toISOString().split('T')[0];
+      formattedDate = today;
+    }
+    
+    // Convertir hora de HH:mm a. m./p. m. a HH:mm para el input
+    let formattedTime = '';
+    try {
+      const timeMatch = reservation.time.match(/(\d+):(\d+)\s+(a\.\s*m\.|p\.\s*m\.)/i);
+      if (timeMatch) {
+        let hours = parseInt(timeMatch[1], 10);
+        const minutes = timeMatch[2];
+        const period = timeMatch[3].toLowerCase();
+        
+        if (period.includes('p') && hours !== 12) {
+          hours += 12;
+        } else if (period.includes('a') && hours === 12) {
+          hours = 0;
+        }
+        
+        formattedTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
+      } else {
+        // Si ya está en formato HH:mm, usarlo directamente
+        formattedTime = reservation.time;
+      }
+    } catch (error) {
+      formattedTime = '12:00';
+    }
+
+    this.reservationForm.patchValue({
+      date: formattedDate,
+      time: formattedTime,
+      numberOfPeople: reservation.numberOfPeople,
+      specialRequests: reservation.specialRequests || ''
+    });
+
+    this.showEditReservationModal = true;
+  }
+
+  closeEditReservationModal(): void {
+    this.showEditReservationModal = false;
+    this.editingReservation = null;
+    this.reservationForm.reset();
+    this.submitted = false;
+  }
+
+  onEditReservationSubmit(): void {
+    this.submitted = true;
+
+    if (this.reservationForm.invalid || !this.editingReservation) {
+      return;
+    }
+
+    const formValue = this.reservationForm.value;
+    
+    // Transformar los datos al formato que espera el backend
+    const updateReservationDto = {
+      date: this.formatDateToDDMMYYYY(formValue.date),
+      time: this.formatTimeToAMPM(formValue.time),
+      numberOfPeople: formValue.numberOfPeople,
+      specialRequests: formValue.specialRequests || undefined
+    };
+
+    this.reservationsService.update(this.editingReservation.id, updateReservationDto).subscribe({
+      next: (updatedReservation) => {
+        const index = this.reservations.findIndex(r => r.id === this.editingReservation!.id);
+        if (index !== -1) {
+          this.reservations[index] = this.reservationsService.mapBackendReservationToFrontend(updatedReservation);
+        }
+        this.notificationService.showSuccess('Reserva actualizada exitosamente');
+        this.closeEditReservationModal();
+      },
+      error: (error) => {
+        const errorMessage = error?.message || error?.error?.message || 'Error al actualizar la reserva';
+        this.notificationService.showError(errorMessage);
+      }
+    });
+  }
+
+  async deleteReservation(reservation: Reservation): Promise<void> {
+    if (!this.canDeleteReservation(reservation)) {
+      this.notificationService.showError('Solo puedes eliminar reservas pendientes o confirmadas');
+      return;
+    }
+
+    const confirmed = await this.notificationService.confirm(
+      'Eliminar Reserva',
+      `¿Estás seguro de que deseas eliminar la reserva para la mesa ${reservation.tableNumber} el ${reservation.date} a las ${reservation.time}?`
+    );
+
+    if (confirmed) {
+      this.reservationsService.remove(reservation.id).subscribe({
+        next: () => {
+          this.reservations = this.reservations.filter(r => r.id !== reservation.id);
+          this.notificationService.showSuccess('Reserva eliminada exitosamente');
+        },
+        error: (error) => {
+          const errorMessage = error?.message || error?.error?.message || 'Error al eliminar la reserva';
+          this.notificationService.showError(errorMessage);
+        }
+      });
+    }
+  }
+
+  /**
+   * Convierte una fecha de formato YYYY-MM-DD a DD/MM/YYYY
+   */
+  private formatDateToDDMMYYYY(dateString: string): string {
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+  }
+
+  /**
+   * Convierte una hora de formato HH:mm a HH:mm a. m./p. m.
+   */
+  private formatTimeToAMPM(timeString: string): string {
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours, 10);
+    const period = hour >= 12 ? 'p. m.' : 'a. m.';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${minutes} ${period}`;
   }
 }
 

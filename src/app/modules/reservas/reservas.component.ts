@@ -1,11 +1,15 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { ReservationsService } from '../../core/services/reservations.service';
+import { CreateReservationDto } from '../../core/models/CreateReservationDto';
+import { Reservation } from '../../core/models/ReservationResponse';
+import { interval, Subscription, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 interface Table {
   id: string;
@@ -23,7 +27,7 @@ interface Table {
   templateUrl: './reservas.component.html',
   styleUrls: ['./reservas.component.css']
 })
-export class ReservasComponent implements OnInit {
+export class ReservasComponent implements OnInit, OnDestroy {
   reservationForm: FormGroup;
   submitted = false;
   formSuccess = false;
@@ -33,43 +37,33 @@ export class ReservasComponent implements OnInit {
   showCustomInput = false;
   isLoading = false;
   minDate: string = '';
-
-  private apiUrl = 'http://localhost:4000';
+  confirmedReservations: Reservation[] = [];
+  private refreshSubscription?: Subscription;
+  private lastUpdateTime: number = 0;
 
   tables: Table[] = [
-    // Mesas de 1 persona - Fila superior
     { id: 'T1', capacity: 1, x: 8, y: 20, available: true },
     { id: 'T2', capacity: 1, x: 18, y: 20, available: true },
     { id: 'T3', capacity: 1, x: 28, y: 20, available: true },
-
-    // Mesas de 2 personas - Fila superior
     { id: 'T4', capacity: 2, x: 38, y: 20, available: true },
     { id: 'T5', capacity: 2, x: 48, y: 20, available: true },
     { id: 'T6', capacity: 2, x: 58, y: 20, available: true },
-
-    // Mesas de 3 personas - Segunda fila
     { id: 'T7', capacity: 3, x: 8, y: 35, available: true },
     { id: 'T8', capacity: 3, x: 20, y: 35, available: true },
     { id: 'T9', capacity: 3, x: 32, y: 35, available: true },
     { id: 'T10', capacity: 3, x: 44, y: 35, available: true },
     { id: 'T11', capacity: 3, x: 56, y: 35, available: true },
-
-    // Mesas de 4 personas - Tercera fila
     { id: 'T12', capacity: 4, x: 8, y: 50, available: true },
     { id: 'T13', capacity: 4, x: 20, y: 50, available: true },
     { id: 'T14', capacity: 4, x: 32, y: 50, available: true },
     { id: 'T15', capacity: 4, x: 44, y: 50, available: true },
     { id: 'T16', capacity: 4, x: 56, y: 50, available: true },
     { id: 'T17', capacity: 4, x: 68, y: 50, available: true },
-
-    // Mesas de 5 personas - Cuarta fila
     { id: 'T18', capacity: 5, x: 10, y: 65, available: true },
     { id: 'T19', capacity: 5, x: 24, y: 65, available: true },
     { id: 'T20', capacity: 5, x: 38, y: 65, available: true },
     { id: 'T21', capacity: 5, x: 52, y: 65, available: true },
     { id: 'T22', capacity: 5, x: 66, y: 65, available: true },
-
-    // Mesas de 6 personas - Fila inferior
     { id: 'T23', capacity: 6, x: 12, y: 80, available: true },
     { id: 'T24', capacity: 6, x: 28, y: 80, available: true },
     { id: 'T25', capacity: 6, x: 44, y: 80, available: true },
@@ -79,7 +73,7 @@ export class ReservasComponent implements OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private http: HttpClient,
+    private reservationsService: ReservationsService,
     private authService: AuthService,
     private router: Router,
     private notificationService: NotificationService
@@ -101,6 +95,45 @@ export class ReservasComponent implements OnInit {
     const today = new Date().toISOString().split('T')[0];
     this.minDate = today;
     this.reservationForm.patchValue({ date: today });
+
+    this.loadConfirmedReservations();
+
+    this.refreshSubscription = interval(10000).subscribe(() => {
+      this.loadConfirmedReservations();
+    });
+
+    this.reservationForm.get('date')?.valueChanges.subscribe(() => {
+      setTimeout(() => {
+        this.loadConfirmedReservations();
+        this.checkTableAvailability();
+      }, 500);
+    });
+
+    this.reservationForm.get('time')?.valueChanges.subscribe(() => {
+      setTimeout(() => {
+        this.loadConfirmedReservations();
+        this.checkTableAvailability();
+      }, 500);
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.refreshSubscription) {
+      this.refreshSubscription.unsubscribe();
+    }
+  }
+
+  @HostListener('window:focus', ['$event'])
+  onWindowFocus(): void {
+    this.loadConfirmedReservations();
+  }
+
+  onFormInteraction(): void {
+    const now = Date.now();
+    if (!this.lastUpdateTime || (now - this.lastUpdateTime) > 3000) {
+      this.loadConfirmedReservations();
+      this.lastUpdateTime = now;
+    }
   }
 
   selectTable(table: Table) {
@@ -152,7 +185,7 @@ export class ReservasComponent implements OnInit {
   }
 
   getTableClass(table: Table): string {
-    let classes = 'table-item';
+    let classes = 'table-container';
     if (!table.available) {
       classes += ' unavailable';
     } else if (table.selected) {
@@ -199,6 +232,34 @@ export class ReservasComponent implements OnInit {
     return `translate(${x}px, ${y}px)`;
   }
 
+  private formatDateToDDMMYYYY(dateString: string): string {
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+  }
+
+  private formatTimeToAMPM(timeString: string): string {
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours, 10);
+    let period: string;
+    let displayHour: number;
+
+    if (hour === 0) {
+      period = 'a. m.';
+      displayHour = 12;
+    } else if (hour === 12) {
+      period = 'p. m.';
+      displayHour = 12;
+    } else if (hour > 12) {
+      period = 'p. m.';
+      displayHour = hour - 12;
+    } else {
+      period = 'a. m.';
+      displayHour = hour;
+    }
+
+    return `${displayHour}:${minutes} ${period}`;
+  }
+
   onSubmit() {
     this.submitted = true;
 
@@ -206,25 +267,25 @@ export class ReservasComponent implements OnInit {
       return;
     }
 
-    if (!this.selectedTable && !this.showCustomInput && !this.selectedBar) {
-      this.notificationService.showError('Por favor selecciona una mesa, la barra o especifica el número de personas');
+    if (!this.selectedTable) {
+      this.notificationService.showError('Por favor selecciona una mesa para realizar la reserva');
       return;
     }
 
     this.isLoading = true;
 
     const formValue = this.reservationForm.value;
-    const reservationData = {
-      date: formValue.date,
-      time: formValue.time,
-      guests: formValue.guests,
-      tableId: this.selectedTable?.id || (this.selectedBar ? 'BARRA' : 'CUSTOM'),
-      specialRequests: formValue.specialRequests || '',
-      userId: this.authService.getUserInfo()?.userId || null
+
+    const createReservationDto: CreateReservationDto = {
+      tableNumber: this.selectedTable.id,
+      date: this.formatDateToDDMMYYYY(formValue.date),
+      time: this.formatTimeToAMPM(formValue.time),
+      numberOfPeople: formValue.guests,
+      specialRequests: formValue.specialRequests || undefined
     };
 
-    this.http.post(`${this.apiUrl}/reservations`, reservationData).subscribe({
-      next: (response: any) => {
+    this.reservationsService.create(createReservationDto).subscribe({
+      next: (response) => {
         this.isLoading = false;
         this.formSuccess = true;
         this.reservationForm.reset();
@@ -237,6 +298,10 @@ export class ReservasComponent implements OnInit {
         const today = new Date().toISOString().split('T')[0];
         this.reservationForm.patchValue({ date: today });
 
+        setTimeout(() => {
+          this.loadConfirmedReservations();
+        }, 1000);
+
         this.notificationService.showSuccess('¡Reserva realizada exitosamente!');
 
         setTimeout(() => {
@@ -245,7 +310,7 @@ export class ReservasComponent implements OnInit {
       },
       error: (error) => {
         this.isLoading = false;
-        const errorMessage = error.error?.message || 'Error al realizar la reserva. Por favor intenta nuevamente.';
+        const errorMessage = error?.message || error?.error?.message || 'Error al realizar la reserva. Por favor intenta nuevamente.';
         this.notificationService.showError(errorMessage);
       }
     });
@@ -254,6 +319,92 @@ export class ReservasComponent implements OnInit {
   get f() {
     return this.reservationForm.controls;
   }
+
+  loadConfirmedReservations(): void {
+    this.reservationsService.findAll().pipe(
+      catchError((error) => {
+        return of([]);
+      })
+    ).subscribe({
+      next: (reservations) => {
+        this.confirmedReservations = reservations
+          .filter(r => r.status === 'confirmed' || r.status === 'pending')
+          .map(r => this.reservationsService.mapBackendReservationToFrontend(r));
+
+        this.checkTableAvailability();
+      }
+    });
+  }
+
+  checkTableAvailability(): void {
+    const selectedDate = this.reservationForm.get('date')?.value;
+    const selectedTime = this.reservationForm.get('time')?.value;
+
+    if (!selectedDate || !selectedTime) {
+      this.tables.forEach(table => table.available = true);
+      return;
+    }
+
+    const formattedSelectedDate = this.formatDateToDDMMYYYY(selectedDate);
+    const selectedTimeInMinutes = this.timeToMinutes(selectedTime);
+
+    this.tables.forEach(table => table.available = true);
+
+    this.confirmedReservations.forEach(reservation => {
+      const datesMatch = reservation.date === formattedSelectedDate;
+
+      if (datesMatch) {
+        const reservationTimeInMinutes = this.timeToMinutesFromAMPM(reservation.time);
+        const reservationEndTimeInMinutes = reservationTimeInMinutes + 30;
+        const isTimeInRange = selectedTimeInMinutes >= reservationTimeInMinutes &&
+          selectedTimeInMinutes < reservationEndTimeInMinutes;
+
+        if (isTimeInRange) {
+          const table = this.tables.find(t => t.id === reservation.tableNumber);
+          if (table) {
+            table.available = false;
+            console.log(`✓ Mesa ${table.id} marcada como OCUPADA (reserva: ${reservation.time}, rango: ${reservationTimeInMinutes}-${reservationEndTimeInMinutes} min, seleccionado: ${selectedTimeInMinutes} min)`);
+            if (table.selected) {
+              table.selected = false;
+              this.selectedTable = null;
+            }
+          } else {
+            console.warn(`⚠ No se encontró la mesa ${reservation.tableNumber} en el array de mesas`);
+          }
+        }
+      }
+    });
+  }
+
+  private timeToMinutes(timeString: string): number {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
+  private timeToMinutesFromAMPM(timeString: string): number {
+    const normalized = this.normalizeTime(timeString);
+    const match = normalized.match(/(\d+):(\d+)\s+(a\.\s*m\.|p\.\s*m\.)/i);
+    if (!match) {
+      return this.timeToMinutes(timeString);
+    }
+
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const period = match[3].toLowerCase();
+
+    if (period.includes('p') && hours !== 12) {
+      hours += 12;
+    } else if (period.includes('a') && hours === 12) {
+      hours = 0;
+    }
+
+    return hours * 60 + minutes;
+  }
+
+  private normalizeTime(time: string): string {
+    if (time.match(/^\d{1,2}:\d{2}$/)) {
+      return this.formatTimeToAMPM(time);
+    }
+    return time.trim().replace(/\s+/g, ' ');
+  }
 }
-
-

@@ -675,9 +675,14 @@
 }
 
 .table-container.unavailable {
-  cursor: not-allowed;
-  opacity: 0.5;
-  filter: grayscale(0.5);
+  cursor: not-allowed !important;
+  opacity: 0.9;
+  filter: grayscale(0.2);
+  pointer-events: none;
+}
+
+.table-container.unavailable * {
+  pointer-events: none;
 }
 
 .table-container.unavailable:hover {
@@ -854,8 +859,33 @@
 }
 
 .table-container.unavailable .table-top {
-  filter: grayscale(0.5);
-  opacity: 0.6;
+  filter: grayscale(0.3);
+  opacity: 0.85;
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 50%, #bd2130 100%) !important;
+  border: 3px solid #dc3545 !important;
+  box-shadow: 
+    0 0 20px rgba(220, 53, 69, 0.8),
+    0 4px 12px rgba(220, 53, 69, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  animation: pulseRed 2s ease-in-out infinite;
+}
+
+@keyframes pulseRed {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(220, 53, 69, 0.8),
+      0 4px 12px rgba(220, 53, 69, 0.5),
+      0 2px 6px rgba(0, 0, 0, 0.4),
+      inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 30px rgba(220, 53, 69, 1),
+      0 6px 16px rgba(220, 53, 69, 0.7),
+      0 3px 8px rgba(0, 0, 0, 0.5),
+      inset 0 2px 4px rgba(255, 255, 255, 0.3);
+  }
 }
 
 /* Table Labels */
@@ -892,6 +922,61 @@
 .table-container.selected .table-capacity-badge {
   background: rgba(107, 29, 61, 1);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Badge de mesa ocupada */
+.table-occupied-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: #ffffff;
+  font-size: 0.5rem;
+  font-weight: 800;
+  padding: 0.2rem 0.4rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  box-shadow: 
+    0 2px 8px rgba(220, 53, 69, 0.6),
+    0 1px 3px rgba(0, 0, 0, 0.4);
+  border: 2px solid #ffffff;
+  z-index: 10;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  animation: pulseOccupied 2s ease-in-out infinite;
+  white-space: nowrap;
+}
+
+.table-occupied-badge i {
+  font-size: 0.6rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+@keyframes pulseOccupied {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      0 2px 8px rgba(220, 53, 69, 0.6),
+      0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 
+      0 3px 12px rgba(220, 53, 69, 0.8),
+      0 2px 5px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.table-container.unavailable .table-number {
+  background: rgba(220, 53, 69, 0.9) !important;
+  color: #ffffff;
+}
+
+.table-container.unavailable .table-capacity-badge {
+  background: rgba(200, 35, 51, 0.9) !important;
+  color: #ffffff;
 }
 
 /* Custom Table Container */

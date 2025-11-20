@@ -57,6 +57,15 @@
       </button>
       <button
         class="tab-btn"
+        [class.active]="activeTab === 'reservations'"
+        (click)="setActiveTab('reservations')"
+      >
+        <i class="bi bi-calendar-check me-2"></i>
+        Mis Reservas
+        <span class="badge" *ngIf="reservations.length > 0">{{ reservations.length }}</span>
+      </button>
+      <button
+        class="tab-btn"
         [class.active]="activeTab === 'settings'"
         (click)="setActiveTab('settings')"
       >
@@ -670,6 +679,191 @@
               <button type="submit" class="btn-primary">
                 <i class="bi bi-check-lg me-2"></i>
                 {{ editingPaymentMethod ? 'Actualizar' : 'Agregar' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Tab: Mis Reservas -->
+      <div *ngIf="activeTab === 'reservations'" class="tab-content">
+        <div class="profile-card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="bi bi-calendar-check me-2"></i>
+              Mis Reservas
+            </h2>
+            <button class="btn-primary" (click)="router.navigate(['/reservas'])">
+              <i class="bi bi-plus-lg me-2"></i>
+              Nueva Reserva
+            </button>
+          </div>
+          <div *ngIf="reservations.length === 0" class="empty-state">
+            <i class="bi bi-calendar-x empty-icon"></i>
+            <h3>No tienes reservas aún</h3>
+            <p>Haz tu primera reserva para disfrutar de nuestro restaurante</p>
+            <button class="btn-primary" (click)="router.navigate(['/reservas'])">
+              <i class="bi bi-calendar-plus me-2"></i>
+              Hacer Reserva
+            </button>
+          </div>
+          <div *ngIf="reservations.length > 0" class="reservations-container">
+            <div *ngFor="let reservation of reservations" class="reservation-card">
+              <!-- Badge destacado para reservas confirmadas -->
+              <div *ngIf="reservation.status === 'confirmed'" class="reservation-confirmed-banner">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <strong>¡Reserva Confirmada!</strong> Tu mesa está lista para ti.
+              </div>
+              
+              <div class="reservation-header">
+                <div class="reservation-info">
+                  <div class="reservation-id-row">
+                    <span class="reservation-id">Mesa {{ reservation.tableNumber }}</span>
+                    <span class="reservation-status" [ngClass]="getReservationStatusClass(reservation.status)">
+                      <i [class]="'bi ' + getReservationStatusIcon(reservation.status)"></i>
+                      {{ getReservationStatusText(reservation.status) }}
+                    </span>
+                  </div>
+                  <div class="reservation-details">
+                    <div class="reservation-detail-item">
+                      <i class="bi bi-calendar3 me-2"></i>
+                      <span><strong>Fecha:</strong> {{ reservation.date }}</span>
+                    </div>
+                    <div class="reservation-detail-item">
+                      <i class="bi bi-clock me-2"></i>
+                      <span><strong>Hora:</strong> {{ reservation.time }}</span>
+                    </div>
+                    <div class="reservation-detail-item">
+                      <i class="bi bi-people me-2"></i>
+                      <span><strong>Personas:</strong> {{ reservation.numberOfPeople }} {{ reservation.numberOfPeople === 1 ? 'persona' : 'personas' }}</span>
+                    </div>
+                    <div class="reservation-detail-item" *ngIf="reservation.specialRequests">
+                      <i class="bi bi-chat-left-text me-2"></i>
+                      <span><strong>Solicitudes especiales:</strong> {{ reservation.specialRequests }}</span>
+                    </div>
+                    <div class="reservation-detail-item" *ngIf="reservation.createdAt">
+                      <i class="bi bi-calendar-event me-2"></i>
+                      <span><strong>Reserva realizada:</strong> {{ formatDate(reservation.createdAt) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mensaje especial para reservas canceladas -->
+              <div *ngIf="reservation.status === 'cancelled'" class="reservation-cancelled-notice">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <span>Esta reserva ha sido cancelada. Si tienes preguntas, contáctanos.</span>
+              </div>
+
+              <!-- Acciones de Reserva -->
+              <div class="reservation-actions" *ngIf="canEditReservation(reservation) || canDeleteReservation(reservation)">
+                <button 
+                  class="btn-edit-reservation" 
+                  *ngIf="canEditReservation(reservation)"
+                  (click)="openEditReservationModal(reservation)"
+                  title="Editar reserva">
+                  <i class="bi bi-pencil me-1"></i>
+                  Editar
+                </button>
+                <button 
+                  class="btn-delete-reservation" 
+                  *ngIf="canDeleteReservation(reservation)"
+                  (click)="deleteReservation(reservation)"
+                  title="Eliminar reserva">
+                  <i class="bi bi-trash me-1"></i>
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Editar Reserva -->
+      <div *ngIf="showEditReservationModal && editingReservation" class="modal-overlay" (click)="closeEditReservationModal()">
+        <div class="modal-content modal-large" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3 class="modal-title">
+              <i class="bi bi-pencil me-2"></i>
+              Editar Reserva - Mesa {{ editingReservation.tableNumber }}
+            </h3>
+            <button class="modal-close" (click)="closeEditReservationModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <form [formGroup]="reservationForm" (ngSubmit)="onEditReservationSubmit()" class="modal-form">
+            <div class="form-group">
+              <label class="form-label">
+                <i class="bi bi-calendar3 me-2"></i>
+                Fecha *
+              </label>
+              <input 
+                type="date" 
+                formControlName="date" 
+                class="form-control"
+                [min]="minDate"
+                [class.is-invalid]="submitted && reservationForm.get('date')?.errors" />
+              <div *ngIf="submitted && reservationForm.get('date')?.errors" class="invalid-feedback">
+                La fecha es requerida
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <i class="bi bi-clock me-2"></i>
+                Hora *
+              </label>
+              <input 
+                type="time" 
+                formControlName="time" 
+                class="form-control"
+                [class.is-invalid]="submitted && reservationForm.get('time')?.errors" />
+              <div *ngIf="submitted && reservationForm.get('time')?.errors" class="invalid-feedback">
+                La hora es requerida
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <i class="bi bi-people me-2"></i>
+                Número de Personas *
+              </label>
+              <input 
+                type="number" 
+                formControlName="numberOfPeople" 
+                class="form-control"
+                min="1"
+                max="20"
+                [class.is-invalid]="submitted && reservationForm.get('numberOfPeople')?.errors" />
+              <div *ngIf="submitted && reservationForm.get('numberOfPeople')?.errors" class="invalid-feedback">
+                <span *ngIf="reservationForm.get('numberOfPeople')?.errors?.['required']">El número de personas es requerido</span>
+                <span *ngIf="reservationForm.get('numberOfPeople')?.errors?.['min']">Mínimo 1 persona</span>
+                <span *ngIf="reservationForm.get('numberOfPeople')?.errors?.['max']">Máximo 20 personas</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <i class="bi bi-chat-left-text me-2"></i>
+                Solicitudes Especiales (Opcional)
+              </label>
+              <textarea 
+                formControlName="specialRequests" 
+                class="form-control" 
+                rows="3"
+                placeholder="Ej: Mesa cerca de la ventana, sin ruido, etc."></textarea>
+            </div>
+
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Nota:</strong> Solo puedes editar reservas pendientes o confirmadas. La mesa asignada no se puede cambiar.
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-outline" (click)="closeEditReservationModal()">Cancelar</button>
+              <button type="submit" class="btn-primary">
+                <i class="bi bi-check-lg me-2"></i>
+                Guardar Cambios
               </button>
             </div>
           </form>

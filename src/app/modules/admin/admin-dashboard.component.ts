@@ -13,6 +13,8 @@ import { OrderService } from '../../core/services/order.service';
 import { OrderFromBackend } from '../../core/models/OrderResponse';
 import { SupplyService } from '../../core/services/supply.service';
 import { Supply, CreateSupplyDto, UpdateSupplyDto } from '../../core/models/Supply';
+import { ReservationsService } from '../../core/services/reservations.service';
+import { ReservationFromBackend, Reservation } from '../../core/models/ReservationResponse';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -22,14 +24,16 @@ import { Supply, CreateSupplyDto, UpdateSupplyDto } from '../../core/models/Supp
   styleUrls: ['./admin-dashboard.component.css']
 })
 export class AdminDashboardComponent implements OnInit {
-  activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' = 'dashboard';
+  activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' = 'dashboard';
 
   stats = {
     totalOrders: 0,
     pendingOrders: 0,
     totalRevenue: 0,
     totalProducts: 0,
-    totalCustomers: 0
+    totalCustomers: 0,
+    totalReservations: 0,
+    pendingReservations: 0
   };
   products: MenuItem[] = [];
   categories: MenuCategory[] = [];
@@ -56,6 +60,11 @@ export class AdminDashboardComponent implements OnInit {
   productViewMode: 'grid' | 'list' = 'list';
   orderViewMode: 'list' | 'grid' = 'list';
   settingsForm!: FormGroup;
+  reservations: Reservation[] = [];
+  reservationFilter: 'all' | 'pending' | 'confirmed' | 'cancelled' | 'completed' = 'all';
+  selectedReservation: Reservation | null = null;
+  showCancelReservationModal = false;
+  cancelReason = '';
   get pendingOrdersCount(): number {
     return this.orders.filter(o => o.status === 'pending').length;
   }
@@ -77,6 +86,7 @@ export class AdminDashboardComponent implements OnInit {
     private userService: UserService,
     private orderService: OrderService,
     private supplyService: SupplyService,
+    private reservationsService: ReservationsService,
     private authService: AuthService,
     private router: Router,
     private fb: FormBuilder,
@@ -128,9 +138,13 @@ export class AdminDashboardComponent implements OnInit {
     this.loadCategories();
     this.loadAllProducts();
     this.loadOrders();
+    this.loadReservations();
     setInterval(() => {
       if (this.activeTab === 'orders' || this.activeTab === 'dashboard') {
         this.loadOrders();
+      }
+      if (this.activeTab === 'reservations' || this.activeTab === 'dashboard') {
+        this.loadReservations();
       }
     }, 10000);
   }
@@ -171,13 +185,16 @@ export class AdminDashboardComponent implements OnInit {
     this.stats.totalCustomers = uniqueUserIds.size;
   }
 
-  setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory'): void {
+  setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations'): void {
     this.activeTab = tab;
     if (tab === 'orders') {
       this.loadOrders();
     }
     if (tab === 'inventory') {
       this.loadSupplies();
+    }
+    if (tab === 'reservations') {
+      this.loadReservations();
     }
   }
 
@@ -890,6 +907,148 @@ export class AdminDashboardComponent implements OnInit {
     if (quantity === 0) return 'Agotado';
     if (quantity < this.lowStockThreshold) return 'Stock Bajo';
     return 'Disponible';
+  }
+
+  // Métodos para Reservas
+  loadReservations(): void {
+    this.reservationsService.findAll().subscribe({
+      next: (reservations) => {
+        this.reservations = reservations.map(r => this.reservationsService.mapBackendReservationToFrontend(r));
+        this.reservations.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        this.calculateReservationStats();
+      },
+      error: (error) => {
+        this.notificationService.showError('Error al cargar las reservas');
+        console.error('Error loading reservations:', error);
+      }
+    });
+  }
+
+  calculateReservationStats(): void {
+    this.stats.totalReservations = this.reservations.length;
+    this.stats.pendingReservations = this.reservations.filter(r => r.status === 'pending').length;
+  }
+
+  getFilteredReservations(): Reservation[] {
+    let filtered = this.reservations;
+
+    if (this.reservationFilter !== 'all') {
+      filtered = filtered.filter(reservation => reservation.status === this.reservationFilter);
+    }
+
+    if (this.searchTerm) {
+      filtered = filtered.filter(reservation =>
+        reservation.tableNumber.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+        reservation.userName.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+        reservation.userEmail.toLowerCase().includes(this.searchTerm.toLowerCase())
+      );
+    }
+
+    return filtered;
+  }
+
+  confirmReservation(reservation: Reservation): void {
+    this.reservationsService.updateStatus(reservation.id, 'confirmed').subscribe({
+      next: () => {
+        reservation.status = 'confirmed';
+        this.calculateReservationStats();
+        this.notificationService.showSuccess(`Reserva ${reservation.tableNumber} confirmada exitosamente`);
+      },
+      error: (error) => {
+        const errorMessage = error?.message || error?.error?.message || 'Error al confirmar la reserva';
+        this.notificationService.showError(errorMessage);
+      }
+    });
+  }
+
+  openCancelReservationModal(reservation: Reservation): void {
+    this.selectedReservation = reservation;
+    this.cancelReason = '';
+    this.showCancelReservationModal = true;
+  }
+
+  closeCancelReservationModal(): void {
+    this.showCancelReservationModal = false;
+    this.selectedReservation = null;
+    this.cancelReason = '';
+  }
+
+  cancelReservation(): void {
+    if (!this.selectedReservation) return;
+
+    const reason = this.cancelReason.trim() || 'Reserva cancelada por el administrador';
+
+    this.reservationsService.updateStatus(this.selectedReservation.id, 'cancelled').subscribe({
+      next: () => {
+        this.selectedReservation!.status = 'cancelled';
+        this.calculateReservationStats();
+        this.notificationService.showSuccess(`Reserva ${this.selectedReservation!.tableNumber} cancelada exitosamente`);
+        
+        // Notificar al cliente
+        const clientMessage = `Su reserva para la mesa ${this.selectedReservation!.tableNumber} el ${this.selectedReservation!.date} a las ${this.selectedReservation!.time} ha sido cancelada. ${reason}`;
+        this.notificationService.showInfo(`Cliente notificado: ${clientMessage}`);
+        
+        this.closeCancelReservationModal();
+      },
+      error: (error) => {
+        const errorMessage = error?.message || error?.error?.message || 'Error al cancelar la reserva';
+        this.notificationService.showError(errorMessage);
+      }
+    });
+  }
+
+  completeReservation(reservation: Reservation): void {
+    this.reservationsService.updateStatus(reservation.id, 'completed').subscribe({
+      next: () => {
+        reservation.status = 'completed';
+        this.calculateReservationStats();
+        this.notificationService.showSuccess(`Reserva ${reservation.tableNumber} marcada como completada`);
+      },
+      error: (error) => {
+        const errorMessage = error?.message || error?.error?.message || 'Error al completar la reserva';
+        this.notificationService.showError(errorMessage);
+      }
+    });
+  }
+
+  getReservationStatusClass(status: string): string {
+    const statusClasses: { [key: string]: string } = {
+      'pending': 'status-pending',
+      'confirmed': 'status-confirmed',
+      'cancelled': 'status-cancelled',
+      'completed': 'status-completed'
+    };
+    return statusClasses[status] || '';
+  }
+
+  getReservationStatusText(status: string): string {
+    const statusTexts: { [key: string]: string } = {
+      'pending': 'Pendiente',
+      'confirmed': 'Confirmada',
+      'cancelled': 'Cancelada',
+      'completed': 'Completada'
+    };
+    return statusTexts[status] || status;
+  }
+
+  get pendingReservationsCount(): number {
+    return this.reservations.filter(r => r.status === 'pending').length;
+  }
+
+  get confirmedReservationsCount(): number {
+    return this.reservations.filter(r => r.status === 'confirmed').length;
+  }
+
+  get cancelledReservationsCount(): number {
+    return this.reservations.filter(r => r.status === 'cancelled').length;
+  }
+
+  get completedReservationsCount(): number {
+    return this.reservations.filter(r => r.status === 'completed').length;
   }
 }
 

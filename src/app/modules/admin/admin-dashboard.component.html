@@ -43,6 +43,14 @@
         </button>
         <button
           class="nav-item"
+          [class.active]="activeTab === 'reservations'"
+          (click)="setActiveTab('reservations')">
+          <i class="bi bi-calendar-check"></i>
+          <span>Reservas</span>
+          <span class="badge badge-warning" *ngIf="stats.pendingReservations > 0">{{ stats.pendingReservations }}</span>
+        </button>
+        <button
+          class="nav-item"
           [class.active]="activeTab === 'settings'"
           (click)="setActiveTab('settings')">
           <i class="bi bi-gear"></i>
@@ -111,6 +119,26 @@
             <div class="stat-info">
               <h3 class="stat-value">{{ stats.totalProducts }}</h3>
               <p class="stat-label">Productos Activos</p>
+            </div>
+          </div>
+
+          <div class="stat-card stat-warning">
+            <div class="stat-icon">
+              <i class="bi bi-calendar-check"></i>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-value">{{ stats.totalReservations }}</h3>
+              <p class="stat-label">Total Reservas</p>
+            </div>
+          </div>
+
+          <div class="stat-card stat-info">
+            <div class="stat-icon">
+              <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-value">{{ stats.pendingReservations }}</h3>
+              <p class="stat-label">Reservas Pendientes</p>
             </div>
           </div>
         </div>
@@ -720,6 +748,117 @@
         </div>
       </div>
 
+      <!-- Tab: Reservas -->
+      <div *ngIf="activeTab === 'reservations'" class="tab-content">
+        <div class="section-header">
+          <h2 class="section-title">Gestión de Reservas</h2>
+        </div>
+
+        <!-- Filtros y Controles -->
+        <div class="filters-section">
+          <div class="filters-top-row">
+            <div class="filter-tabs">
+              <button class="filter-tab" [class.active]="reservationFilter === 'all'" (click)="reservationFilter = 'all'">
+                Todas ({{ reservations.length }})
+              </button>
+              <button class="filter-tab" [class.active]="reservationFilter === 'pending'" (click)="reservationFilter = 'pending'">
+                Pendientes ({{ pendingReservationsCount }})
+              </button>
+              <button class="filter-tab" [class.active]="reservationFilter === 'confirmed'" (click)="reservationFilter = 'confirmed'">
+                Confirmadas ({{ confirmedReservationsCount }})
+              </button>
+              <button class="filter-tab" [class.active]="reservationFilter === 'cancelled'" (click)="reservationFilter = 'cancelled'">
+                Canceladas ({{ cancelledReservationsCount }})
+              </button>
+              <button class="filter-tab" [class.active]="reservationFilter === 'completed'" (click)="reservationFilter = 'completed'">
+                Completadas ({{ completedReservationsCount }})
+              </button>
+            </div>
+            <div class="filters-actions">
+              <input
+                type="text"
+                class="search-input"
+                placeholder="Buscar reservas..."
+                [(ngModel)]="searchTerm" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Reservas -->
+        <div class="reservations-container-admin">
+          <div *ngFor="let reservation of getFilteredReservations()" class="reservation-card-admin">
+            <div class="reservation-header-admin">
+              <div class="reservation-info-admin">
+                <div class="reservation-id-row-admin">
+                  <span class="reservation-id-admin">Mesa {{ reservation.tableNumber }}</span>
+                  <span class="reservation-date-admin">
+                    <i class="bi bi-calendar3 me-1"></i>
+                    {{ reservation.date }}
+                  </span>
+                  <span class="reservation-time-admin">
+                    <i class="bi bi-clock me-1"></i>
+                    {{ reservation.time }}
+                  </span>
+                </div>
+                <div class="reservation-customer-info">
+                  <i class="bi bi-person me-1"></i>
+                  <span class="customer-name">{{ reservation.userName }}</span>
+                  <span class="customer-email"> • {{ reservation.userEmail }}</span>
+                </div>
+                <div class="reservation-people-info">
+                  <i class="bi bi-people me-1"></i>
+                  <span>{{ reservation.numberOfPeople }} {{ reservation.numberOfPeople === 1 ? 'persona' : 'personas' }}</span>
+                </div>
+                <div class="reservation-special-requests" *ngIf="reservation.specialRequests">
+                  <i class="bi bi-chat-left-text me-1"></i>
+                  <span>{{ reservation.specialRequests }}</span>
+                </div>
+              </div>
+              <span class="status-badge" [ngClass]="getReservationStatusClass(reservation.status)">
+                {{ getReservationStatusText(reservation.status) }}
+              </span>
+            </div>
+
+            <div class="reservation-actions-admin">
+              <button 
+                class="btn-success" 
+                *ngIf="reservation.status === 'pending'"
+                (click)="confirmReservation(reservation)"
+                title="Confirmar reserva">
+                <i class="bi bi-check-circle me-1"></i>
+                Confirmar
+              </button>
+              <button 
+                class="btn-warning" 
+                *ngIf="reservation.status === 'pending' || reservation.status === 'confirmed'"
+                (click)="openCancelReservationModal(reservation)"
+                title="Cancelar reserva">
+                <i class="bi bi-x-circle me-1"></i>
+                Cancelar
+              </button>
+              <button 
+                class="btn-info" 
+                *ngIf="reservation.status === 'confirmed'"
+                (click)="completeReservation(reservation)"
+                title="Marcar como completada">
+                <i class="bi bi-check2-all me-1"></i>
+                Completar
+              </button>
+              <span class="reservation-created-date" *ngIf="reservation.createdAt">
+                Creada: {{ formatDate(reservation.createdAt) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="getFilteredReservations().length === 0" class="empty-state">
+          <i class="bi bi-calendar-x empty-icon"></i>
+          <h3>No hay reservas</h3>
+          <p *ngIf="reservationFilter !== 'all'">No hay reservas con el estado seleccionado</p>
+          <p *ngIf="reservationFilter === 'all'">Aún no se han realizado reservas</p>
+        </div>
+      </div>
+
       <!-- Tab: Configuración -->
       <div *ngIf="activeTab === 'settings'" class="tab-content">
         <h2 class="section-title">Configuración</h2>
@@ -968,6 +1107,47 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Cancelar Reserva -->
+  <div *ngIf="showCancelReservationModal && selectedReservation" class="modal-overlay" (click)="closeCancelReservationModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">Cancelar Reserva</h3>
+        <button class="modal-close" (click)="closeCancelReservationModal()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="reservation-details-modal">
+          <p><strong>Mesa:</strong> {{ selectedReservation.tableNumber }}</p>
+          <p><strong>Fecha:</strong> {{ selectedReservation.date }}</p>
+          <p><strong>Hora:</strong> {{ selectedReservation.time }}</p>
+          <p><strong>Cliente:</strong> {{ selectedReservation.userName }} ({{ selectedReservation.userEmail }})</p>
+          <p><strong>Personas:</strong> {{ selectedReservation.numberOfPeople }}</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Motivo de cancelación (opcional)</label>
+          <textarea 
+            [(ngModel)]="cancelReason" 
+            class="form-control" 
+            rows="3" 
+            placeholder="Ej: Mesa no disponible, cambio de horario, etc. Este mensaje se enviará al cliente."></textarea>
+          <small class="form-text text-muted">Si no especificas un motivo, se usará un mensaje por defecto.</small>
+        </div>
+        <div class="alert alert-warning">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          <strong>Importante:</strong> Al cancelar esta reserva, el cliente será notificado automáticamente.
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-outline" (click)="closeCancelReservationModal()">Cerrar</button>
+        <button type="button" class="btn-warning" (click)="cancelReservation()">
+          <i class="bi bi-x-circle me-1"></i>
+          Confirmar Cancelación
+        </button>
+      </div>
     </div>
   </div>
 </section>

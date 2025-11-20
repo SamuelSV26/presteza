@@ -113,8 +113,7 @@
               <!-- Mesas -->
               <div
                 *ngFor="let table of tables"
-                class="table-container"
-                [class]="getTableClass(table)"
+                [ngClass]="getTableClass(table)"
                 [style.left.%]="table.x"
                 [style.top.%]="table.y"
                 (click)="selectTable(table)"
@@ -131,6 +130,11 @@
                 <div class="table-top" [class]="getTableShape(table.capacity)">
                   <div class="table-number">{{ table.id }}</div>
                   <div class="table-capacity-badge">{{ table.capacity }}</div>
+                  <!-- Indicador de mesa ocupada -->
+                  <div *ngIf="!table.available" class="table-occupied-badge">
+                    <i class="bi bi-x-circle-fill"></i>
+                    <span>OCUPADA</span>
+                  </div>
                 </div>
               </div>
 
