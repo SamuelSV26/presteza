@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -15,6 +15,9 @@ import { SupplyService } from '../../core/services/supply.service';
 import { Supply, CreateSupplyDto, UpdateSupplyDto } from '../../core/models/Supply';
 import { ReservationsService } from '../../core/services/reservations.service';
 import { ReservationFromBackend, Reservation } from '../../core/models/ReservationResponse';
+import { ExtrasAvailabilityService, ExtraAvailability } from '../../core/services/extras-availability.service';
+import { ContactService } from '../../core/services/contact.service';
+import { ContactMessageFromBackend, ContactMessage } from '../../core/models/ContactMessage';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -24,7 +27,7 @@ import { ReservationFromBackend, Reservation } from '../../core/models/Reservati
   styleUrls: ['./admin-dashboard.component.css']
 })
 export class AdminDashboardComponent implements OnInit {
-  activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' = 'dashboard';
+  activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' | 'extras' | 'messages' = 'dashboard';
 
   stats = {
     totalOrders: 0,
@@ -33,7 +36,9 @@ export class AdminDashboardComponent implements OnInit {
     totalProducts: 0,
     totalCustomers: 0,
     totalReservations: 0,
-    pendingReservations: 0
+    pendingReservations: 0,
+    totalMessages: 0,
+    unreadMessages: 0
   };
   products: MenuItem[] = [];
   categories: MenuCategory[] = [];
@@ -65,6 +70,15 @@ export class AdminDashboardComponent implements OnInit {
   selectedReservation: Reservation | null = null;
   showCancelReservationModal = false;
   cancelReason = '';
+  availableExtras: ExtraAvailability[] = [];
+  showExtrasModal = false;
+  selectedExtra: ExtraAvailability | null = null;
+  extraForm: FormGroup;
+  showExtraFormModal = false;
+  contactMessages: ContactMessage[] = [];
+  selectedMessage: ContactMessage | null = null;
+  showMessageModal = false;
+  messageFilter: 'all' | 'unread' | 'read' = 'all';
   get pendingOrdersCount(): number {
     return this.orders.filter(o => o.status === 'pending').length;
   }
@@ -83,14 +97,17 @@ export class AdminDashboardComponent implements OnInit {
 
   constructor(
     private menuService: MenuService,
+    private extrasAvailabilityService: ExtrasAvailabilityService,
     private userService: UserService,
     private orderService: OrderService,
     private supplyService: SupplyService,
     private reservationsService: ReservationsService,
+    private contactService: ContactService,
     private authService: AuthService,
     private router: Router,
     private fb: FormBuilder,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private cdr: ChangeDetectorRef
   ) {
     this.productForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
@@ -122,6 +139,12 @@ export class AdminDashboardComponent implements OnInit {
       imageUrl: ['']
     });
 
+    this.extraForm = this.fb.group({
+      name: ['', [Validators.required, Validators.minLength(2)]],
+      price: [0, [Validators.required, Validators.min(0)]],
+      available: [true]
+    });
+
     this.supplyForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
       description: ['', [Validators.required, Validators.minLength(10)]],
@@ -131,6 +154,19 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Verificación de seguridad adicional en el componente (doble capa de protección)
+    if (!this.authService.isAuthenticated()) {
+      this.notificationService.showError('⚠️ No tienes permisos de administrador. Debes iniciar sesión como administrador para acceder a esta sección.');
+      this.router.navigate(['/login']);
+      return;
+    }
+    
+    if (!this.authService.isAdmin()) {
+      this.notificationService.showError('🚫 No tienes permisos de administrador. Solo los usuarios con rol de administrador pueden acceder a esta sección.');
+      this.router.navigate(['/']);
+      return;
+    }
+    
     this.loadDashboardData();
   }
 
@@ -139,6 +175,8 @@ export class AdminDashboardComponent implements OnInit {
     this.loadAllProducts();
     this.loadOrders();
     this.loadReservations();
+    this.loadExtras();
+    // Los mensajes se cargan solo cuando el usuario accede a la pestaña
     setInterval(() => {
       if (this.activeTab === 'orders' || this.activeTab === 'dashboard') {
         this.loadOrders();
@@ -185,7 +223,7 @@ export class AdminDashboardComponent implements OnInit {
     this.stats.totalCustomers = uniqueUserIds.size;
   }
 
-  setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations'): void {
+  setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' | 'extras' | 'messages'): void {
     this.activeTab = tab;
     if (tab === 'orders') {
       this.loadOrders();
@@ -195,6 +233,12 @@ export class AdminDashboardComponent implements OnInit {
     }
     if (tab === 'reservations') {
       this.loadReservations();
+    }
+    if (tab === 'extras') {
+      this.loadExtras();
+    }
+    if (tab === 'messages') {
+      this.loadContactMessages();
     }
   }
 
@@ -1049,6 +1093,227 @@ export class AdminDashboardComponent implements OnInit {
 
   get completedReservationsCount(): number {
     return this.reservations.filter(r => r.status === 'completed').length;
+  }
+
+  loadExtras(): void {
+    this.availableExtras = this.extrasAvailabilityService.getAllExtras();
+  }
+
+  openExtrasModal(): void {
+    this.loadExtras();
+    this.showExtrasModal = true;
+  }
+
+  closeExtrasModal(): void {
+    this.showExtrasModal = false;
+  }
+
+  toggleExtraAvailability(extra: ExtraAvailability): void {
+    const newAvailability = !extra.available;
+    this.extrasAvailabilityService.updateExtraAvailability(extra.id, newAvailability);
+    // Recargar los extras para reflejar el cambio en la vista
+    this.loadExtras();
+    this.notificationService.showSuccess(`${extra.name} ${newAvailability ? 'habilitado' : 'deshabilitado'}`);
+    window.dispatchEvent(new CustomEvent('extrasUpdated'));
+  }
+
+  resetExtrasToDefaults(): void {
+    this.extrasAvailabilityService.resetToDefaults();
+    this.loadExtras();
+    this.notificationService.showSuccess('Adicionales restaurados a valores por defecto');
+    window.dispatchEvent(new CustomEvent('extrasUpdated'));
+  }
+
+  openExtraFormModal(extra?: ExtraAvailability): void {
+    if (extra) {
+      this.selectedExtra = { ...extra };
+      this.extraForm.enable();
+      this.extraForm.patchValue({
+        name: extra.name,
+        price: extra.price,
+        available: extra.available
+      });
+    } else {
+      this.selectedExtra = null;
+      this.extraForm.enable();
+      this.extraForm.reset({
+        name: '',
+        price: 0,
+        available: true
+      });
+    }
+    
+    this.showExtraFormModal = true;
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.cdr.detectChanges();
+    }, 10);
+  }
+
+  closeExtraFormModal(): void {
+    this.showExtraFormModal = false;
+    this.selectedExtra = null;
+    this.extraForm.reset();
+    this.extraForm.enable();
+  }
+
+  saveExtra(): void {
+    if (this.extraForm.valid) {
+      const formValue = this.extraForm.value;
+      
+      if (this.selectedExtra) {
+        this.extrasAvailabilityService.updateExtra(this.selectedExtra.id, {
+          name: formValue.name.trim(),
+          price: Number(formValue.price),
+          available: formValue.available
+        });
+        this.notificationService.showSuccess('Adicional actualizado correctamente');
+      } else {
+        this.extrasAvailabilityService.createExtra({
+          name: formValue.name.trim(),
+          price: Number(formValue.price),
+          available: formValue.available
+        });
+        this.notificationService.showSuccess('Adicional creado correctamente');
+      }
+      
+      this.loadExtras();
+      this.closeExtraFormModal();
+      window.dispatchEvent(new CustomEvent('extrasUpdated'));
+    }
+  }
+
+  async deleteExtra(extra: ExtraAvailability): Promise<void> {
+    const confirmed = await this.notificationService.confirm(
+      'Eliminar Adicional',
+      `¿Estás seguro de que deseas eliminar "${extra.name}"?`
+    );
+
+    if (confirmed) {
+      this.extrasAvailabilityService.deleteExtra(extra.id);
+      this.loadExtras();
+      this.notificationService.showSuccess('Adicional eliminado correctamente');
+      window.dispatchEvent(new CustomEvent('extrasUpdated'));
+    }
+  }
+
+  viewExtra(extra: ExtraAvailability): void {
+    this.selectedExtra = { ...extra };
+    this.extraForm.patchValue({
+      name: extra.name,
+      price: extra.price,
+      available: extra.available
+    });
+    this.extraForm.disable();
+    this.showExtraFormModal = true;
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.cdr.detectChanges();
+    }, 10);
+  }
+
+  trackByExtraId(index: number, extra: ExtraAvailability): string {
+    return extra.id;
+  }
+
+  // Métodos para Mensajes de Contacto
+  loadContactMessages(): void {
+    this.contactService.findAll().subscribe({
+      next: (messages) => {
+        this.contactMessages = messages.map(m => this.contactService.mapBackendMessageToFrontend(m));
+        this.contactMessages.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        this.calculateMessageStats();
+      },
+      error: (error) => {
+        console.error('Error loading contact messages:', error);
+        this.contactMessages = [];
+        this.calculateMessageStats();
+        this.notificationService.showError('Error al cargar los mensajes de contacto');
+      }
+    });
+  }
+
+  calculateMessageStats(): void {
+    this.stats.totalMessages = this.contactMessages.length;
+    this.stats.unreadMessages = this.contactMessages.filter(m => !m.read).length;
+  }
+
+  getFilteredMessages(): ContactMessage[] {
+    let filtered = this.contactMessages;
+    
+    if (this.messageFilter === 'unread') {
+      filtered = filtered.filter(m => !m.read);
+    } else if (this.messageFilter === 'read') {
+      filtered = filtered.filter(m => m.read);
+    }
+    
+    return filtered;
+  }
+
+  openMessageModal(message: ContactMessage): void {
+    this.selectedMessage = message;
+    this.showMessageModal = true;
+    
+    // Marcar como leído si no lo está
+    if (!message.read) {
+      this.contactService.markAsRead(message.id).subscribe({
+        next: () => {
+          message.read = true;
+          this.calculateMessageStats();
+        },
+        error: (error) => {
+          console.error('Error marking message as read:', error);
+        }
+      });
+    }
+  }
+
+  closeMessageModal(): void {
+    this.showMessageModal = false;
+    this.selectedMessage = null;
+  }
+
+  deleteMessage(message: ContactMessage): void {
+    if (confirm('¿Estás seguro de que deseas eliminar este mensaje?')) {
+      this.contactService.remove(message.id).subscribe({
+        next: () => {
+          this.contactMessages = this.contactMessages.filter(m => m.id !== message.id);
+          this.calculateMessageStats();
+          this.notificationService.showSuccess('Mensaje eliminado correctamente');
+          if (this.selectedMessage?.id === message.id) {
+            this.closeMessageModal();
+          }
+        },
+        error: (error) => {
+          const errorMessage = error?.message || error?.error?.message || 'Error al eliminar el mensaje';
+          this.notificationService.showError(errorMessage);
+        }
+      });
+    }
+  }
+
+  markMessageAsRead(message: ContactMessage): void {
+    if (!message.read) {
+      this.contactService.markAsRead(message.id).subscribe({
+        next: () => {
+          message.read = true;
+          this.calculateMessageStats();
+          this.notificationService.showSuccess('Mensaje marcado como leído');
+        },
+        error: (error) => {
+          const errorMessage = error?.message || error?.error?.message || 'Error al marcar el mensaje como leído';
+          this.notificationService.showError(errorMessage);
+        }
+      });
+    }
+  }
+
+  get unreadMessagesCount(): number {
+    return this.contactMessages.filter(m => !m.read).length;
   }
 }
 

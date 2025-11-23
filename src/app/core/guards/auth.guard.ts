@@ -8,13 +8,18 @@ export const authGuard: CanActivateFn = (route, state) => {
   const router = inject(Router);
   const authService = inject(AuthService);
   const notificationService = inject(NotificationService);
-  const token = inject(TokenService).getToken();
+  const tokenService = inject(TokenService);
+  
+  const token = tokenService.getToken();
   const isAuthenticated = authService.isAuthenticated();
-  if (!isAuthenticated || !token) {
+  
+  if (!token || !isAuthenticated) {
+    notificationService.showError('Debes iniciar sesión para acceder a esta sección.');
     sessionStorage.setItem('returnUrl', state.url);
-    router.navigateByUrl('/login?returnUrl=' + encodeURIComponent(state.url));
+    router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
     return false;
   }
+  
   return true;
 };
 

@@ -35,7 +35,10 @@ export class LoginComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    if (this.authService.isAuthenticated()) {
+    // Solo redirigir si el usuario está autenticado Y está en la página de login
+    // No redirigir automáticamente desde otras rutas
+    const currentUrl = this.router.url;
+    if (currentUrl === '/login' && this.authService.isAuthenticated()) {
       const userRole = this.authService.getRole();
       const normalizedRole = userRole ? userRole.toString().toLowerCase().trim() : null;
       if (normalizedRole === 'admin') {

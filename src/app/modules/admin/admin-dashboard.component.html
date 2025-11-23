@@ -1,7 +1,7 @@
 <section class="admin-dashboard">
   <div class="admin-container-wrapper">
     <div class="container-fluid admin-container">
-    <!-- Sidebar de Navegación -->
+    <!-- Navegación Lateral -->
     <div class="admin-sidebar">
       <nav class="admin-nav">
         <button
@@ -48,6 +48,21 @@
           <i class="bi bi-calendar-check"></i>
           <span>Reservas</span>
           <span class="badge badge-warning" *ngIf="stats.pendingReservations > 0">{{ stats.pendingReservations }}</span>
+        </button>
+        <button
+          class="nav-item"
+          [class.active]="activeTab === 'extras'"
+          (click)="setActiveTab('extras')">
+          <i class="bi bi-plus-circle"></i>
+          <span>Adicionales</span>
+        </button>
+        <button
+          class="nav-item"
+          [class.active]="activeTab === 'messages'"
+          (click)="setActiveTab('messages')">
+          <i class="bi bi-envelope"></i>
+          <span>Mensajes</span>
+          <span class="badge badge-warning" *ngIf="stats.unreadMessages > 0">{{ stats.unreadMessages }}</span>
         </button>
         <button
           class="nav-item"
@@ -139,6 +154,26 @@
             <div class="stat-info">
               <h3 class="stat-value">{{ stats.pendingReservations }}</h3>
               <p class="stat-label">Reservas Pendientes</p>
+            </div>
+          </div>
+
+          <div class="stat-card stat-primary">
+            <div class="stat-icon">
+              <i class="bi bi-envelope"></i>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-value">{{ stats.totalMessages }}</h3>
+              <p class="stat-label">Total Mensajes</p>
+            </div>
+          </div>
+
+          <div class="stat-card stat-warning">
+            <div class="stat-icon">
+              <i class="bi bi-envelope-exclamation"></i>
+            </div>
+            <div class="stat-info">
+              <h3 class="stat-value">{{ stats.unreadMessages }}</h3>
+              <p class="stat-label">Mensajes No Leídos</p>
             </div>
           </div>
         </div>
@@ -809,9 +844,10 @@
                   <i class="bi bi-people me-1"></i>
                   <span>{{ reservation.numberOfPeople }} {{ reservation.numberOfPeople === 1 ? 'persona' : 'personas' }}</span>
                 </div>
-                <div class="reservation-special-requests" *ngIf="reservation.specialRequests">
+                <div class="reservation-special-requests" [class.has-comments]="reservation.specialRequests" [class.no-comments]="!reservation.specialRequests">
                   <i class="bi bi-chat-left-text me-1"></i>
-                  <span>{{ reservation.specialRequests }}</span>
+                  <span *ngIf="reservation.specialRequests">{{ reservation.specialRequests }}</span>
+                  <span *ngIf="!reservation.specialRequests" class="no-comments-text">Sin comentarios adicionales</span>
                 </div>
               </div>
               <span class="status-badge" [ngClass]="getReservationStatusClass(reservation.status)">
@@ -856,6 +892,237 @@
           <h3>No hay reservas</h3>
           <p *ngIf="reservationFilter !== 'all'">No hay reservas con el estado seleccionado</p>
           <p *ngIf="reservationFilter === 'all'">Aún no se han realizado reservas</p>
+        </div>
+      </div>
+
+      <!-- Tab: Adicionales -->
+      <div *ngIf="activeTab === 'extras'" class="tab-content">
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="bi bi-plus-circle me-2"></i>
+            Gestión de Adicionales
+          </h2>
+          <div class="header-actions">
+            <button class="btn-outline" (click)="resetExtrasToDefaults()">
+              <i class="bi bi-arrow-clockwise me-2"></i>
+              Restaurar por Defecto
+            </button>
+            <button class="btn-primary" (click)="openExtraFormModal()" type="button">
+              <i class="bi bi-plus-lg me-2"></i>
+              Nuevo Adicional
+            </button>
+          </div>
+        </div>
+
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          <strong>Nota:</strong> Los adicionales deshabilitados no aparecerán como opción para los clientes al realizar pedidos.
+        </div>
+
+        <div class="extras-grid" *ngIf="availableExtras.length > 0">
+          <div *ngFor="let extra of availableExtras; trackBy: trackByExtraId" class="extra-card" [class.unavailable]="!extra.available">
+            <div class="extra-card-header">
+              <h3 class="extra-name">{{ extra.name }}</h3>
+              <span class="status-badge" [class.status-success]="extra.available" [class.status-danger]="!extra.available">
+                {{ extra.available ? 'Disponible' : 'No Disponible' }}
+              </span>
+            </div>
+            <div class="extra-card-body">
+              <p class="extra-description">
+                {{ extra.available ? 'Este adicional está disponible para los clientes' : 'Este adicional está deshabilitado y no aparecerá en el menú' }}
+              </p>
+            </div>
+            <div class="extra-card-footer">
+              <div class="extra-price">
+                <strong>Precio:</strong> ${{ extra.price | number }}
+              </div>
+            </div>
+            <div class="extra-card-actions">
+              <button 
+                type="button"
+                class="btn-icon-small btn-view" 
+                (click)="viewExtra(extra)"
+                title="Ver detalles">
+                <i class="bi bi-eye"></i>
+              </button>
+              <button 
+                type="button"
+                class="btn-icon-small btn-edit" 
+                (click)="openExtraFormModal(extra)"
+                title="Editar">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button 
+                type="button"
+                class="btn-toggle" 
+                [class.btn-success]="extra.available"
+                [class.btn-danger]="!extra.available"
+                (click)="toggleExtraAvailability(extra)"
+                title="{{ extra.available ? 'Deshabilitar' : 'Habilitar' }}">
+                <i class="bi" [class.bi-toggle-on]="extra.available" [class.bi-toggle-off]="!extra.available"></i>
+              </button>
+              <button 
+                type="button"
+                class="btn-icon-small btn-danger btn-delete" 
+                (click)="deleteExtra(extra)"
+                title="Eliminar">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="availableExtras.length === 0" class="empty-state">
+          <i class="bi bi-plus-circle empty-icon"></i>
+          <h3>No hay adicionales registrados</h3>
+          <p>Agrega adicionales para que los clientes puedan personalizar sus pedidos</p>
+          <button class="btn-primary" (click)="openExtraFormModal()">
+            <i class="bi bi-plus-lg me-2"></i>
+            Agregar Primer Adicional
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab: Mensajes de Contacto -->
+      <div *ngIf="activeTab === 'messages'" class="tab-content">
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="bi bi-envelope me-2"></i>
+            Mensajes de Contacto
+          </h2>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filters-section">
+          <div class="filters-top-row">
+            <div class="filter-tabs">
+              <button class="filter-tab" [class.active]="messageFilter === 'all'" (click)="messageFilter = 'all'">
+                Todos ({{ contactMessages.length }})
+              </button>
+              <button class="filter-tab" [class.active]="messageFilter === 'unread'" (click)="messageFilter = 'unread'">
+                No Leídos ({{ unreadMessagesCount }})
+              </button>
+              <button class="filter-tab" [class.active]="messageFilter === 'read'" (click)="messageFilter = 'read'">
+                Leídos ({{ contactMessages.length - unreadMessagesCount }})
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Mensajes -->
+        <div class="messages-container-admin">
+          <div *ngFor="let message of getFilteredMessages()" class="message-card-admin" [class.unread]="!message.read">
+            <div class="message-header-admin">
+              <div class="message-info-admin">
+                <div class="message-subject-row">
+                  <span class="message-subject" [class.unread]="!message.read">
+                    <i class="bi bi-envelope-fill me-1" *ngIf="!message.read"></i>
+                    <i class="bi bi-envelope-open me-1" *ngIf="message.read"></i>
+                    {{ message.subject }}
+                  </span>
+                  <span class="message-date" *ngIf="message.createdAt">
+                    <i class="bi bi-calendar3 me-1"></i>
+                    {{ formatDate(message.createdAt) }}
+                  </span>
+                </div>
+                <div class="message-sender-info">
+                  <i class="bi bi-person me-1"></i>
+                  <span class="sender-name">{{ message.name }}</span>
+                  <span class="sender-email"> • {{ message.email }}</span>
+                  <span class="sender-phone"> • {{ message.phone }}</span>
+                </div>
+                <div class="message-preview">
+                  {{ message.message.length > 150 ? (message.message.substring(0, 150) + '...') : message.message }}
+                </div>
+              </div>
+              <span class="status-badge" [ngClass]="message.read ? 'status-read' : 'status-unread'">
+                {{ message.read ? 'Leído' : 'No Leído' }}
+              </span>
+            </div>
+
+            <div class="message-actions-admin">
+              <button 
+                class="btn-info" 
+                (click)="openMessageModal(message)"
+                title="Ver mensaje completo">
+                <i class="bi bi-eye me-1"></i>
+                Ver Mensaje
+              </button>
+              <button 
+                class="btn-success" 
+                *ngIf="!message.read"
+                (click)="markMessageAsRead(message)"
+                title="Marcar como leído">
+                <i class="bi bi-check-circle me-1"></i>
+                Marcar Leído
+              </button>
+              <button 
+                class="btn-danger" 
+                (click)="deleteMessage(message)"
+                title="Eliminar mensaje">
+                <i class="bi bi-trash me-1"></i>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="getFilteredMessages().length === 0" class="empty-state">
+          <i class="bi bi-envelope-x empty-icon"></i>
+          <h3>No hay mensajes</h3>
+          <p *ngIf="messageFilter !== 'all'">No hay mensajes con el filtro seleccionado</p>
+          <p *ngIf="messageFilter === 'all'">Aún no se han recibido mensajes de contacto</p>
+        </div>
+      </div>
+
+      <!-- Modal de Mensaje -->
+      <div *ngIf="showMessageModal && selectedMessage" class="modal-overlay" (click)="closeMessageModal()">
+        <div class="modal-content modal-large" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3 class="modal-title">
+              <i class="bi bi-envelope me-2"></i>
+              Mensaje de Contacto
+            </h3>
+            <button class="modal-close" (click)="closeMessageModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="message-detail-section">
+              <div class="detail-item">
+                <label class="detail-label">Asunto:</label>
+                <span class="detail-value">{{ selectedMessage.subject }}</span>
+              </div>
+              <div class="detail-item">
+                <label class="detail-label">De:</label>
+                <span class="detail-value">{{ selectedMessage.name }} ({{ selectedMessage.email }})</span>
+              </div>
+              <div class="detail-item">
+                <label class="detail-label">Teléfono:</label>
+                <span class="detail-value">{{ selectedMessage.phone }}</span>
+              </div>
+              <div class="detail-item" *ngIf="selectedMessage.createdAt">
+                <label class="detail-label">Fecha:</label>
+                <span class="detail-value">{{ formatDate(selectedMessage.createdAt) }}</span>
+              </div>
+              <div class="detail-item">
+                <label class="detail-label">Mensaje:</label>
+                <div class="message-content">
+                  {{ selectedMessage.message }}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-outline" (click)="closeMessageModal()">Cerrar</button>
+            <button 
+              type="button" 
+              class="btn-danger" 
+              (click)="deleteMessage(selectedMessage); closeMessageModal()">
+              <i class="bi bi-trash me-2"></i>
+              Eliminar
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1148,6 +1415,87 @@
           Confirmar Cancelación
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: Crear/Editar/Ver Adicional -->
+  <div *ngIf="showExtraFormModal" class="modal-overlay" style="z-index: 10000;" (click)="closeExtraFormModal()">
+    <div class="modal-content modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="bi bi-plus-circle me-2"></i>
+          {{ extraForm.disabled ? 'Ver' : (selectedExtra ? 'Editar' : 'Crear') }} Adicional
+        </h3>
+        <button class="modal-close" (click)="closeExtraFormModal()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <form [formGroup]="extraForm" (ngSubmit)="saveExtra()" class="modal-form">
+        <div class="form-group">
+          <label class="form-label">
+            <i class="bi bi-tag me-2"></i>
+            Nombre del Adicional *
+          </label>
+          <input 
+            type="text" 
+            formControlName="name" 
+            class="form-control"
+            placeholder="Ej: Queso extra"
+            [readonly]="extraForm.disabled" />
+          <div *ngIf="extraForm.get('name')?.errors && extraForm.get('name')?.touched" class="invalid-feedback">
+            <span *ngIf="extraForm.get('name')?.errors?.['required']">El nombre es requerido</span>
+            <span *ngIf="extraForm.get('name')?.errors?.['minlength']">El nombre debe tener al menos 2 caracteres</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <i class="bi bi-currency-dollar me-2"></i>
+            Precio *
+          </label>
+          <input 
+            type="number" 
+            formControlName="price" 
+            class="form-control"
+            placeholder="0"
+            min="0"
+            step="100"
+            [readonly]="extraForm.disabled" />
+          <div *ngIf="extraForm.get('price')?.errors && extraForm.get('price')?.touched" class="invalid-feedback">
+            <span *ngIf="extraForm.get('price')?.errors?.['required']">El precio es requerido</span>
+            <span *ngIf="extraForm.get('price')?.errors?.['min']">El precio debe ser mayor o igual a 0</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <i class="bi bi-toggle-on me-2"></i>
+            Estado
+          </label>
+          <div class="form-check form-switch">
+            <input 
+              class="form-check-input" 
+              type="checkbox" 
+              formControlName="available"
+              id="extraAvailable"
+              [disabled]="extraForm.disabled" />
+            <label class="form-check-label" for="extraAvailable">
+              {{ extraForm.get('available')?.value ? 'Disponible' : 'No Disponible' }}
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-actions" *ngIf="!extraForm.disabled">
+          <button type="button" class="btn-outline" (click)="closeExtraFormModal()">Cancelar</button>
+          <button type="submit" class="btn-primary" [disabled]="extraForm.invalid">
+            <i class="bi bi-check-lg me-2"></i>
+            {{ selectedExtra ? 'Actualizar' : 'Crear' }}
+          </button>
+        </div>
+        <div class="modal-actions" *ngIf="extraForm.disabled">
+          <button type="button" class="btn-primary" (click)="closeExtraFormModal()">Cerrar</button>
+        </div>
+      </form>
     </div>
   </div>
 </section>

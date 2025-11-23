@@ -424,12 +424,69 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       items = cartItems;
     });
     subscription.unsubscribe();
+
+    // Validar que hay items en el carrito
+    if (!items || items.length === 0) {
+      this.isLoading = false;
+      this.notificationService.showError('Tu carrito está vacío. Por favor, agrega productos antes de continuar.', 'Carrito Vacío');
+      this.router.navigate(['/menu']);
+      return;
+    }
+
     const userInfo = this.authService.getUserInfo();
-    if (!userInfo || !userInfo.userId) {
+    if (!userInfo) {
+      this.isLoading = false;
       this.notificationService.showError('No se pudo obtener la información del usuario. Por favor, inicia sesión nuevamente.');
       this.router.navigate(['/login']);
       return;
     }
+
+    // Validar userId - puede venir como string o number
+    let userId: string;
+    if (userInfo.userId) {
+      userId = String(userInfo.userId);
+    } else if (userInfo.email) {
+      userId = userInfo.email;
+    } else {
+      this.isLoading = false;
+      this.notificationService.showError('No se pudo identificar tu usuario. Por favor, inicia sesión nuevamente.');
+      this.router.navigate(['/login']);
+      return;
+    }
+
+    // Validar que los productos tengan IDs válidos
+    // El backend espera un array de objetos con {id, quantity}
+    const productItems: Array<{id: string, quantity: number}> = [];
+    items.forEach(item => {
+      if (!item.productId && item.productId !== 0) {
+        console.error('Item sin productId:', item);
+        return;
+      }
+      const id = String(item.productId);
+      if (id === 'undefined' || id === 'null' || id === '') {
+        console.error('ProductId inválido:', item.productId, 'del item:', item);
+        return;
+      }
+      // Agregar el producto con su cantidad
+      productItems.push({
+        id: id,
+        quantity: item.quantity || 1
+      });
+    });
+
+    if (productItems.length === 0) {
+      this.isLoading = false;
+      this.notificationService.showError('Los productos en tu carrito no tienen identificadores válidos. Por favor, vuelve a agregar los productos.', 'Error en Productos');
+      return;
+    }
+
+    // Validar total
+    if (!this.total || this.total <= 0 || isNaN(this.total)) {
+      this.isLoading = false;
+      this.notificationService.showError('El total del pedido no es válido. Por favor, verifica tu carrito.', 'Total Inválido');
+      return;
+    }
+
     let paymentInfo: any = null;
 
     if (this.paymentMethod === 'card') {
@@ -464,20 +521,70 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         confirmedByUser: true
       };
     }
+
     const paymentMethodBackend = this.orderService.mapPaymentMethodToBackend(this.paymentMethod);
-    const productIds = items.map(item => String(item.productId));
+    
+    // Validar payment method
+    if (!paymentMethodBackend || paymentMethodBackend === this.paymentMethod) {
+      // Si el mapeo falla, usar el método original
+      console.warn('No se pudo mapear el método de pago, usando el original:', this.paymentMethod);
+    }
+
+    // Asegurar que payment_method no sea undefined
+    const finalPaymentMethod = paymentMethodBackend || this.paymentMethod || 'cash';
+    
     const createOrderDto: CreateOrderDto = {
-      usuarioId: userInfo.userId,
-      total: this.total,
-      payment_method: paymentMethodBackend,
-      products: productIds,
+      usuarioId: userId,
+      total: Number(this.total.toFixed(2)), // Asegurar que sea un número válido
+      payment_method: finalPaymentMethod,
+      products: productItems,
       status: 'pendiente',
       user_name: userInfo.name || userInfo.email || 'Usuario'
     };
+    
+    // Validación final antes de enviar
+    if (!createOrderDto.usuarioId || createOrderDto.usuarioId.trim() === '') {
+      this.isLoading = false;
+      this.notificationService.showError('El ID de usuario no es válido. Por favor, inicia sesión nuevamente.', 'Error de Usuario');
+      return;
+    }
+    
+    if (!createOrderDto.products || createOrderDto.products.length === 0) {
+      this.isLoading = false;
+      this.notificationService.showError('No hay productos en tu pedido. Por favor, agrega productos al carrito.', 'Carrito Vacío');
+      return;
+    }
+    
+    if (!createOrderDto.payment_method || createOrderDto.payment_method.trim() === '') {
+      this.isLoading = false;
+      this.notificationService.showError('Por favor, selecciona un método de pago.', 'Método de Pago Requerido');
+      return;
+    }
+
+    // Log para debugging - mostrar todos los datos
+    console.log('=== DATOS DEL PEDIDO ===');
+    console.log('Items del carrito:', items);
+    console.log('Items detalle:', items.map(item => ({
+      productId: item.productId,
+      productIdType: typeof item.productId,
+      quantity: item.quantity,
+      productName: item.productName
+    })));
+    console.log('UserInfo:', userInfo);
+    console.log('ProductItems (array):', productItems);
+    console.log('ProductItems (detalle):', productItems.map((item, index) => ({ index, id: item.id, quantity: item.quantity })));
+    console.log('Total:', this.total, 'Tipo:', typeof this.total);
+    console.log('Payment Method:', paymentMethodBackend);
+    console.log('UsuarioId:', userId, 'Tipo:', typeof userId);
+    console.log('CreateOrderDto completo:', createOrderDto);
+    console.log('CreateOrderDto (JSON):', JSON.stringify(createOrderDto, null, 2));
+    console.log('Products array expandido:', JSON.stringify(createOrderDto.products, null, 2));
+
     this.orderService.createOrder(createOrderDto).pipe(
       takeUntil(this.destroy$)
     ).subscribe({
       next: (response) => {
+        console.log('Pedido creado exitosamente:', response);
         this.saveOrderLocally(items, paymentInfo, response.order);
         let successMessage = '';
         let successTitle = '';
@@ -502,10 +609,48 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.isLoading = false;
-        this.notificationService.showError(
-          error.message || 'Hubo un error al procesar tu pedido. Por favor, intenta nuevamente.',
-          'Error al Procesar Pedido'
-        );
+        console.error('=== ERROR AL CREAR PEDIDO ===');
+        console.error('Error completo:', error);
+        console.error('Error status:', error.status);
+        console.error('Error statusText:', error.statusText);
+        console.error('Error error (objeto):', error.error);
+        console.error('Error error (JSON):', JSON.stringify(error.error, null, 2));
+        console.error('Error message:', error.message);
+        console.error('Error url:', error.url);
+        console.error('Datos enviados:', createOrderDto);
+        console.error('Datos enviados (JSON):', JSON.stringify(createOrderDto, null, 2));
+        
+        // Mensaje de error más específico
+        let errorMessage = 'Hubo un error al procesar tu pedido. Por favor, intenta nuevamente.';
+        
+        // Intentar obtener el mensaje de error del backend
+        if (error.error) {
+          if (typeof error.error === 'string') {
+            errorMessage = error.error;
+          } else if (error.error.message) {
+            errorMessage = error.error.message;
+          } else if (error.error.error) {
+            errorMessage = error.error.error;
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        // Mensajes específicos según el código de estado
+        if (error.status === 400) {
+          if (!errorMessage || errorMessage.includes('Hubo un error')) {
+            errorMessage = 'Solicitud incorrecta. Por favor, verifica los datos enviados. Revisa la consola para más detalles.';
+          }
+        } else if (error.status === 401) {
+          errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+          this.router.navigate(['/login']);
+        } else if (error.status === 500) {
+          errorMessage = 'Error del servidor. Por favor, intenta más tarde.';
+        } else if (error.status === 0) {
+          errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+        }
+
+        this.notificationService.showError(errorMessage, 'Error al Procesar Pedido');
       }
     });
   }

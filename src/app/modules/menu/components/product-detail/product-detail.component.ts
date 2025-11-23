@@ -1,13 +1,15 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from '../../../../core/services/user.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { CartService } from '../../../../core/services/cart.service';
-import { Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { MenuItem, ProductOption } from '../../../../core/models/MenuItem';
 import { MenuService } from '../../../../core/services/menu.service';
+import { ExtrasAvailabilityService } from '../../../../core/services/extras-availability.service';
 
 interface SelectedOption {
   option: ProductOption;
@@ -21,13 +23,14 @@ interface SelectedOption {
   templateUrl: './product-detail.component.html',
   styleUrls: ['./product-detail.component.css']
 })
-export class ProductDetailComponent implements OnInit {
+export class ProductDetailComponent implements OnInit, OnDestroy {
   product: MenuItem | null = null;
   loading = true;
   quantity = 1;
   selectedOptions: Map<string, boolean> = new Map();
   totalPrice = 0;
   basePrice = 0;
+  private destroy$ = new Subject<void>();
   categoryId: string | null = null;
   rating = 4.5;
   totalReviews = 124;
@@ -37,6 +40,16 @@ export class ProductDetailComponent implements OnInit {
   removals: ProductOption[] = [];
   isFavorite$: Observable<boolean> = new Observable();
   isLoggedIn = false;
+  private extrasUpdatedHandler = () => {
+    // Forzar actualización de las opciones cuando se actualizan los extras
+    // Usar setTimeout para asegurar que localStorage se haya actualizado
+    setTimeout(() => {
+      if (this.product) {
+        this.organizeOptions();
+        this.calculateTotal();
+      }
+    }, 100);
+  };
 
   constructor(
     private route: ActivatedRoute,
@@ -45,7 +58,8 @@ export class ProductDetailComponent implements OnInit {
     private userService: UserService,
     private authService: AuthService,
     private notificationService: NotificationService,
-    private cartService: CartService
+    private cartService: CartService,
+    private extrasAvailabilityService: ExtrasAvailabilityService
   ) { }
 
   ngOnInit(): void {
@@ -53,6 +67,8 @@ export class ProductDetailComponent implements OnInit {
     this.authService.userInfo$.subscribe(() => {
       this.isLoggedIn = this.authService.isAuthenticated();
     });
+
+    window.addEventListener('extrasUpdated', this.extrasUpdatedHandler);
     const productId = this.route.snapshot.paramMap.get('id');
     const categoryIdFromQuery = this.route.snapshot.queryParamMap.get('categoryId');
     if (categoryIdFromQuery) {
@@ -201,11 +217,41 @@ export class ProductDetailComponent implements OnInit {
       'cebolla', 'tomate', 'lechuga', 'salsa', 'mayonesa', 'mostaza',
       'pepinillos', 'pescado', 'mariscos', 'frijoles', 'arroz', 'plátano'];
     foundIngredients.forEach(ingredient => {
-      if (addableIngredients.includes(ingredient) && addonPrices[ingredient] !== undefined) {
+      if (addableIngredients.includes(ingredient)) {
+        const addonId = `addon-${ingredient}`;
+        
+        // Verificar primero si está disponible usando el método del servicio
+        if (!this.extrasAvailabilityService.isExtraAvailable(addonId)) {
+          // Si no está disponible, no agregarlo
+          return;
+        }
+        
+        // Obtener el extra directamente del servicio
+        const storedExtra = this.extrasAvailabilityService.getExtraById(addonId);
+        
+        // Solo mostrar si existe y está disponible (doble verificación)
+        if (storedExtra && storedExtra.available === true) {
+          const addonOption: ProductOption = {
+            id: addonId,
+            name: storedExtra.name,
+            price: storedExtra.price,
+            type: 'addon'
+          };
+          if (!this.addons.find(a => a.id === addonOption.id)) {
+            this.addons.push(addonOption);
+            this.selectedOptions.set(addonOption.id, false);
+          }
+        }
+      }
+    });
+    
+    const allExtras = this.extrasAvailabilityService.getAllExtras();
+    allExtras.forEach(extra => {
+      if (extra.available && !extra.id.startsWith('addon-')) {
         const addonOption: ProductOption = {
-          id: `addon-${ingredient}`,
-          name: addonNames[ingredient] || `${ingredient.charAt(0).toUpperCase() + ingredient.slice(1)} extra`,
-          price: addonPrices[ingredient],
+          id: extra.id,
+          name: extra.name,
+          price: extra.price,
           type: 'addon'
         };
         if (!this.addons.find(a => a.id === addonOption.id)) {
@@ -385,6 +431,12 @@ export class ProductDetailComponent implements OnInit {
 
     this.userService.toggleFavorite(this.product.id);
     this.isFavorite$ = this.userService.isFavorite(this.product.id);
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    window.removeEventListener('extrasUpdated', this.extrasUpdatedHandler);
   }
 }
 

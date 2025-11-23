@@ -113,7 +113,8 @@
               <!-- Mesas -->
               <div
                 *ngFor="let table of tables"
-                [ngClass]="getTableClass(table)"
+                class="table-container"
+                [class]="getTableClass(table)"
                 [style.left.%]="table.x"
                 [style.top.%]="table.y"
                 (click)="selectTable(table)"
@@ -130,14 +131,49 @@
                 <div class="table-top" [class]="getTableShape(table.capacity)">
                   <div class="table-number">{{ table.id }}</div>
                   <div class="table-capacity-badge">{{ table.capacity }}</div>
-                  <!-- Indicador de mesa ocupada -->
-                  <div *ngIf="!table.available" class="table-occupied-badge">
-                    <i class="bi bi-x-circle-fill"></i>
-                    <span>OCUPADA</span>
-                  </div>
                 </div>
               </div>
 
+            </div>
+          </div>
+
+          <!-- Selector de Capacidad Personalizada -->
+          <div *ngIf="showCustomInput || (selectedTable && reservationForm.get('guests')?.value === 1) || (selectedBar && reservationForm.get('guests')?.value === 1)" class="custom-capacity-selector">
+            <div class="selector-header">
+              <i class="bi bi-people-fill"></i>
+              <h3>Selecciona el número de personas</h3>
+            </div>
+            <div class="slider-container">
+              <input
+                type="range"
+                id="customCapacity"
+                class="capacity-slider"
+                [(ngModel)]="customCapacity"
+                (ngModelChange)="onCustomCapacityChange()"
+                min="1"
+                max="20"
+                step="1"
+                [ngModelOptions]="{standalone: true}"
+              />
+              <div class="slider-labels">
+                <span>1</span>
+                <span class="current-value">{{ customCapacity }}</span>
+                <span>20</span>
+              </div>
+            </div>
+            <div class="selector-footer">
+              <div class="capacity-display">
+                <i class="bi bi-person-fill"></i>
+                <span>{{ customCapacity }} {{ customCapacity === 1 ? 'persona' : 'personas' }}</span>
+              </div>
+            </div>
+            <div *ngIf="selectedTable && !showCustomInput" class="selected-table-info">
+              <i class="bi bi-info-circle"></i>
+              <span>Mesa seleccionada: {{ selectedTable.id }}</span>
+            </div>
+            <div *ngIf="selectedBar && !showCustomInput" class="selected-table-info">
+              <i class="bi bi-info-circle"></i>
+              <span>Barra comunal seleccionada</span>
             </div>
           </div>
         </div>
@@ -257,4 +293,3 @@
     </div>
   </div>
 </section>
-

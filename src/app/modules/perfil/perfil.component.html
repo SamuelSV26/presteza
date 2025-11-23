@@ -139,8 +139,9 @@
               Agregar Primera Dirección
             </button>
           </div>
+          <!-- Grid para Desktop -->
           <div *ngIf="addresses.length > 0" class="addresses-grid">
-            <div *ngFor="let address of addresses" class="address-card" [class.is-default]="address.isDefault">
+            <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
               <div class="address-card-header">
                 <div class="address-icon-wrapper">
                   <i class="bi bi-geo-alt-fill"></i>
@@ -183,6 +184,100 @@
               </div>
             </div>
           </div>
+          <!-- Scroll Horizontal para Móvil -->
+          <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
+            <div class="addresses-scroll-content">
+              <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
+                <div class="address-card-header">
+                  <div class="address-icon-wrapper">
+                    <i class="bi bi-geo-alt-fill"></i>
+                  </div>
+                  <div class="address-title-section">
+                    <h3 class="address-title">{{ address.title }}</h3>
+                    <span class="address-badge" *ngIf="address.isDefault">
+                      <i class="bi bi-star-fill"></i>
+                      Principal
+                    </span>
+                  </div>
+                </div>
+                <div class="address-details">
+                  <div class="address-detail-item">
+                    <i class="bi bi-geo-alt"></i>
+                    <span>{{ address.address }}</span>
+                  </div>
+                  <div class="address-detail-item" *ngIf="address.neighborhood">
+                    <i class="bi bi-pin-map"></i>
+                    <span>{{ address.neighborhood }}</span>
+                  </div>
+                  <div class="address-detail-item">
+                    <i class="bi bi-geo"></i>
+                    <span>{{ address.city }} - {{ address.postalCode }}</span>
+                  </div>
+                </div>
+                <div class="address-actions">
+                  <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
+                    <i class="bi bi-star"></i>
+                    <span>Principal</span>
+                  </button>
+                  <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
+                    <i class="bi bi-pencil"></i>
+                    <span>Editar</span>
+                  </button>
+                  <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
+                    <i class="bi bi-trash"></i>
+                    <span>Eliminar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Scroll Horizontal para Móvil -->
+          <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
+            <div class="addresses-scroll-content">
+              <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
+                <div class="address-card-header">
+                  <div class="address-icon-wrapper">
+                    <i class="bi bi-geo-alt-fill"></i>
+                  </div>
+                  <div class="address-title-section">
+                    <h3 class="address-title">{{ address.title }}</h3>
+                    <span class="address-badge" *ngIf="address.isDefault">
+                      <i class="bi bi-star-fill"></i>
+                      Principal
+                    </span>
+                  </div>
+                </div>
+                <div class="address-details">
+                  <div class="address-detail-item">
+                    <i class="bi bi-geo-alt"></i>
+                    <span>{{ address.address }}</span>
+                  </div>
+                  <div class="address-detail-item" *ngIf="address.neighborhood">
+                    <i class="bi bi-pin-map"></i>
+                    <span>{{ address.neighborhood }}</span>
+                  </div>
+                  <div class="address-detail-item">
+                    <i class="bi bi-geo"></i>
+                    <span>{{ address.city }} - {{ address.postalCode }}</span>
+                  </div>
+                </div>
+                <div class="address-actions">
+                  <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
+                    <i class="bi bi-star"></i>
+                    <span>Principal</span>
+                  </button>
+                  <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
+                    <i class="bi bi-pencil"></i>
+                    <span>Editar</span>
+                  </button>
+                  <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
+                    <i class="bi bi-trash"></i>
+                    <span>Eliminar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Platos Recomendados -->
@@ -197,8 +292,9 @@
               <i class="bi bi-arrow-right ms-2"></i>
             </button>
           </div>
+          <!-- Grid para Desktop -->
           <div class="dishes-grid">
-            <div *ngFor="let dish of recommendedDishes" class="dish-card" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
+            <div *ngFor="let dish of recommendedDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
               <div class="dish-image-wrapper">
                 <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'"
                      [alt]="dish.name"
@@ -215,6 +311,31 @@
                   <button class="dish-btn" (click)="navigateToProductDetail(dish.id, dish.categoryId); $event.stopPropagation()">
                     <i class="bi bi-cart-plus"></i>
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Scroll Horizontal para Móvil -->
+          <div class="dishes-scroll-wrapper">
+            <div class="dishes-scroll-content">
+              <div *ngFor="let dish of recommendedDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
+                <div class="dish-image-wrapper">
+                  <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'"
+                       [alt]="dish.name"
+                       class="dish-image" />
+                  <div class="dish-overlay">
+                    <i class="bi bi-eye"></i>
+                  </div>
+                </div>
+                <div class="dish-content">
+                  <h3 class="dish-name">{{ dish.name }}</h3>
+                  <p class="dish-description">{{ dish.description }}</p>
+                  <div class="dish-footer">
+                    <span class="dish-price">${{ dish.price | number }}</span>
+                    <button class="dish-btn" (click)="navigateToProductDetail(dish.id, dish.categoryId); $event.stopPropagation()">
+                      <i class="bi bi-cart-plus"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -237,8 +358,9 @@
               <i class="bi bi-arrow-right ms-2"></i>
             </button>
           </div>
+          <!-- Grid para Desktop -->
           <div class="dishes-grid">
-            <div *ngFor="let dish of favoriteDishes" class="dish-card" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
+            <div *ngFor="let dish of favoriteDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
               <div class="dish-image-wrapper">
                 <div class="favorite-badge">
                   <i class="bi bi-heart-fill"></i>
@@ -258,6 +380,34 @@
                   <button class="dish-btn" (click)="navigateToProductDetail(dish.id, dish.categoryId); $event.stopPropagation()">
                     <i class="bi bi-cart-plus"></i>
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Scroll Horizontal para Móvil -->
+          <div class="dishes-scroll-wrapper">
+            <div class="dishes-scroll-content">
+              <div *ngFor="let dish of favoriteDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
+                <div class="dish-image-wrapper">
+                  <div class="favorite-badge">
+                    <i class="bi bi-heart-fill"></i>
+                  </div>
+                  <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'"
+                       [alt]="dish.name"
+                       class="dish-image" />
+                  <div class="dish-overlay">
+                    <i class="bi bi-eye"></i>
+                  </div>
+                </div>
+                <div class="dish-content">
+                  <h3 class="dish-name">{{ dish.name }}</h3>
+                  <p class="dish-description">{{ dish.description }}</p>
+                  <div class="dish-footer">
+                    <span class="dish-price">${{ dish.price | number }}</span>
+                    <button class="dish-btn" (click)="navigateToProductDetail(dish.id, dish.categoryId); $event.stopPropagation()">
+                      <i class="bi bi-cart-plus"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -469,8 +619,9 @@
             <h3>No tienes direcciones guardadas</h3>
             <p>Agrega una dirección para facilitar tus pedidos</p>
           </div>
+          <!-- Grid para Desktop -->
           <div *ngIf="addresses.length > 0" class="addresses-grid">
-            <div *ngFor="let address of addresses" class="address-card" [class.is-default]="address.isDefault">
+            <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
               <div class="address-card-header">
                 <div class="address-icon-wrapper">
                   <i class="bi bi-geo-alt-fill"></i>
@@ -510,6 +661,53 @@
                   <i class="bi bi-trash"></i>
                   <span>Eliminar</span>
                 </button>
+              </div>
+            </div>
+          </div>
+          <!-- Scroll Horizontal para Móvil -->
+          <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
+            <div class="addresses-scroll-content">
+              <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
+                <div class="address-card-header">
+                  <div class="address-icon-wrapper">
+                    <i class="bi bi-geo-alt-fill"></i>
+                  </div>
+                  <div class="address-title-section">
+                    <h3 class="address-title">{{ address.title }}</h3>
+                    <span class="address-badge" *ngIf="address.isDefault">
+                      <i class="bi bi-star-fill"></i>
+                      Principal
+                    </span>
+                  </div>
+                </div>
+                <div class="address-details">
+                  <div class="address-detail-item">
+                    <i class="bi bi-geo-alt"></i>
+                    <span>{{ address.address }}</span>
+                  </div>
+                  <div class="address-detail-item" *ngIf="address.neighborhood">
+                    <i class="bi bi-pin-map"></i>
+                    <span>{{ address.neighborhood }}</span>
+                  </div>
+                  <div class="address-detail-item">
+                    <i class="bi bi-geo"></i>
+                    <span>{{ address.city }} - {{ address.postalCode }}</span>
+                  </div>
+                </div>
+                <div class="address-actions">
+                  <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
+                    <i class="bi bi-star"></i>
+                    <span>Principal</span>
+                  </button>
+                  <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
+                    <i class="bi bi-pencil"></i>
+                    <span>Editar</span>
+                  </button>
+                  <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
+                    <i class="bi bi-trash"></i>
+                    <span>Eliminar</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

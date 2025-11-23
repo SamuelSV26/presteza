@@ -11,6 +11,8 @@ import { PerfilComponent } from './modules/perfil/perfil.component';
 import { ProductDetailComponent } from './modules/menu/components/product-detail/product-detail.component';
 import { AdminDashboardComponent } from './modules/admin/admin-dashboard.component';
 import { homeGuard } from './core/guards/home.guard';
+import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 import { homeResolver } from './core/resolvers/home.resolver';
 
 export const routes: Routes = [
@@ -55,11 +57,13 @@ export const routes: Routes = [
   },
   {
     path: 'perfil',
-    component: PerfilComponent
+    component: PerfilComponent,
+    canActivate: [authGuard]
   },
   {
     path: 'admin',
-    component: AdminDashboardComponent
+    component: AdminDashboardComponent,
+    canActivate: [adminGuard]
   }
 ];
 

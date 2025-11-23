@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { ContactService } from '../../core/services/contact.service';
+import { NotificationService } from '../../core/services/notification.service';
 
 @Component({
   selector: 'app-contacto',
@@ -13,6 +15,7 @@ export class ContactoComponent {
   contactForm: FormGroup;
   submitted = false;
   formSuccess = false;
+  isLoading = false;
 
   contactInfo = {
     phone: '3104941839',
@@ -32,7 +35,11 @@ export class ContactoComponent {
     phone: '3104941839'
   };
 
-  constructor(private fb: FormBuilder) {
+  constructor(
+    private fb: FormBuilder,
+    private contactService: ContactService,
+    private notificationService: NotificationService
+  ) {
     this.contactForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       email: ['', [Validators.required, Validators.email]],
@@ -45,12 +52,26 @@ export class ContactoComponent {
   onSubmit() {
     this.submitted = true;
     if (this.contactForm.valid) {
-      this.formSuccess = true;
-      this.contactForm.reset();
-      this.submitted = false;
-      setTimeout(() => {
-        this.formSuccess = false;
-      }, 5000);
+      this.isLoading = true;
+      const formValue = this.contactForm.value;
+      
+      this.contactService.create(formValue).subscribe({
+        next: () => {
+          this.isLoading = false;
+          this.formSuccess = true;
+          this.contactForm.reset();
+          this.submitted = false;
+          this.notificationService.showSuccess('¡Mensaje enviado exitosamente! Nos pondremos en contacto contigo pronto.');
+          setTimeout(() => {
+            this.formSuccess = false;
+          }, 5000);
+        },
+        error: (error) => {
+          this.isLoading = false;
+          const errorMessage = error?.message || error?.error?.message || 'Error al enviar el mensaje. Por favor intenta nuevamente.';
+          this.notificationService.showError(errorMessage);
+        }
+      });
     }
   }
 

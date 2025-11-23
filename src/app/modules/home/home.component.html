@@ -162,20 +162,19 @@
           class="category-card-collage"
           *ngFor="let category of featuredCategories; let i = index"
           (click)="navigateToCategory(category.id)"
-          [style.animation-delay]="i * 0.1 + 's'"
-          [class.category-large]="i === 0 || i === 2"
-          [class.category-medium]="i === 1 || i === 3"
-          [class.category-small]="i === 4">
+          [style.animation-delay]="i * 0.1 + 's'">
           <div class="category-card-inner">
-            <div class="category-icon-wrapper">
-              <div class="category-icon-bg"></div>
-              <i [class]="'bi ' + (category.icon || 'bi-grid')"></i>
-              <div class="category-icon-glow"></div>
+            <div 
+              class="category-image-background"
+              [style.background-image]="getCategoryBackgroundImage(category)">
+              <div class="category-image-overlay"></div>
             </div>
-            <h3 class="category-name">{{ category.name }}</h3>
-            <p class="category-description">{{ category.description || 'Descubre nuestros deliciosos platos' }}</p>
-            <div class="category-arrow">
-              <i class="bi bi-arrow-right"></i>
+            <div class="category-content-wrapper">
+              <div class="category-icon-wrapper">
+                <i [class]="'bi ' + (category.icon || 'bi-grid')"></i>
+              </div>
+              <h3 class="category-name">{{ category.name }}</h3>
+              <p class="category-description">{{ category.description || 'Descubre nuestros deliciosos platos' }}</p>
             </div>
             <div class="category-hover-effect"></div>
           </div>

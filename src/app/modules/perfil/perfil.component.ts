@@ -135,6 +135,12 @@ export class PerfilComponent implements OnInit, OnDestroy {
   minDate: string = '';
 
   ngOnInit() {
+    // Verificar si el usuario es admin y redirigir
+    if (this.authService.isAdmin()) {
+      this.router.navigate(['/admin']);
+      return;
+    }
+
     const today = new Date().toISOString().split('T')[0];
     this.minDate = today;
     
@@ -266,11 +272,27 @@ private loadUserProfile() {
       orders.forEach(order => {
         if (order.items && order.items.length > 0) {
           order.items.forEach(item => {
-            purchasedProductIds.add(item.id);
+            // Filtrar IDs inválidos (0, null, undefined, strings vacíos)
+            if (item.id !== null && item.id !== undefined) {
+              // Convertir a string para comparar, luego verificar si es válido
+              const idStr = String(item.id);
+              if (idStr !== '0' && idStr !== '' && idStr !== 'null' && idStr !== 'undefined') {
+                purchasedProductIds.add(item.id);
+              }
+            }
           });
         }
       });
-      const productObservables = Array.from(purchasedProductIds).map(productId =>
+      
+      // Filtrar IDs inválidos antes de crear los observables
+      const validProductIds = Array.from(purchasedProductIds).filter(id => {
+        if (id === null || id === undefined) return false;
+        if (id === 0 || id === '0') return false;
+        if (typeof id === 'string' && id.trim() === '') return false;
+        return true;
+      });
+      
+      const productObservables = validProductIds.map(productId =>
         this.menuService.getItemById(productId).pipe(
           catchError(() => of(null))
         )
@@ -394,8 +416,23 @@ private loadUserProfile() {
   private loadFavoriteDishes() {
     this.userService.getFavoriteDishes().pipe(takeUntil(this.destroy$)).subscribe(favoriteIds => {
       if (favoriteIds && favoriteIds.length > 0) {
-        const favoriteObservables = favoriteIds.map(id =>
-          this.menuService.getItemById(id)
+        // Filtrar IDs inválidos antes de hacer las peticiones
+        const validFavoriteIds = favoriteIds.filter(id => {
+          if (id === null || id === undefined) return false;
+          if (id === 0 || id === '0') return false;
+          if (typeof id === 'string' && id.trim() === '') return false;
+          return true;
+        });
+        
+        if (validFavoriteIds.length === 0) {
+          this.favoriteDishes = [];
+          return;
+        }
+        
+        const favoriteObservables = validFavoriteIds.map(id =>
+          this.menuService.getItemById(id).pipe(
+            catchError(() => of(null))
+          )
         );
 
         forkJoin(favoriteObservables).pipe(takeUntil(this.destroy$)).subscribe(items => {
@@ -572,9 +609,16 @@ private loadUserProfile() {
       if (orderIndex === -1) return;
       const currentOrder = this.orders[orderIndex];
       if (currentOrder.status === 'cancelled' || currentOrder.status === 'delivered') {
+        if (this.progressIntervals.has(order.id)) {
+          clearInterval(this.progressIntervals.get(order.id));
+          this.progressIntervals.delete(order.id);
+        }
         return;
       }
-      this.cdr.markForCheck();
+      // Usar setTimeout para evitar ExpressionChangedAfterItHasBeenCheckedError
+      setTimeout(() => {
+        this.cdr.markForCheck();
+      }, 0);
     };
     updateProgress();
     const interval = setInterval(updateProgress, 5000);
@@ -996,6 +1040,17 @@ private loadUserProfile() {
     let itemsAdded = 0;
     const totalItems = order.items.reduce((sum, it) => sum + it.quantity, 0);
     order.items.forEach(item => {
+      // Validar que el ID sea válido antes de hacer la petición
+      if (!item.id || item.id === null || item.id === undefined) {
+        console.warn('Item con ID inválido en reorder:', item);
+        return;
+      }
+      // Convertir a string para validar
+      const idStr = String(item.id);
+      if (idStr === '0' || idStr === '' || idStr === 'null' || idStr === 'undefined') {
+        console.warn('Item con ID inválido en reorder:', item);
+        return;
+      }
       this.menuService.getItemById(item.id).subscribe(product => {
         if (product) {
           const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
@@ -1083,7 +1138,11 @@ private loadUserProfile() {
   }
 
   getOrderProgress(order: Order): number {
-    return this.calculateTimeBasedProgress(order);
+    // Cachear el progreso para evitar ExpressionChangedAfterItHasBeenCheckedError
+    // El progreso se actualiza mediante los intervalos configurados
+    const progress = this.calculateTimeBasedProgress(order);
+    // Redondear para evitar cambios mínimos que causen el error
+    return Math.round(progress * 100) / 100;
   }
 
   expandOrderDetails(order: Order): void {

@@ -1,20 +1,40 @@
 .perfil-page {
   margin-top: 80px;
   min-height: calc(100vh - 80px);
-  background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 50%, #fafafa 100%);
+  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 25%, #f8f9fa 50%, #ffffff 75%, #f5f7fa 100%);
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.perfil-page::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 15% 25%, rgba(107, 29, 61, 0.03) 0%, transparent 60%),
+    radial-gradient(circle at 85% 75%, rgba(139, 45, 79, 0.03) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* Hero Section */
 .hero-section {
   position: relative;
-  min-height: 250px;
+  min-height: 280px;
   background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #f5f5f5 100%);
   display: flex;
   align-items: center;
-  padding: 3rem 2rem;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 3.5rem 2rem;
+  border-bottom: 2px solid rgba(107, 29, 61, 0.08);
+  box-shadow: 0 4px 20px rgba(107, 29, 61, 0.05);
+  position: relative;
+  z-index: 1;
 }
 
 .hero-content-wrapper {
@@ -57,17 +77,25 @@
   width: 180px;
   height: 180px;
   border-radius: 50%;
-  background: #ffffff;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 5px solid #e0e0e0;
+  border: 5px solid rgba(107, 29, 61, 0.15);
   box-shadow: 
-    0 10px 30px rgba(0, 0, 0, 0.1),
-    0 0 0 8px rgba(107, 29, 61, 0.05);
+    0 15px 40px rgba(107, 29, 61, 0.2),
+    0 8px 25px rgba(107, 29, 61, 0.15),
+    0 0 0 10px rgba(107, 29, 61, 0.05),
+    inset 0 2px 4px rgba(255, 255, 255, 0.9);
   position: relative;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: avatarFloat 3s ease-in-out infinite;
+}
+
+@keyframes avatarFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.02); }
 }
 
 .avatar-image {
@@ -79,20 +107,25 @@
 
 
 .profile-avatar-large:hover .avatar-circle-large {
-  transform: scale(1.05);
+  transform: scale(1.08) rotate(5deg);
   box-shadow: 
-    0 15px 40px rgba(0, 0, 0, 0.15),
-    0 0 0 10px rgba(107, 29, 61, 0.08);
+    0 20px 50px rgba(107, 29, 61, 0.3),
+    0 10px 30px rgba(107, 29, 61, 0.2),
+    0 0 0 12px rgba(107, 29, 61, 0.1);
   border-color: #6b1d3d;
 }
 
 .hero-title {
-  font-size: 3rem;
-  font-weight: 700;
+  font-size: 3.5rem;
+  font-weight: 800;
   margin-bottom: 0.75rem;
-  color: #2c3e50;
-  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #6b1d3d 0%, #8b2d4f 50%, #6b1d3d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 1px;
   animation: titleFadeIn 0.8s ease-out;
+  text-shadow: none;
 }
 
 .hero-subtitle {
@@ -170,9 +203,34 @@
   display: flex;
   gap: 1rem;
   margin-bottom: 2rem;
-  flex-wrap: wrap;
   border-bottom: 2px solid rgba(107, 29, 61, 0.1);
   padding-bottom: 1rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107, 29, 61, 0.3) transparent;
+  position: relative;
+}
+
+.profile-tabs::-webkit-scrollbar {
+  height: 6px;
+}
+
+.profile-tabs::-webkit-scrollbar-track {
+  background: rgba(107, 29, 61, 0.05);
+  border-radius: 10px;
+}
+
+.profile-tabs::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.4) 0%, rgba(139, 45, 79, 0.4) 100%);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.profile-tabs::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.6) 0%, rgba(139, 45, 79, 0.6) 100%);
 }
 
 .tab-btn {
@@ -188,6 +246,9 @@
   display: flex;
   align-items: center;
   position: relative;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
 }
 
 .tab-btn:hover {
@@ -219,11 +280,42 @@
 }
 
 .profile-card {
-  background: #ffffff;
-  border-radius: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #fafafa 50%, #ffffff 100%);
+  border-radius: 25px;
   padding: 2.5rem;
-  box-shadow: 0 8px 30px rgba(107, 29, 61, 0.12);
-  border: 1px solid rgba(107, 29, 61, 0.1);
+  box-shadow: 
+    0 12px 40px rgba(107, 29, 61, 0.12),
+    0 6px 20px rgba(107, 29, 61, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(107, 29, 61, 0.1);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.profile-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(107, 29, 61, 0.03) 0%, transparent 70%);
+  animation: cardGlow 10s ease-in-out infinite;
+}
+
+@keyframes cardGlow {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  50% { transform: translate(-10%, -10%) scale(1.1); opacity: 0.8; }
+}
+
+.profile-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 
+    0 16px 50px rgba(107, 29, 61, 0.15),
+    0 8px 30px rgba(107, 29, 61, 0.1);
+  border-color: rgba(107, 29, 61, 0.2);
 }
 
 .card-header {
@@ -231,10 +323,12 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
-  padding-bottom: 1rem;
+  padding-bottom: 1.5rem;
   border-bottom: 2px solid rgba(107, 29, 61, 0.1);
   flex-wrap: wrap;
   gap: 1rem;
+  position: relative;
+  z-index: 1;
 }
 
 .view-mode-toggle {
@@ -273,10 +367,15 @@
 
 .card-title {
   color: #6b1d3d;
-  font-size: 1.8rem;
-  font-weight: 700;
+  font-size: 2rem;
+  font-weight: 800;
   display: flex;
   align-items: center;
+  background: linear-gradient(135deg, #6b1d3d 0%, #8b2d4f 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.5px;
 }
 
 /* Forms */
@@ -320,21 +419,52 @@
 
 /* Buttons */
 .btn-primary {
-  background: linear-gradient(135deg, #6b1d3d 0%, #8b2d4f 100%);
+  background: linear-gradient(135deg, #6b1d3d 0%, #8b2d4f 50%, #6b1d3d 100%);
+  background-size: 200% 100%;
   color: #ffffff;
   border: none;
-  padding: 0.75rem 2rem;
+  padding: 0.875rem 2rem;
   border-radius: 25px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   display: inline-flex;
   align-items: center;
+  gap: 0.5rem;
+  box-shadow: 
+    0 6px 20px rgba(107, 29, 61, 0.3),
+    0 3px 12px rgba(139, 45, 79, 0.2);
+  position: relative;
+  overflow: hidden;
+  animation: buttonGradient 3s ease infinite;
+}
+
+@keyframes buttonGradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.6s;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(107, 29, 61, 0.4);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    0 10px 30px rgba(107, 29, 61, 0.4),
+    0 5px 20px rgba(139, 45, 79, 0.3);
+  background-position: 100% 50%;
 }
 
 .btn-outline {
@@ -1037,11 +1167,59 @@
 }
 
 /* Addresses - Rediseño Moderno */
+/* Addresses Grid - Con Scroll Horizontal en Móvil */
 .addresses-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 2rem;
   margin-top: 1.5rem;
+}
+
+/* Contenedor de scroll para addresses en móvil */
+.addresses-scroll-wrapper {
+  position: relative;
+  overflow: hidden;
+  margin-top: 1.5rem;
+  display: none; /* Oculto por defecto, se muestra en móvil */
+}
+
+.addresses-scroll-content {
+  display: flex;
+  gap: 2rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  padding: 1rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107, 29, 61, 0.3) transparent;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.addresses-scroll-content::-webkit-scrollbar {
+  height: 8px;
+}
+
+.addresses-scroll-content::-webkit-scrollbar-track {
+  background: rgba(107, 29, 61, 0.05);
+  border-radius: 10px;
+}
+
+.addresses-scroll-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.4) 0%, rgba(139, 45, 79, 0.4) 100%);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.addresses-scroll-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.6) 0%, rgba(139, 45, 79, 0.6) 100%);
+}
+
+.addresses-scroll-content .address-card {
+  flex: 0 0 320px;
+  min-width: 320px;
+  scroll-snap-align: start;
+  animation: fadeInUp 0.6s ease-out both;
 }
 
 .address-card {
@@ -1077,9 +1255,11 @@
 }
 
 .address-card:hover {
-  transform: translateY(-8px);
+  transform: translateY(-10px) scale(1.02);
   border-color: rgba(107, 29, 61, 0.3);
-  box-shadow: 0 12px 40px rgba(107, 29, 61, 0.2);
+  box-shadow: 
+    0 18px 50px rgba(107, 29, 61, 0.25),
+    0 10px 35px rgba(139, 45, 79, 0.2);
 }
 
 .address-card.is-default {
@@ -1439,27 +1619,51 @@
   color: #dc3545;
 }
 
-/* Empty State */
+/* Empty State - Mejorado */
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.03) 0%, rgba(139, 45, 79, 0.02) 100%);
+  border-radius: 20px;
+  border: 2px dashed rgba(107, 29, 61, 0.15);
+  animation: fadeInUp 0.6s ease-out;
+  transition: all 0.3s ease;
+}
+
+.empty-state:hover {
+  border-color: rgba(107, 29, 61, 0.25);
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.05) 0%, rgba(139, 45, 79, 0.03) 100%);
 }
 
 .empty-icon {
   font-size: 5rem;
   color: rgba(107, 29, 61, 0.3);
   margin-bottom: 1.5rem;
+  display: block;
+  animation: iconFloat 3s ease-in-out infinite;
+}
+
+@keyframes iconFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-10px) scale(1.05); }
 }
 
 .empty-state h3 {
   color: #6b1d3d;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+  font-weight: 800;
+  font-size: 1.5rem;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(135deg, #6b1d3d 0%, #8b2d4f 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .empty-state p {
   color: #666;
+  font-size: 1rem;
   margin-bottom: 2rem;
+  line-height: 1.6;
 }
 
 /* Modal */
@@ -1705,29 +1909,82 @@
   }
 }
 
-/* Dishes Grid */
+/* Dishes Grid - Con Scroll Horizontal en Móvil */
 .dishes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
   margin-top: 1.5rem;
 }
 
+/* Contenedor de scroll para dishes en móvil */
+.dishes-scroll-wrapper {
+  position: relative;
+  overflow: hidden;
+  margin-top: 1.5rem;
+  display: none; /* Oculto por defecto, se muestra en móvil */
+}
+
+.dishes-scroll-content {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  padding: 1rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107, 29, 61, 0.3) transparent;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.dishes-scroll-content::-webkit-scrollbar {
+  height: 8px;
+}
+
+.dishes-scroll-content::-webkit-scrollbar-track {
+  background: rgba(107, 29, 61, 0.05);
+  border-radius: 10px;
+}
+
+.dishes-scroll-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.4) 0%, rgba(139, 45, 79, 0.4) 100%);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.dishes-scroll-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, rgba(107, 29, 61, 0.6) 0%, rgba(139, 45, 79, 0.6) 100%);
+}
+
+.dishes-scroll-content .dish-card {
+  flex: 0 0 280px;
+  min-width: 280px;
+  scroll-snap-align: start;
+  animation: fadeInUp 0.6s ease-out both;
+}
+
 .dish-card {
   background: #ffffff;
-  border-radius: 15px;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 4px 15px rgba(107, 29, 61, 0.1);
+  box-shadow: 
+    0 8px 25px rgba(107, 29, 61, 0.12),
+    0 4px 15px rgba(107, 29, 61, 0.08);
   border: 2px solid rgba(107, 29, 61, 0.1);
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   cursor: pointer;
   display: flex;
   flex-direction: column;
+  position: relative;
+  height: 100%;
 }
 
 .dish-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(107, 29, 61, 0.2);
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 
+    0 15px 40px rgba(107, 29, 61, 0.25),
+    0 8px 25px rgba(139, 45, 79, 0.2);
   border-color: #6b1d3d;
 }
 
@@ -1910,40 +2167,192 @@
   margin-top: 0.5rem;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .hero-title {
-    font-size: 2.8rem;
+/* ============================================
+   RESPONSIVE - TABLETS (max-width: 992px)
+   ============================================ */
+@media (max-width: 992px) {
+  .perfil-page {
+    margin-top: 70px;
   }
 
-  .profile-tabs {
+  .hero-section {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .hero-content-wrapper {
+    gap: 2rem;
+  }
+
+  .avatar-circle-large {
+    width: 160px;
+    height: 160px;
+  }
+
+  .hero-title {
+    font-size: 2.5rem;
+  }
+
+  .profile-card {
+    padding: 2rem 1.5rem;
+  }
+
+  .dishes-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .addresses-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - MOBILE (max-width: 768px)
+   ============================================ */
+@media (max-width: 768px) {
+  .perfil-page {
+    margin-top: 60px;
+  }
+
+  .hero-section {
+    padding: 2rem 1rem;
+    min-height: auto;
+  }
+
+  .hero-content-wrapper {
     flex-direction: column;
+    gap: 1.5rem;
+    text-align: center;
+  }
+
+  .hero-content {
+    text-align: center;
+  }
+
+  .avatar-circle-large {
+    width: 140px;
+    height: 140px;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+.container {
+  padding-left: 1rem;
+  padding-right: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+  /* Tabs con scroll horizontal */
+  .profile-tabs {
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    margin-bottom: 1.5rem;
   }
 
   .tab-btn {
-    width: 100%;
-    justify-content: center;
+    padding: 0.875rem 1.25rem;
+    font-size: 0.95rem;
+  }
+
+  .tab-btn i {
+    font-size: 1.1rem;
+  }
+
+  /* Profile Cards */
+  .profile-card {
+    padding: 1.5rem 1.25rem;
+    border-radius: 18px;
   }
 
   .card-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
   }
 
+  .card-title {
+    font-size: 1.5rem;
+  }
+
+  /* Dishes Grid - Scroll Horizontal en Móvil */
+  .dishes-grid {
+    display: none; /* Ocultar grid en móvil */
+  }
+
+  .dishes-scroll-wrapper {
+    display: block !important; /* Mostrar scroll wrapper en móvil */
+  }
+
+  .dishes-scroll-content .dish-card {
+    flex: 0 0 260px;
+    min-width: 260px;
+  }
+
+  .dish-image-wrapper {
+    height: 180px;
+  }
+
+  .empty-state {
+    padding: 3rem 1.5rem;
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+  }
+
+  .empty-state h3 {
+    font-size: 1.25rem;
+  }
+
+  .empty-state p {
+    font-size: 0.95rem;
+  }
+
+  /* Addresses Grid - Scroll Horizontal en Móvil */
+  .addresses-grid {
+    display: none; /* Ocultar grid en móvil */
+  }
+
+  .addresses-scroll-wrapper {
+    display: block !important; /* Mostrar scroll wrapper en móvil */
+  }
+
+  .addresses-scroll-content .address-card {
+    flex: 0 0 300px;
+    min-width: 300px;
+  }
+
+  /* Orders */
   .order-header,
   .order-footer {
     flex-direction: column;
     align-items: flex-start;
+    gap: 1rem;
   }
 
-  .addresses-grid {
+  .orders-container.view-grid {
     grid-template-columns: 1fr;
   }
 
+  .order-card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  /* Forms */
   .form-actions,
   .modal-actions {
     flex-direction: column;
+    gap: 0.75rem;
   }
 
   .btn-primary,
@@ -1951,14 +2360,140 @@
   .btn-danger {
     width: 100%;
     justify-content: center;
+    padding: 0.875rem 1.5rem;
   }
 
-  .dishes-grid {
+  /* Quick Info */
+  .quick-info {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .info-item {
+    padding: 0.875rem;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - SMALL MOBILE (max-width: 576px)
+   ============================================ */
+@media (max-width: 576px) {
+  .perfil-page {
+    margin-top: 55px;
+  }
+
+  .hero-section {
+    padding: 1.5rem 1rem;
+  }
+
+  .avatar-circle-large {
+    width: 120px;
+    height: 120px;
+  }
+
+  .hero-title {
+    font-size: 1.75rem;
+  }
+
+  .hero-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .profile-tabs {
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .tab-btn {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .tab-btn .badge {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  .profile-card {
+    padding: 1.25rem 1rem;
+    border-radius: 15px;
+  }
+
+  .card-title {
+    font-size: 1.35rem;
+  }
+
+  .dishes-scroll-content .dish-card {
+    flex: 0 0 240px;
+    min-width: 240px;
   }
 
   .dish-image-wrapper {
-    height: 200px;
+    height: 160px;
+  }
+
+  .empty-state {
+    padding: 2.5rem 1.25rem;
+  }
+
+  .empty-icon {
+    font-size: 2.5rem;
+  }
+
+  .empty-state h3 {
+    font-size: 1.15rem;
+  }
+
+  .empty-state p {
+    font-size: 0.9rem;
+  }
+
+  .dish-content {
+    padding: 1rem;
+  }
+
+  .dish-name {
+    font-size: 1rem;
+  }
+
+  .dish-description {
+    font-size: 0.85rem;
+  }
+
+  .addresses-scroll-content .address-card {
+    flex: 0 0 280px;
+    min-width: 280px;
+  }
+
+  .address-card-header {
+    padding: 1.25rem 1.25rem 0.875rem;
+  }
+
+  .address-details {
+    padding: 0 1.25rem 1.25rem;
+  }
+
+  .order-card {
+    padding: 1.25rem 1rem;
+  }
+
+  .order-id {
+    font-size: 1.2rem;
+  }
+
+  .tracking-steps {
+    flex-wrap: wrap;
+    gap: 1rem;
+    min-height: auto;
+  }
+
+  .tracking-step {
+    flex: 0 0 calc(50% - 0.5rem);
   }
 }
 

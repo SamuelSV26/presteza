@@ -26,7 +26,16 @@ export class ErrorHandlerService {
           errorMessage = 'No se pudo conectar con el servidor. Verifique su conexión a internet.';
           break;
         case 400:
-          errorMessage = 'Solicitud incorrecta. Por favor, verifique los datos enviados.';
+          // Intentar obtener el mensaje específico del backend
+          if (error.error?.message) {
+            errorMessage = error.error.message;
+          } else if (error.error?.error) {
+            errorMessage = error.error.error;
+          } else if (typeof error.error === 'string') {
+            errorMessage = error.error;
+          } else {
+            errorMessage = 'Solicitud incorrecta. Por favor, verifique los datos enviados.';
+          }
           break;
         case 401:
           errorMessage = 'No autorizado. Por favor, inicie sesión.';

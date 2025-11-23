@@ -5,6 +5,28 @@ import { MenuService } from '../../core/services/menu.service';
 import { LoadingService } from '../../core/services/loading.service';
 import { ErrorHandlerService } from '../../core/services/error-handler.service';
 import { HomeData } from '../../core/resolvers/home.resolver';
+import { MenuCategory } from '../../core/models/MenuCategory';
+
+const DEFAULT_CATEGORY_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80';
+const GRADIENT_OVERLAY = 'linear-gradient(135deg, rgba(107, 29, 61, 0.7) 0%, rgba(139, 45, 79, 0.6) 50%, rgba(0, 0, 0, 0.5) 100%)';
+
+const CATEGORY_IMAGES: { [key: string]: string } = {
+  'bebidas': 'https://images.unsplash.com/photo-1546171753-97d7676e4602?w=800&q=80',
+  'desayunos': 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=800&q=80',
+  'comida rapida': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',
+  'ensaladas': 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80',
+  'postres': 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800&q=80',
+  'almuerzos': 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80',
+  'hamburguesas': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',
+  'entradas': 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=800&q=80',
+  'acompanamientos': 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=800&q=80',
+  'sopas': 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=800&q=80',
+  'pescados': 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=800&q=80',
+  'carnes': 'https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80',
+  'comida vegetariana': 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&q=80',
+  'comida internacional': 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80',
+  'comida tipica': 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=800&q=80'
+};
 
 @Component({
   selector: 'app-home',
@@ -184,6 +206,28 @@ export class HomeComponent implements OnInit {
 
   navigateToCategory(categoryId: string) {
     this.router.navigate(['/menu', categoryId]);
+  }
+
+  getCategoryBackgroundImage(category: MenuCategory | any): string {
+    if (category.imageUrl) {
+      return `${GRADIENT_OVERLAY}, url("${category.imageUrl}")`;
+    }
+
+    const normalizedName = this.normalizeCategoryName(category.name);
+    const imageUrl = CATEGORY_IMAGES[normalizedName] || DEFAULT_CATEGORY_IMAGE;
+
+    return `${GRADIENT_OVERLAY}, url("${imageUrl}")`;
+  }
+
+  private normalizeCategoryName(name: string): string {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, ' ');
   }
 
   scrollProducts(direction: 'left' | 'right') {
