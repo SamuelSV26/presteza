@@ -135,7 +135,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
   minDate: string = '';
 
   ngOnInit() {
-    // Verificar si el usuario es admin y redirigir
     if (this.authService.isAdmin()) {
       this.router.navigate(['/admin']);
       return;
@@ -143,7 +142,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
     const today = new Date().toISOString().split('T')[0];
     this.minDate = today;
-    
+
     this.loadUserProfile();
     this.loadOrders();
     this.loadReservations();
@@ -197,27 +196,25 @@ private loadUserProfile() {
   if (!userInfo) return;
 
   const userId = userInfo.userId || userInfo.email;
-  const storageKey = `userRegistrationDate_${userId}`;
 
-  // Obtener o crear fecha de registro
   let registrationDate: Date;
-  const savedDate = localStorage.getItem(storageKey);
+  const profile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
+  const savedDate =  profile?.memberSince;
 
   if (savedDate) {
     const parsed = new Date(savedDate);
     registrationDate = isNaN(parsed.getTime()) ? new Date() : parsed;
   } else {
     registrationDate = new Date();
-    localStorage.setItem(storageKey, registrationDate.toISOString());
+    localStorage.setItem(`userProfile_${userId}`, JSON.stringify({ memberSince: registrationDate.toISOString() }));
   }
 
-  // Intentar cargar perfil desde backend
+
   this.userService.getUserProfile().subscribe(profile => {
 
-    // Si coincide con el usuario -> usar ese perfil
+
     if (profile && (profile.email === userInfo.email || profile.id === userInfo.userId)) {
 
-      // Insertar fecha guardada
       profile.memberSince = registrationDate;
 
       this.userProfile = profile;
@@ -283,7 +280,7 @@ private loadUserProfile() {
           });
         }
       });
-      
+
       // Filtrar IDs inválidos antes de crear los observables
       const validProductIds = Array.from(purchasedProductIds).filter(id => {
         if (id === null || id === undefined) return false;
@@ -291,7 +288,7 @@ private loadUserProfile() {
         if (typeof id === 'string' && id.trim() === '') return false;
         return true;
       });
-      
+
       const productObservables = validProductIds.map(productId =>
         this.menuService.getItemById(productId).pipe(
           catchError(() => of(null))
@@ -423,12 +420,12 @@ private loadUserProfile() {
           if (typeof id === 'string' && id.trim() === '') return false;
           return true;
         });
-        
+
         if (validFavoriteIds.length === 0) {
           this.favoriteDishes = [];
           return;
         }
-        
+
         const favoriteObservables = validFavoriteIds.map(id =>
           this.menuService.getItemById(id).pipe(
             catchError(() => of(null))
@@ -1328,7 +1325,7 @@ private loadUserProfile() {
     }
 
     this.editingReservation = reservation;
-    
+
     // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para el input
     let formattedDate = '';
     try {
@@ -1344,7 +1341,7 @@ private loadUserProfile() {
       const today = new Date().toISOString().split('T')[0];
       formattedDate = today;
     }
-    
+
     // Convertir hora de HH:mm a. m./p. m. a HH:mm para el input
     let formattedTime = '';
     try {
@@ -1353,13 +1350,13 @@ private loadUserProfile() {
         let hours = parseInt(timeMatch[1], 10);
         const minutes = timeMatch[2];
         const period = timeMatch[3].toLowerCase();
-        
+
         if (period.includes('p') && hours !== 12) {
           hours += 12;
         } else if (period.includes('a') && hours === 12) {
           hours = 0;
         }
-        
+
         formattedTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
       } else {
         // Si ya está en formato HH:mm, usarlo directamente
@@ -1394,7 +1391,7 @@ private loadUserProfile() {
     }
 
     const formValue = this.reservationForm.value;
-    
+
     // Transformar los datos al formato que espera el backend
     const updateReservationDto = {
       date: this.formatDateToDDMMYYYY(formValue.date),

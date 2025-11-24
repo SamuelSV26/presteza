@@ -15,6 +15,8 @@ export class UserService {
   private userProfileSubject = new BehaviorSubject<UserProfile | null>(null);
   userProfile$ = this.userProfileSubject.asObservable();
 
+
+
   constructor() {
     this.loadUserProfile();
 
@@ -52,40 +54,31 @@ export class UserService {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
 
-      const storedProfile = localStorage.getItem(`userProfile_${userId}`);
+      const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
       if (storedProfile) {
-        const profile = JSON.parse(storedProfile);
-        profile.memberSince = new Date(profile.memberSince);
-        // Validar que el perfil pertenezca al usuario actual
-        if (profile.email === userInfo.email || profile.id === userId) {
-          // Asegurar que la fecha de registro se preserve desde localStorage
-          const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
-                               localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
+        storedProfile.memberSince = new Date(storedProfile.memberSince);
+        if (storedProfile.email === userInfo.email || storedProfile.id === userId) {
+          const savedDateStr = storedProfile.memberSince;
           if (savedDateStr) {
             try {
               const savedDate = new Date(savedDateStr);
               if (!isNaN(savedDate.getTime())) {
-                profile.memberSince = savedDate;
+                storedProfile.memberSince = savedDate;
               }
             } catch (e) {
               console.error('Error al actualizar fecha de registro en perfil guardado:', e);
             }
           }
 
-          this.userProfileSubject.next(profile);
+          this.userProfileSubject.next( storedProfile );
           return;
         }
       }
 
-      // Obtener fecha de registro guardada
       let registrationDate: Date = new Date(); // Por defecto fecha actual
-      const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
-                           localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
-
-      if (savedDateStr) {
+      if (storedProfile) {
         try {
-          registrationDate = new Date(savedDateStr);
-          // Validar que la fecha sea válida
+          registrationDate = new Date(storedProfile.memberSince);
           if (isNaN(registrationDate.getTime())) {
             registrationDate = new Date();
           }
@@ -93,19 +86,13 @@ export class UserService {
           console.error('Error al parsear fecha de registro:', e);
           registrationDate = new Date();
         }
-      } else {
-        // Si no hay fecha guardada, guardar la fecha actual como fecha de registro
-        localStorage.setItem(`userRegistrationDate_${userId}`, registrationDate.toISOString());
-        localStorage.setItem(`userRegistrationDate_${userInfo.email}`, registrationDate.toISOString());
       }
-
-      // Si no hay perfil guardado, crear uno por defecto con datos del token
       const defaultProfile: UserProfile = {
         id: userId,
         fullName: userInfo.name || 'Usuario',
         email: userInfo.email || '',
         phone: localStorage.getItem('userPhone') || '',
-        memberSince: registrationDate, // Usar la fecha de registro guardada
+        memberSince: registrationDate,
         preferences: {
           notifications: true,
           emailNotifications: true,
@@ -137,7 +124,6 @@ export class UserService {
   updateUserProfile(updates: Partial<UserProfile>): void {
     let currentProfile = this.userProfileSubject.value;
 
-    // Si no existe un perfil, crear uno nuevo con los datos proporcionados
     if (!currentProfile) {
       const userInfoStr = localStorage.getItem('userInfo');
       let userId: string | null = null;
@@ -148,11 +134,10 @@ export class UserService {
           const userInfo = JSON.parse(userInfoStr);
           userId = userInfo.userId || userInfo.email;
           // Intentar obtener fecha de registro guardada
-          const savedDateStr = localStorage.getItem(`userRegistrationDate_${userId}`) ||
-                               localStorage.getItem(`userRegistrationDate_${userInfo.email}`);
-          if (savedDateStr) {
+          const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
+          if (storedProfile.memberSince) {
             try {
-              registrationDate = new Date(savedDateStr);
+              registrationDate = new Date(storedProfile.memberSince);
               if (isNaN(registrationDate.getTime())) {
                 registrationDate = new Date();
               }
@@ -165,16 +150,13 @@ export class UserService {
         }
       }
 
-      const userName = localStorage.getItem('userInfo');
-      const userEmail = localStorage.getItem('userEmail');
-      const userPhone = localStorage.getItem('userPhone');
-
+      const user = JSON.parse(localStorage.getItem('userInfo') || 'null');
       currentProfile = {
         id: userId || 'user_' + Date.now(),
-        fullName: updates.fullName || userName || 'Usuario',
-        email: updates.email || userEmail || '',
-        phone: updates.phone || userPhone || '',
-        memberSince: registrationDate, // Usar la fecha de registro guardada
+        fullName: updates.fullName || user?.name ,
+        email: updates.email || user?.email || '',
+        phone: updates.phone || user?.phone || '',
+        memberSince: registrationDate,
         preferences: {
           notifications: true,
           emailNotifications: true,

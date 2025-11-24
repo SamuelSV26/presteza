@@ -93,29 +93,6 @@
               Editar Perfil
             </button>
           </div>
-          <div class="quick-info">
-            <div class="info-item">
-              <i class="bi bi-envelope-fill"></i>
-              <div>
-                <span class="info-label">Email</span>
-                <span class="info-value">{{ userProfile?.email || 'N/A' }}</span>
-              </div>
-            </div>
-            <div class="info-item">
-              <i class="bi bi-telephone-fill"></i>
-              <div>
-                <span class="info-label">Teléfono</span>
-                <span class="info-value">{{ userProfile?.phone || 'N/A' }}</span>
-              </div>
-            </div>
-            <div class="info-item">
-              <i class="bi bi-calendar-check"></i>
-              <div>
-                <span class="info-label">Miembro desde</span>
-                <span class="info-value">{{ userProfile && userProfile.memberSince ? formatDate(userProfile.memberSince) : 'N/A' }}</span>
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- Mis Direcciones -->
@@ -912,7 +889,7 @@
                 <i class="bi bi-check-circle-fill me-2"></i>
                 <strong>¡Reserva Confirmada!</strong> Tu mesa está lista para ti.
               </div>
-              
+
               <div class="reservation-header">
                 <div class="reservation-info">
                   <div class="reservation-id-row">
@@ -955,16 +932,16 @@
 
               <!-- Acciones de Reserva -->
               <div class="reservation-actions" *ngIf="canEditReservation(reservation) || canDeleteReservation(reservation)">
-                <button 
-                  class="btn-edit-reservation" 
+                <button
+                  class="btn-edit-reservation"
                   *ngIf="canEditReservation(reservation)"
                   (click)="openEditReservationModal(reservation)"
                   title="Editar reserva">
                   <i class="bi bi-pencil me-1"></i>
                   Editar
                 </button>
-                <button 
-                  class="btn-delete-reservation" 
+                <button
+                  class="btn-delete-reservation"
                   *ngIf="canDeleteReservation(reservation)"
                   (click)="deleteReservation(reservation)"
                   title="Eliminar reserva">
@@ -995,9 +972,9 @@
                 <i class="bi bi-calendar3 me-2"></i>
                 Fecha *
               </label>
-              <input 
-                type="date" 
-                formControlName="date" 
+              <input
+                type="date"
+                formControlName="date"
                 class="form-control"
                 [min]="minDate"
                 [class.is-invalid]="submitted && reservationForm.get('date')?.errors" />
@@ -1011,9 +988,9 @@
                 <i class="bi bi-clock me-2"></i>
                 Hora *
               </label>
-              <input 
-                type="time" 
-                formControlName="time" 
+              <input
+                type="time"
+                formControlName="time"
                 class="form-control"
                 [class.is-invalid]="submitted && reservationForm.get('time')?.errors" />
               <div *ngIf="submitted && reservationForm.get('time')?.errors" class="invalid-feedback">
@@ -1026,9 +1003,9 @@
                 <i class="bi bi-people me-2"></i>
                 Número de Personas *
               </label>
-              <input 
-                type="number" 
-                formControlName="numberOfPeople" 
+              <input
+                type="number"
+                formControlName="numberOfPeople"
                 class="form-control"
                 min="1"
                 max="20"
@@ -1045,9 +1022,9 @@
                 <i class="bi bi-chat-left-text me-2"></i>
                 Solicitudes Especiales (Opcional)
               </label>
-              <textarea 
-                formControlName="specialRequests" 
-                class="form-control" 
+              <textarea
+                formControlName="specialRequests"
+                class="form-control"
                 rows="3"
                 placeholder="Ej: Mesa cerca de la ventana, sin ruido, etc."></textarea>
             </div>
@@ -1132,16 +1109,6 @@
                   <div *ngIf="submitted && profileForm.get('phone')?.errors" class="invalid-feedback">
                     <span *ngIf="profileForm.get('phone')?.errors?.['required']">El teléfono es requerido</span>
                     <span *ngIf="profileForm.get('phone')?.errors?.['pattern']">Ingresa un teléfono válido (10 dígitos)</span>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label class="form-label">
-                    <i class="bi bi-calendar-check me-2"></i>Miembro desde
-                  </label>
-                  <div class="info-display">
-                    {{ userProfile && userProfile.memberSince ? formatDate(userProfile.memberSince) : 'N/A' }}
                   </div>
                 </div>
               </div>

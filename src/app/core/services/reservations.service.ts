@@ -4,7 +4,7 @@ import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { CreateReservationDto } from '../models/CreateReservationDto';
 import { UpdateReservationDto } from '../models/UpdateReservationDto';
-import { ReservationResponse, ReservationsResponse, ReservationFromBackend, Reservation } from '../models/ReservationResponse';
+import { ReservationFromBackend, Reservation } from '../models/ReservationResponse';
 import { ErrorHandlerService } from './error-handler.service';
 import { environment } from '../../../environments/environment';
 

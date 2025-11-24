@@ -53,6 +53,7 @@ constructor(
       password
     }).pipe(
       tap(response => {
+        localStorage.clear();
         let token: string | undefined;
         if (response.token) {
           token = response.token;
@@ -92,10 +93,6 @@ constructor(
     const registrationDate = new Date();
     return this.http.post<RegisterResponse>(`${this.apiUrl}/register`, registerData).pipe(
       tap(response => {
-        if (response.userId) {
-          localStorage.setItem(`userRegistrationDate_${response.userId}`, registrationDate.toISOString());
-        }
-        localStorage.setItem(`userRegistrationDate_${registerData.email}`, registrationDate.toISOString());
       }),
       catchError((error) => this.errorHandler.handleErrorToAuth(error))
     );
@@ -231,11 +228,6 @@ constructor(
       const newUserId = userInfo.userId || userInfo.email;
       if (oldUserId && oldUserId !== newUserId) {
         localStorage.removeItem('userProfile');
-      }
-      if (payload.iat && !localStorage.getItem(`userRegistrationDate_${newUserId}`) && !localStorage.getItem(`userRegistrationDate_${userInfo.email}`)) {
-        const registrationDate = new Date(payload.iat * 1000);
-        localStorage.setItem(`userRegistrationDate_${newUserId}`, registrationDate.toISOString());
-        localStorage.setItem(`userRegistrationDate_${userInfo.email}`, registrationDate.toISOString());
       }
       localStorage.setItem('userInfo', JSON.stringify(userInfo));
       if (payload.phone || payload.phone_number) {
