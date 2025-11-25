@@ -16,8 +16,11 @@ import { Supply, CreateSupplyDto, UpdateSupplyDto } from '../../core/models/Supp
 import { ReservationsService } from '../../core/services/reservations.service';
 import { ReservationFromBackend, Reservation } from '../../core/models/ReservationResponse';
 import { ExtrasAvailabilityService, ExtraAvailability } from '../../core/services/extras-availability.service';
+import { AddsService, Add } from '../../core/services/adds.service';
 import { ContactService } from '../../core/services/contact.service';
 import { ContactMessageFromBackend, ContactMessage } from '../../core/models/ContactMessage';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -75,6 +78,15 @@ export class AdminDashboardComponent implements OnInit {
   selectedExtra: ExtraAvailability | null = null;
   extraForm: FormGroup;
   showExtraFormModal = false;
+
+  // Adicionales del backend
+  adds: Add[] = [];
+  selectedAdd: Add | null = null;
+  showAddModal = false;
+  addForm: FormGroup;
+  addSearchTerm = '';
+  addSelectionMode: 'categories' | 'products' | 'both' = 'categories';
+  selectedProductsForAdd: string[] = [];
   contactMessages: ContactMessage[] = [];
   selectedMessage: ContactMessage | null = null;
   showMessageModal = false;
@@ -98,6 +110,7 @@ export class AdminDashboardComponent implements OnInit {
   constructor(
     private menuService: MenuService,
     private extrasAvailabilityService: ExtrasAvailabilityService,
+    private addsService: AddsService,
     private userService: UserService,
     private orderService: OrderService,
     private supplyService: SupplyService,
@@ -145,6 +158,15 @@ export class AdminDashboardComponent implements OnInit {
       available: [true]
     });
 
+    // Formulario para adicionales del backend (con categorías y productos)
+    this.addForm = this.fb.group({
+      name: ['', [Validators.required, Validators.minLength(2)]],
+      price: [0, [Validators.required, Validators.min(1)]],
+      categoryIds: [[]],
+      dishIds: [[]], // IDs de productos específicos
+      available: [true]
+    });
+
     this.supplyForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
       description: ['', [Validators.required, Validators.minLength(10)]],
@@ -156,17 +178,17 @@ export class AdminDashboardComponent implements OnInit {
   ngOnInit(): void {
     // Verificación de seguridad adicional en el componente (doble capa de protección)
     if (!this.authService.isAuthenticated()) {
-      this.notificationService.showError('⚠️ No tienes permisos de administrador. Debes iniciar sesión como administrador para acceder a esta sección.');
+      this.notificationService.showError('⚠ No tienes permisos de administrador. Debes iniciar sesión como administrador para acceder a esta sección.');
       this.router.navigate(['/login']);
       return;
     }
-    
+
     if (!this.authService.isAdmin()) {
       this.notificationService.showError('🚫 No tienes permisos de administrador. Solo los usuarios con rol de administrador pueden acceder a esta sección.');
       this.router.navigate(['/']);
       return;
     }
-    
+
     this.loadDashboardData();
   }
 
@@ -236,6 +258,7 @@ export class AdminDashboardComponent implements OnInit {
     }
     if (tab === 'extras') {
       this.loadExtras();
+      this.loadAdds();
     }
     if (tab === 'messages') {
       this.loadContactMessages();
@@ -276,8 +299,37 @@ export class AdminDashboardComponent implements OnInit {
         return;
       }
 
+      const productName = formValue.name.trim();
+
+      // Validar duplicados (solo al crear, no al editar)
+      if (!this.selectedProduct) {
+        const duplicateProduct = this.products.find(
+          p => p.name.toLowerCase().trim() === productName.toLowerCase().trim()
+        );
+
+        if (duplicateProduct) {
+          this.notificationService.showError(
+            `No se puede crear el producto porque ya existe uno con el nombre "${duplicateProduct.name}"`
+          );
+          return;
+        }
+      } else {
+        // Al editar, verificar que no haya otro producto con el mismo nombre (excluyendo el actual)
+        const duplicateProduct = this.products.find(
+          p => p.id !== this.selectedProduct?.id &&
+            p.name.toLowerCase().trim() === productName.toLowerCase().trim()
+        );
+
+        if (duplicateProduct) {
+          this.notificationService.showError(
+            `No se puede actualizar el producto porque ya existe otro con el nombre "${duplicateProduct.name}"`
+          );
+          return;
+        }
+      }
+
       const productData = {
-        name: formValue.name.trim(),
+        name: productName,
         description: formValue.description.trim(),
         price: Number(formValue.price),
         categoryId: formValue.categoryId,
@@ -409,13 +461,12 @@ export class AdminDashboardComponent implements OnInit {
     this.orderService.findAll().subscribe({
       next: (response) => {
         this.orders = response.orders.map(backendOrder => this.mapBackendOrderToFrontend(backendOrder));
+        // Ordenar por fecha/hora de creación descendente (más recientes primero)
         this.orders.sort((a, b) => {
-          const dateA = new Date(a.date).getTime();
-          const dateB = new Date(b.date).getTime();
-          if (dateB !== dateA) {
-            return dateB - dateA;
-          }
-          return String(b.id).localeCompare(String(a.id));
+          const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
+          const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
+          // Ordenar por fecha descendente (más recientes primero)
+          return dateB - dateA;
         });
         this.calculateStats();
       },
@@ -436,68 +487,135 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
+  clearAllOrders(): void {
+    this.notificationService.confirm(
+      'Eliminar Todos los Pedidos',
+      '¿Estás seguro de que deseas eliminar TODOS los pedidos? Esta acción eliminará todos los pedidos del backend y del localStorage. Esta acción NO se puede deshacer.',
+      'Eliminar Todos',
+      'Cancelar'
+    ).then(confirmed => {
+      if (confirmed) {
+        if (this.orders.length === 0) {
+          this.notificationService.showWarning('No hay pedidos para eliminar');
+          return;
+        }
+
+        const deleteObservables = this.orders.map(order =>
+          this.orderService.remove(order.id).pipe(
+            catchError(error => {
+              console.error(`Error al eliminar pedido ${order.id}:`, error);
+              // Continuar aunque falle uno
+              return of(null);
+            })
+          )
+        );
+
+        forkJoin(deleteObservables).subscribe({
+          next: (results) => {
+            const successCount = results.filter(r => r !== null).length;
+            const failCount = results.length - successCount;
+
+            // Limpiar también el localStorage
+            try {
+              for (let i = localStorage.length - 1; i >= 0; i--) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('userOrders_')) {
+                  localStorage.removeItem(key);
+                }
+              }
+            } catch (error) {
+              console.error('Error al limpiar localStorage:', error);
+            }
+
+            if (successCount > 0) {
+              this.notificationService.showSuccess(
+                `Se eliminaron ${successCount} pedido(s)${failCount > 0 ? `. ${failCount} pedido(s) no se pudieron eliminar.` : ''}`
+              );
+              this.loadOrders(); // Recargar pedidos
+            } else {
+              this.notificationService.showError('No se pudo eliminar ningún pedido. Por favor, intenta nuevamente.');
+            }
+          },
+          error: (error) => {
+            console.error('Error al eliminar pedidos:', error);
+            this.notificationService.showError('Error al eliminar los pedidos. Por favor, intenta nuevamente.');
+          }
+        });
+      }
+    });
+  }
+
   private mapBackendOrderToFrontend(backendOrder: OrderFromBackend): Order {
     const orderId = backendOrder._id || backendOrder.id || '';
     let detailedOrder: Order | null = null;
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('userOrders_')) {
-          try {
-            const storedOrders = JSON.parse(localStorage.getItem(key) || '[]');
-            const found = storedOrders.find((o: Order) => {
-              return o.id === orderId || 
-                     o.id.includes(orderId.substring(0, 8)) ||
-                     (o.trackingCode && orderId.includes(o.trackingCode));
-            });
-            if (found) {
-              detailedOrder = found;
-              break;
-            }
-          } catch {
-            continue;
-          }
+    // NO buscar en localStorage para evitar mostrar pedidos duplicados o antiguos
+    // Los pedidos deben venir únicamente del backend
+    // detailedOrder siempre será null ahora, ya que no buscamos en localStorage
+    let orderItems: any[] = [];
+    if (orderItems.length === 0) {
+      // Verificar si products es un array de ProductOrderItem o de strings (IDs)
+      if (backendOrder.products && backendOrder.products.length > 0) {
+        const firstProduct = backendOrder.products[0];
+        if (typeof firstProduct === 'object' && 'name' in firstProduct) {
+          // Es un array de ProductOrderItem
+          orderItems = (backendOrder.products as any[]).map((product: any) => {
+            const selectedOptions = product.adds ? product.adds.map((add: any) => ({
+              id: add.addId || '',
+              name: add.name || '',
+              price: add.price || 0,
+              type: 'addon' as const
+            })) : [];
+
+            return {
+              id: product.dishId || '',
+              name: product.name || `Producto #${product.dishId}`,
+              quantity: product.quantity || 1,
+              price: product.unit_price || 0,
+              selectedOptions: selectedOptions
+            };
+          });
+        } else {
+          // Es un array de strings (IDs) - legacy
+          orderItems = (backendOrder.products as string[]).map(productId => {
+            const product = this.products.find(p => String(p.id) === String(productId));
+            const productIdNumber = typeof product?.id === 'number'
+              ? product.id
+              : (typeof product?.id === 'string' ? Number(product.id) || 0 : 0);
+            return {
+              id: productIdNumber,
+              name: product?.name || `Producto #${productId}`,
+              quantity: 1,
+              price: product?.price || 0,
+              selectedOptions: []
+            };
+          });
         }
       }
-    } catch {}
-    let orderItems = detailedOrder?.items || [];
-    if (orderItems.length === 0) {
-      orderItems = backendOrder.products.map(productId => {
-        const product = this.products.find(p => String(p.id) === String(productId));
-        const productIdNumber = typeof product?.id === 'number' 
-          ? product.id 
-          : (typeof product?.id === 'string' ? Number(product.id) || 0 : 0);
-        return {
-          id: productIdNumber,
-          name: product?.name || `Producto #${productId}`,
-          quantity: 1,
-          price: product?.price || 0,
-          selectedOptions: []
-        };
-      });
     }
 
     const mappedStatus = this.mapBackendStatusToFrontend(backendOrder.status);
-    const finalStatus = detailedOrder?.status === 'delivered' 
-      ? 'delivered' 
-      : mappedStatus;
-    const orderTotal = backendOrder.total || detailedOrder?.total || 0;
-    
+    const orderTotal = backendOrder.total || 0;
+
+    // Usar createdAt del backend para la fecha exacta
+    const orderDate = backendOrder.createdAt
+      ? new Date(backendOrder.createdAt)
+      : new Date();
+
     return {
       id: orderId,
-      date: backendOrder.createdAt ? new Date(backendOrder.createdAt) : new Date(),
+      date: orderDate,
       items: orderItems,
       total: orderTotal,
-      status: finalStatus,
+      status: mappedStatus,
       paymentMethod: backendOrder.payment_method,
       trackingCode: orderId.substring(0, 8).toUpperCase(),
       userName: backendOrder.user_name,
-      deliveryAddress: detailedOrder?.deliveryAddress,
-      deliveryNeighborhood: detailedOrder?.deliveryNeighborhood,
-      deliveryPhone: detailedOrder?.deliveryPhone,
-      orderType: detailedOrder?.orderType,
-      subtotal: detailedOrder?.subtotal || orderTotal,
-      additionalFees: detailedOrder?.additionalFees || 0,
+      deliveryAddress: undefined,
+      deliveryNeighborhood: undefined,
+      deliveryPhone: undefined,
+      orderType: undefined,
+      subtotal: orderTotal,
+      additionalFees: 0,
     };
   }
 
@@ -512,12 +630,12 @@ export class AdminDashboardComponent implements OnInit {
     return statusMap[backendStatus] || 'pending';
   }
 
-  private mapFrontendStatusToBackend(frontendStatus: Order['status']): 'pendiente' | 'en_proceso' | 'completado' | 'entregado' | 'cancelado' {
-    const statusMap: Record<Order['status'], 'pendiente' | 'en_proceso' | 'completado' | 'entregado' | 'cancelado'> = {
+  private mapFrontendStatusToBackend(frontendStatus: Order['status']): 'pendiente' | 'en_proceso' | 'completado' | 'cancelado' {
+    const statusMap: Record<Order['status'], 'pendiente' | 'en_proceso' | 'completado' | 'cancelado'> = {
       'pending': 'pendiente',
       'preparing': 'en_proceso',
       'ready': 'completado',
-      'delivered': 'completado',
+      'delivered': 'completado', // El backend no tiene 'entregado', se mapea a 'completado'
       'cancelled': 'cancelado'
     };
     return statusMap[frontendStatus] || 'pendiente';
@@ -525,49 +643,24 @@ export class AdminDashboardComponent implements OnInit {
 
   updateOrderStatus(order: Order, newStatus: Order['status']): void {
     const backendStatus = this.mapFrontendStatusToBackend(newStatus);
-    let statusToSend = backendStatus;
-    if (newStatus === 'delivered' && backendStatus === 'completado') {
-      statusToSend = 'entregado';
-    }
-    this.orderService.update(order.id, { status: statusToSend }).subscribe({
+    this.orderService.update(order.id, { status: backendStatus }).subscribe({
       next: () => {
         order.status = newStatus;
         if (newStatus === 'delivered') {
           this.userService.saveOrder(order);
         }
-        
+
         this.calculateStats();
         this.notificationService.showSuccess('Estado del pedido actualizado');
       },
       error: (error) => {
-        if (newStatus === 'delivered' && statusToSend === 'entregado' && error.status === 400) {
-          this.orderService.update(order.id, { status: 'completado' }).subscribe({
-            next: () => {
-              order.status = newStatus;
-              this.userService.saveOrder(order);
-              this.calculateStats();
-              this.notificationService.showSuccess('Estado del pedido actualizado');
-            },
-            error: (retryError) => {
-              let errorMessage = 'Error al actualizar el estado del pedido';
-              if (retryError.error && retryError.error.message) {
-                errorMessage = `Error: ${retryError.error.message}`;
-              } else if (retryError.message) {
-                errorMessage = `Error: ${retryError.message}`;
-              }
-              this.notificationService.showError(errorMessage);
-            }
-          });
-        } else {
-          let errorMessage = 'Error al actualizar el estado del pedido';
-          if (error.error && error.error.message) {
-            errorMessage = `Error: ${error.error.message}`;
-          } else if (error.message) {
-            errorMessage = `Error: ${error.message}`;
-          }
-          
-          this.notificationService.showError(errorMessage);
+        let errorMessage = 'Error al actualizar el estado del pedido';
+        if (error.error && error.error.message) {
+          errorMessage = `Error: ${error.error.message}`;
+        } else if (error.message) {
+          errorMessage = `Error: ${error.message}`;
         }
+        this.notificationService.showError(errorMessage);
       }
     });
   }
@@ -612,7 +705,7 @@ export class AdminDashboardComponent implements OnInit {
 
     const { order, item, itemIndex } = this.selectedItemForUnavailable;
     const orderIndex = this.orders.findIndex(o => o.id === order.id);
-    
+
     if (orderIndex === -1) return;
 
     const currentOrder = this.orders[orderIndex];
@@ -661,7 +754,7 @@ export class AdminDashboardComponent implements OnInit {
         this.notificationService.showSuccess('Item actualizado correctamente');
         this.calculateStats();
       },
-      error: () => {}
+      error: () => { }
     });
 
     this.closeUnavailableModal();
@@ -721,13 +814,18 @@ export class AdminDashboardComponent implements OnInit {
     return statusTexts[status] || status;
   }
 
-  formatDate(date: Date): string {
-    return new Date(date).toLocaleDateString('es-CO', {
+  formatDate(date: Date | string): string {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    if (isNaN(dateObj.getTime())) {
+      return 'Fecha inválida';
+    }
+    return dateObj.toLocaleDateString('es-CO', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: true
     });
   }
 
@@ -1031,11 +1129,11 @@ export class AdminDashboardComponent implements OnInit {
         this.selectedReservation!.status = 'cancelled';
         this.calculateReservationStats();
         this.notificationService.showSuccess(`Reserva ${this.selectedReservation!.tableNumber} cancelada exitosamente`);
-        
+
         // Notificar al cliente
         const clientMessage = `Su reserva para la mesa ${this.selectedReservation!.tableNumber} el ${this.selectedReservation!.date} a las ${this.selectedReservation!.time} ha sido cancelada. ${reason}`;
         this.notificationService.showInfo(`Cliente notificado: ${clientMessage}`);
-        
+
         this.closeCancelReservationModal();
       },
       error: (error) => {
@@ -1097,6 +1195,20 @@ export class AdminDashboardComponent implements OnInit {
 
   loadExtras(): void {
     this.availableExtras = this.extrasAvailabilityService.getAllExtras();
+    // También cargar adicionales del backend
+    this.loadAdds();
+  }
+
+  loadAdds(): void {
+    this.addsService.findAll().subscribe({
+      next: (adds) => {
+        this.adds = adds;
+      },
+      error: (error) => {
+        console.error('Error al cargar adicionales:', error);
+        this.notificationService.showError('Error al cargar los adicionales del servidor');
+      }
+    });
   }
 
   openExtrasModal(): void {
@@ -1142,7 +1254,7 @@ export class AdminDashboardComponent implements OnInit {
         available: true
       });
     }
-    
+
     this.showExtraFormModal = true;
     this.cdr.markForCheck();
     setTimeout(() => {
@@ -1160,7 +1272,7 @@ export class AdminDashboardComponent implements OnInit {
   saveExtra(): void {
     if (this.extraForm.valid) {
       const formValue = this.extraForm.value;
-      
+
       if (this.selectedExtra) {
         this.extrasAvailabilityService.updateExtra(this.selectedExtra.id, {
           name: formValue.name.trim(),
@@ -1176,7 +1288,7 @@ export class AdminDashboardComponent implements OnInit {
         });
         this.notificationService.showSuccess('Adicional creado correctamente');
       }
-      
+
       this.loadExtras();
       this.closeExtraFormModal();
       window.dispatchEvent(new CustomEvent('extrasUpdated'));
@@ -1216,6 +1328,353 @@ export class AdminDashboardComponent implements OnInit {
     return extra.id;
   }
 
+  // ========== MÉTODOS PARA ADICIONALES DEL BACKEND ==========
+
+  openAddModal(add?: Add): void {
+    this.selectedAdd = add || null;
+    if (add) {
+      // Modo edición
+      this.addForm.patchValue({
+        name: add.name,
+        price: add.price,
+        categoryIds: add.categoryIds || [],
+        dishIds: add.dishIds || [],
+        available: add.available !== false
+      });
+      this.selectedProductsForAdd = add.dishIds || [];
+      // Determinar modo de selección
+      if (add.dishIds && add.dishIds.length > 0) {
+        this.addSelectionMode = add.categoryIds && add.categoryIds.length > 0 ? 'both' : 'products';
+      } else {
+        this.addSelectionMode = 'categories';
+      }
+    } else {
+      // Modo creación
+      this.addForm.reset({
+        name: '',
+        price: 0,
+        categoryIds: [],
+        dishIds: [],
+        available: true
+      });
+      this.selectedProductsForAdd = [];
+      this.addSelectionMode = 'categories';
+    }
+    this.showAddModal = true;
+  }
+
+  closeAddModal(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    this.showAddModal = false;
+    this.selectedAdd = null;
+    this.addForm.reset({
+      name: '',
+      price: 0,
+      categoryIds: [],
+      dishIds: [],
+      available: true
+    });
+    this.selectedProductsForAdd = [];
+    this.addSelectionMode = 'categories';
+  }
+
+  saveAdd(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    if (this.addForm.invalid) {
+      // Marcar todos los campos como touched para mostrar errores
+      Object.keys(this.addForm.controls).forEach(key => {
+        this.addForm.get(key)?.markAsTouched();
+      });
+      this.notificationService.showError('Por favor, completa todos los campos requeridos');
+      return;
+    }
+
+    const formValue = this.addForm.value;
+    const categoryIds = Array.isArray(formValue.categoryIds) ? formValue.categoryIds : [];
+    const dishIds = Array.isArray(formValue.dishIds) ? formValue.dishIds : [];
+    const addName = formValue.name.trim();
+
+    // Validar duplicados (solo al crear, no al editar)
+    if (!this.selectedAdd) {
+      const duplicateAdd = this.adds.find(
+        a => a.name.toLowerCase().trim() === addName.toLowerCase().trim()
+      );
+
+      if (duplicateAdd) {
+        this.notificationService.showError(
+          `No se puede crear el adicional porque ya existe uno con el nombre "${duplicateAdd.name}"`
+        );
+        return;
+      }
+    } else {
+      // Al editar, verificar que no haya otro adicional con el mismo nombre (excluyendo el actual)
+      const currentAddId = this.selectedAdd._id || this.selectedAdd.id;
+      const duplicateAdd = this.adds.find(
+        a => (a._id || a.id) !== currentAddId &&
+          a.name.toLowerCase().trim() === addName.toLowerCase().trim()
+      );
+
+      if (duplicateAdd) {
+        this.notificationService.showError(
+          `No se puede actualizar el adicional porque ya existe otro con el nombre "${duplicateAdd.name}"`
+        );
+        return;
+      }
+    }
+
+    // Validar según el modo de selección
+    if (this.addSelectionMode === 'categories' && categoryIds.length === 0) {
+      this.notificationService.showError('Debes seleccionar al menos una categoría');
+      return;
+    }
+
+    if (this.addSelectionMode === 'products' && dishIds.length === 0) {
+      this.notificationService.showError('Debes seleccionar al menos un producto específico');
+      return;
+    }
+
+    if (this.addSelectionMode === 'both' && categoryIds.length === 0 && dishIds.length === 0) {
+      this.notificationService.showError('Debes seleccionar al menos una categoría o producto específico');
+      return;
+    }
+
+    const addData: any = {
+      name: addName,
+      price: Number(formValue.price),
+      categoryIds: categoryIds.length > 0 ? categoryIds : undefined,
+      available: formValue.available !== false
+    };
+
+    // Incluir dishIds si hay productos seleccionados
+    if (dishIds.length > 0) {
+      addData.dishIds = dishIds;
+    } else if (this.addSelectionMode === 'products') {
+      // Si el modo es solo productos y no hay productos seleccionados, no debería llegar aquí por la validación
+      addData.dishIds = [];
+    }
+
+    if (this.selectedAdd) {
+      // Actualizar
+      const addId = this.selectedAdd._id || this.selectedAdd.id;
+      if (!addId) {
+        this.notificationService.showError('Error: ID del adicional no válido');
+        return;
+      }
+
+      this.addsService.update(addId, addData).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Adicional actualizado correctamente');
+          this.closeAddModal();
+          this.loadAdds();
+          window.dispatchEvent(new CustomEvent('addsUpdated'));
+        },
+        error: (error) => {
+          let errorMessage = 'Error al actualizar el adicional';
+          if (error.error?.message) {
+            errorMessage = error.error.message;
+          }
+          this.notificationService.showError(errorMessage);
+        }
+      });
+    } else {
+      // Crear
+      this.addsService.create(addData).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Adicional creado correctamente');
+          this.closeAddModal();
+          this.loadAdds();
+          window.dispatchEvent(new CustomEvent('addsUpdated'));
+        },
+        error: (error) => {
+          let errorMessage = 'Error al crear el adicional';
+          if (error.error?.message) {
+            errorMessage = error.error.message;
+          }
+          this.notificationService.showError(errorMessage);
+        }
+      });
+    }
+  }
+
+  deleteAdd(add: Add): void {
+    const addName = add.name;
+    this.notificationService.confirm(
+      'Eliminar Adicional',
+      `¿Estás seguro de que deseas eliminar el adicional "${addName}"? Esta acción no se puede deshacer.`,
+      'Eliminar',
+      'Cancelar'
+    ).then(confirmed => {
+      if (confirmed) {
+        const addId = add._id || add.id;
+        if (!addId) {
+          this.notificationService.showError('Error: ID del adicional no válido');
+          return;
+        }
+
+        this.addsService.remove(addId).subscribe({
+          next: () => {
+            this.notificationService.showSuccess('Adicional eliminado correctamente');
+            this.loadAdds();
+            window.dispatchEvent(new CustomEvent('addsUpdated'));
+          },
+          error: (error) => {
+            let errorMessage = 'Error al eliminar el adicional';
+            if (error.error?.message) {
+              errorMessage = error.error.message;
+            }
+            this.notificationService.showError(errorMessage);
+          }
+        });
+      }
+    });
+  }
+
+  toggleAddAvailability(add: Add): void {
+    const addId = add._id || add.id;
+    if (!addId) {
+      this.notificationService.showError('Error: ID del adicional no válido');
+      return;
+    }
+
+    const newAvailability = !add.available;
+    this.addsService.update(addId, { available: newAvailability }).subscribe({
+      next: () => {
+        add.available = newAvailability;
+        this.notificationService.showSuccess(
+          `Adicional ${newAvailability ? 'habilitado' : 'deshabilitado'} correctamente`
+        );
+        this.loadAdds();
+        window.dispatchEvent(new CustomEvent('addsUpdated'));
+      },
+      error: (error) => {
+        let errorMessage = 'Error al actualizar la disponibilidad';
+        if (error.error?.message) {
+          errorMessage = error.error.message;
+        }
+        this.notificationService.showError(errorMessage);
+      }
+    });
+  }
+
+  getCategoryNames(categoryIds: string[]): string {
+    if (!categoryIds || categoryIds.length === 0) {
+      return 'Sin categorías';
+    }
+    const categoryNames = categoryIds
+      .map(id => {
+        const category = this.categories.find(c => c.id === id);
+        return category ? category.name : id;
+      })
+      .filter(name => name);
+
+    if (categoryNames.length === 0) {
+      return 'Categorías no encontradas';
+    }
+    if (categoryNames.length === this.categories.length) {
+      return 'Todas las categorías';
+    }
+    return categoryNames.join(', ');
+  }
+
+  getProductNames(dishIds: string[]): string {
+    if (!dishIds || dishIds.length === 0) {
+      return '';
+    }
+    const productNames = dishIds
+      .map(id => {
+        const product = this.products.find(p => String(p.id) === id);
+        return product ? product.name : id;
+      })
+      .filter(name => name);
+
+    if (productNames.length === 0) {
+      return 'Productos no encontrados';
+    }
+    if (productNames.length === this.products.length) {
+      return 'Todos los productos';
+    }
+    return productNames.join(', ');
+  }
+
+  toggleProductSelection(dishId: string | number): void {
+    const dishIdStr = String(dishId);
+    const currentIds = this.addForm.get('dishIds')?.value || [];
+    const index = currentIds.indexOf(dishIdStr);
+
+    if (index > -1) {
+      currentIds.splice(index, 1);
+    } else {
+      currentIds.push(dishIdStr);
+    }
+
+    this.addForm.patchValue({ dishIds: currentIds });
+    this.selectedProductsForAdd = currentIds;
+  }
+
+  isProductSelected(dishId: string | number): boolean {
+    const dishIdStr = String(dishId);
+    const currentIds = this.addForm.get('dishIds')?.value || [];
+    return currentIds.includes(dishIdStr);
+  }
+
+  selectAllProducts(): void {
+    const allProductIds = this.products.map(p => String(p.id));
+    this.addForm.patchValue({ dishIds: allProductIds });
+    this.selectedProductsForAdd = allProductIds;
+  }
+
+  deselectAllProducts(): void {
+    this.addForm.patchValue({ dishIds: [] });
+    this.selectedProductsForAdd = [];
+  }
+
+  toggleCategorySelection(categoryId: string): void {
+    const currentIds = this.addForm.get('categoryIds')?.value || [];
+    const index = currentIds.indexOf(categoryId);
+
+    if (index > -1) {
+      // Remover
+      currentIds.splice(index, 1);
+    } else {
+      // Agregar
+      currentIds.push(categoryId);
+    }
+
+    this.addForm.patchValue({ categoryIds: currentIds });
+  }
+
+  selectAllCategories(): void {
+    const allCategoryIds = this.categories.map(c => c.id);
+    this.addForm.patchValue({ categoryIds: allCategoryIds });
+  }
+
+  deselectAllCategories(): void {
+    this.addForm.patchValue({ categoryIds: [] });
+  }
+
+  isCategorySelected(categoryId: string): boolean {
+    const currentIds = this.addForm.get('categoryIds')?.value || [];
+    return currentIds.includes(categoryId);
+  }
+
+  get filteredAdds(): Add[] {
+    if (!this.addSearchTerm) {
+      return this.adds;
+    }
+    const search = this.addSearchTerm.toLowerCase();
+    return this.adds.filter(add =>
+      add.name.toLowerCase().includes(search) ||
+      add.description.toLowerCase().includes(search)
+    );
+  }
+
   // Métodos para Mensajes de Contacto
   loadContactMessages(): void {
     this.contactService.findAll().subscribe({
@@ -1244,20 +1703,20 @@ export class AdminDashboardComponent implements OnInit {
 
   getFilteredMessages(): ContactMessage[] {
     let filtered = this.contactMessages;
-    
+
     if (this.messageFilter === 'unread') {
       filtered = filtered.filter(m => !m.read);
     } else if (this.messageFilter === 'read') {
       filtered = filtered.filter(m => m.read);
     }
-    
+
     return filtered;
   }
 
   openMessageModal(message: ContactMessage): void {
     this.selectedMessage = message;
     this.showMessageModal = true;
-    
+
     // Marcar como leído si no lo está
     if (!message.read) {
       this.contactService.markAsRead(message.id).subscribe({
@@ -1316,4 +1775,3 @@ export class AdminDashboardComponent implements OnInit {
     return this.contactMessages.filter(m => !m.read).length;
   }
 }
-

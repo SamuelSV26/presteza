@@ -1,9 +1,17 @@
-/**
- * DTO para crear una orden - debe coincidir con el backend
- */
-export interface ProductOrderItem {
-  id: string;
+export interface AddOrderItem {
+  addId: string;
+  name: string;
+  price: number;
   quantity: number;
+}
+
+export interface ProductOrderItem {
+  dishId: string;
+  name: string;
+  quantity: number;
+  unit_price: number;
+  description: string;
+  adds?: AddOrderItem[];
 }
 
 export interface CreateOrderDto {
@@ -11,7 +19,6 @@ export interface CreateOrderDto {
   total: number;
   payment_method: string;
   products: ProductOrderItem[];
-  status: 'pendiente' | 'en_proceso' | 'completado' | 'entregado' | 'cancelado';
-  user_name: string;
+  status: 'pendiente' | 'en_proceso' | 'completado' | 'cancelado';
+  user_name: string;
 }
-

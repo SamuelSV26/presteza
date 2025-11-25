@@ -2,17 +2,18 @@ export interface CartItemOption {
   id: string;
   name: string;
   price: number;
+  type?: 'addon' | 'size' | 'extra' | 'removal';
 }
 
 
 export interface CartItem {
   id: string;
-  productId: number | string; // Puede ser número (datos locales) o string (MongoDB ObjectId)
+  productId: number | string; 
   productName: string;
   productDescription: string;
   basePrice: number;
   selectedOptions: CartItemOption[];
   quantity: number;
   totalPrice: number;
-  imageUrl?: string;
+  imageUrl?: string;
 }

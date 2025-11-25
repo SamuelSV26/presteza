@@ -17,7 +17,7 @@ export class OrderService {
   constructor(
     private http: HttpClient,
     private errorHandler: ErrorHandlerService
-  ) {}
+  ) { }
 
   createOrder(createOrderDto: CreateOrderDto): Observable<OrderResponse> {
     return this.http.post<OrderResponse>(this.apiUrl, createOrderDto).pipe(
@@ -111,7 +111,7 @@ export class OrderService {
       'pending': 'pendiente',
       'preparing': 'en_proceso',
       'ready': 'completado',
-      'delivered': 'entregado',
+      'delivered': 'completado',
       'cancelled': 'cancelado'
     };
     return statusMap[frontendStatus] || 'pendiente';

@@ -3,16 +3,18 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CartService, CartItem } from '../../core/services/cart.service';
-import { Observable, Subject, combineLatest } from 'rxjs';
-import { takeUntil, map } from 'rxjs/operators';
+import { Observable, Subject, combineLatest, forkJoin, throwError, of } from 'rxjs';
+import { takeUntil, map, switchMap, catchError } from 'rxjs/operators';
 import { NotificationService } from '../../core/services/notification.service';
 import { AuthService } from '../../core/services/auth.service';
 import { UserService } from '../../core/services/user.service';
 import { OrderService } from '../../core/services/order.service';
+import { AddsService } from '../../core/services/adds.service';
+import { MenuService } from '../../core/services/menu.service';
 import { PaymentMethod as SavedPaymentMethod } from '../../core/models/PaymentMethod';
 import { Address } from '../../core/models/Address';
 import { Order } from '../../core/models/Order';
-import { CreateOrderDto } from '../../core/models/CreateOrderDto';
+import { CreateOrderDto, ProductOrderItem, AddOrderItem } from '../../core/models/CreateOrderDto';
 
 export type OrderType = 'pickup' | 'delivery';
 export type PaymentMethod = 'card' | 'cash' | 'nequi' | 'daviplata' | 'transfer';
@@ -59,7 +61,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     private notificationService: NotificationService,
     private authService: AuthService,
     private userService: UserService,
-    private orderService: OrderService
+    private orderService: OrderService,
+    private addsService: AddsService,
+    private menuService: MenuService
   ) {
     this.deliveryForm = this.fb.group({
       address: ['', [Validators.required]],
@@ -86,11 +90,19 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.cartItems$ = this.cartService.cartItems$;
     this.cartItems$.pipe(takeUntil(this.destroy$)).subscribe(items => {
       const orderJustPlaced = sessionStorage.getItem('orderJustPlaced');
+      // Solo mostrar mensaje de carrito vacío si no se acaba de completar una orden
       if (items.length === 0 && !orderJustPlaced) {
-        this.notificationService.showWarning('Tu carrito está vacío');
-        this.router.navigate(['/menu']);
+        // Verificar que no estamos en proceso de checkout (evitar mostrar mensaje durante la compra)
+        const isProcessingOrder = sessionStorage.getItem('processingOrder');
+        if (!isProcessingOrder) {
+          this.notificationService.showWarning('Tu carrito está vacío');
+          this.router.navigate(['/menu']);
+        }
       } else if (orderJustPlaced) {
-        sessionStorage.removeItem('orderJustPlaced');
+        // Limpiar la bandera después de un tiempo para permitir navegación
+        setTimeout(() => {
+          sessionStorage.removeItem('orderJustPlaced');
+        }, 1000);
       }
     });
     this.subtotal$ = this.cartService.getTotalPrice();
@@ -195,7 +207,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.deliveryForm.patchValue({
       address: address.address,
       neighborhood: address.neighborhood || '',
-      city:       address.city,
+      city: address.city,
       postalCode: address.postalCode,
       phone: ''
     });
@@ -328,7 +340,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.bankAccount = {
         bank: 'Bancolombia',
         accountType: 'Ahorros',
-        accountNumber: `3456789012345678`,
+        accountNumber: 3456789012345678,
         accountHolder: 'RESTAURANTE PRESTEZA S.A.S.',
         nit: '900123456-7',
         reference: `REF-${timestamp}-${random}`
@@ -454,37 +466,185 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Validar que los productos tengan IDs válidos
-    // El backend espera un array de objetos con {id, quantity}
-    const productItems: Array<{id: string, quantity: number}> = [];
+    // Recopilar todos los IDs de adicionales que necesitamos mapear
+    const frontendAddIds: string[] = [];
     items.forEach(item => {
-      if (!item.productId && item.productId !== 0) {
-        console.error('Item sin productId:', item);
-        return;
+      if (item.selectedOptions && item.selectedOptions.length > 0) {
+        item.selectedOptions.forEach(option => {
+          const isAddonOrExtra = option.type === 'addon' || option.type === 'extra' ||
+            (!option.type && option.price > 0);
+          if (isAddonOrExtra && option.price > 0 && !/^[0-9a-fA-F]{24}$/.test(option.id)) {
+            if (!frontendAddIds.includes(option.id)) {
+              frontendAddIds.push(option.id);
+            }
+          }
+        });
       }
-      const id = String(item.productId);
-      if (id === 'undefined' || id === 'null' || id === '') {
-        console.error('ProductId inválido:', item.productId, 'del item:', item);
-        return;
-      }
-      // Agregar el producto con su cantidad
-      productItems.push({
-        id: id,
-        quantity: item.quantity || 1
-      });
     });
 
+    // Obtener información de los platos para conocer sus categorías
+    const dishObservables = items.map(item => {
+      const dishId = String(item.productId);
+      return this.menuService.getItemById(dishId).pipe(
+        map(dish => ({ item, dish, dishId }))
+      );
+    });
+
+    // Esperar a que se obtengan todos los platos y luego mapear los adicionales
+    forkJoin(dishObservables).pipe(
+      takeUntil(this.destroy$),
+      switchMap(dishData => {
+        // Mapear los IDs del frontend a ObjectIds del backend
+        return this.addsService.mapFrontendIdsToBackendIds(frontendAddIds).pipe(
+          map(addIdMap => ({ dishData, addIdMap }))
+        );
+      }),
+      switchMap(({ dishData, addIdMap }) => {
+        // Obtener los adicionales disponibles por categoría y también todos los adicionales para verificar productos específicos
+        const categoryAddsMap = new Map<string, any[]>();
+        const allAddsObservable = this.addsService.findAvailable();
+
+        const categoryObservables = dishData.map(({ dish }) => {
+          if (!dish || !dish.categoryId) return of(null);
+          const categoryId = dish.categoryId;
+          if (categoryAddsMap.has(categoryId)) {
+            return of(null);
+          }
+          return this.addsService.findByCategory(categoryId).pipe(
+            map(adds => {
+              categoryAddsMap.set(categoryId, adds);
+              return null;
+            }),
+            catchError(() => of(null))
+          );
+        });
+
+        return forkJoin([...categoryObservables, allAddsObservable]).pipe(
+          map((results) => {
+            const allAdds = results[results.length - 1] as any[];
+            return { dishData, addIdMap, categoryAddsMap, allAdds };
+          })
+        );
+      }),
+      switchMap(({ dishData, addIdMap, categoryAddsMap, allAdds }) => {
+        // Validar que los productos tengan IDs válidos
+        // El backend espera un array de objetos con la estructura completa incluyendo adds
+        const productItems: ProductOrderItem[] = [];
+
+        dishData.forEach(({ item, dish, dishId }) => {
+          if (!dishId || dishId === 'undefined' || dishId === 'null' || dishId === '') {
+            console.error('ProductId inválido:', item.productId, 'del item:', item);
+            return;
+          }
+
+          // Obtener los adicionales disponibles para la categoría del plato
+          const categoryId = dish?.categoryId;
+          const dishIdStr = dishId;
+          const availableAdds = categoryId ? (categoryAddsMap.get(categoryId) || []) : [];
+
+          // Mapear los adicionales (adds) desde selectedOptions
+          // Solo incluir addons y extras que pertenezcan a la categoría o producto específico
+          const adds: AddOrderItem[] = [];
+          if (item.selectedOptions && item.selectedOptions.length > 0) {
+            item.selectedOptions.forEach(option => {
+              // Solo incluir opciones que sean addons o extras (no removals ni sizes)
+              const isAddonOrExtra = option.type === 'addon' || option.type === 'extra' ||
+                (!option.type && option.price > 0);
+              if (isAddonOrExtra && option.price > 0) {
+                // Obtener el ObjectId del backend si existe
+                const backendAddId = addIdMap.get(option.id) || option.id;
+
+                // Buscar el adicional en todos los adicionales disponibles
+                const add = allAdds.find(a => (a._id || a.id) === backendAddId);
+
+                if (add) {
+                  // Verificar si el adicional está asociado a este producto específico
+                  const isForThisProduct = add.dishIds && add.dishIds.length > 0 && add.dishIds.includes(dishIdStr);
+                  // Verificar si el adicional está asociado a la categoría del plato
+                  const isForThisCategory = categoryId && add.categoryIds && add.categoryIds.length > 0 && add.categoryIds.includes(categoryId);
+
+                  // Lógica de validación:
+                  // 1. Si tiene productos específicos (dishIds), solo incluir si el producto está en la lista
+                  // 2. Si NO tiene productos específicos, incluir si pertenece a la categoría
+                  // 3. Si tiene ambos, incluir si el producto está en dishIds O si pertenece a la categoría
+
+                  let shouldInclude = false;
+
+                  if (add.dishIds && add.dishIds.length > 0) {
+                    // Tiene productos específicos: solo incluir si este producto está en la lista
+                    shouldInclude = isForThisProduct;
+                  } else if (categoryId) {
+                    // No tiene productos específicos: incluir si pertenece a la categoría
+                    shouldInclude = isForThisCategory;
+                  }
+
+                  if (!shouldInclude) {
+                    console.warn(`El adicional "${option.name}" no está disponible para el producto "${item.productName}". Se omitirá.`);
+                    return; // Omitir este adicional
+                  }
+                } else {
+                  // Si no se encuentra el adicional, omitirlo
+                  console.warn(`El adicional "${option.name}" no se encontró en los adicionales disponibles. Se omitirá.`);
+                  return;
+                }
+
+                adds.push({
+                  addId: backendAddId,
+                  name: option.name,
+                  price: option.price,
+                  quantity: 1
+                });
+              }
+            });
+          }
+
+          // Agregar el producto con toda su información
+          productItems.push({
+            dishId: dishId,
+            name: item.productName,
+            quantity: item.quantity || 1,
+            unit_price: item.basePrice,
+            description: item.productDescription || '',
+            adds: adds.length > 0 ? adds : undefined
+          });
+        });
+
+        return this.continueWithProductItems(productItems, items, userInfo, userId);
+      })
+    ).subscribe({
+      next: () => {
+        // El pedido se procesa en continueWithProductItems
+      },
+      error: (error) => {
+        this.isLoading = false;
+        console.error('Error al mapear IDs de adicionales:', error);
+        // Si falla el mapeo, intentar continuar sin mapear (usar IDs del frontend)
+        this.continueWithoutMapping(items, userInfo, userId);
+      }
+    });
+  }
+
+  private continueWithProductItems(
+    productItems: ProductOrderItem[],
+    items: CartItem[],
+    userInfo: any,
+    userId: string
+  ): Observable<any> {
     if (productItems.length === 0) {
       this.isLoading = false;
       this.notificationService.showError('Los productos en tu carrito no tienen identificadores válidos. Por favor, vuelve a agregar los productos.', 'Error en Productos');
-      return;
+      return new Observable(observer => {
+        observer.complete();
+      });
     }
 
     // Validar total
     if (!this.total || this.total <= 0 || isNaN(this.total)) {
       this.isLoading = false;
       this.notificationService.showError('El total del pedido no es válido. Por favor, verifica tu carrito.', 'Total Inválido');
-      return;
+      return new Observable(observer => {
+        observer.complete();
+      });
     }
 
     let paymentInfo: any = null;
@@ -523,7 +683,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     }
 
     const paymentMethodBackend = this.orderService.mapPaymentMethodToBackend(this.paymentMethod);
-    
+
     // Validar payment method
     if (!paymentMethodBackend || paymentMethodBackend === this.paymentMethod) {
       // Si el mapeo falla, usar el método original
@@ -532,7 +692,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
     // Asegurar que payment_method no sea undefined
     const finalPaymentMethod = paymentMethodBackend || this.paymentMethod || 'cash';
-    
+
     const createOrderDto: CreateOrderDto = {
       usuarioId: userId,
       total: Number(this.total.toFixed(2)), // Asegurar que sea un número válido
@@ -541,24 +701,30 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       status: 'pendiente',
       user_name: userInfo.name || userInfo.email || 'Usuario'
     };
-    
+
     // Validación final antes de enviar
     if (!createOrderDto.usuarioId || createOrderDto.usuarioId.trim() === '') {
       this.isLoading = false;
       this.notificationService.showError('El ID de usuario no es válido. Por favor, inicia sesión nuevamente.', 'Error de Usuario');
-      return;
+      return new Observable(observer => {
+        observer.complete();
+      });
     }
-    
+
     if (!createOrderDto.products || createOrderDto.products.length === 0) {
       this.isLoading = false;
       this.notificationService.showError('No hay productos en tu pedido. Por favor, agrega productos al carrito.', 'Carrito Vacío');
-      return;
+      return new Observable(observer => {
+        observer.complete();
+      });
     }
-    
+
     if (!createOrderDto.payment_method || createOrderDto.payment_method.trim() === '') {
       this.isLoading = false;
       this.notificationService.showError('Por favor, selecciona un método de pago.', 'Método de Pago Requerido');
-      return;
+      return new Observable(observer => {
+        observer.complete();
+      });
     }
 
     // Log para debugging - mostrar todos los datos
@@ -572,7 +738,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     })));
     console.log('UserInfo:', userInfo);
     console.log('ProductItems (array):', productItems);
-    console.log('ProductItems (detalle):', productItems.map((item, index) => ({ index, id: item.id, quantity: item.quantity })));
+    console.log('ProductItems (detalle):', productItems.map((item, index) => ({ index, dishId: item.dishId, quantity: item.quantity })));
     console.log('Total:', this.total, 'Tipo:', typeof this.total);
     console.log('Payment Method:', paymentMethodBackend);
     console.log('UsuarioId:', userId, 'Tipo:', typeof userId);
@@ -580,10 +746,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     console.log('CreateOrderDto (JSON):', JSON.stringify(createOrderDto, null, 2));
     console.log('Products array expandido:', JSON.stringify(createOrderDto.products, null, 2));
 
-    this.orderService.createOrder(createOrderDto).pipe(
-      takeUntil(this.destroy$)
-    ).subscribe({
-      next: (response) => {
+    return this.orderService.createOrder(createOrderDto).pipe(
+      takeUntil(this.destroy$),
+      map(response => {
         console.log('Pedido creado exitosamente:', response);
         this.saveOrderLocally(items, paymentInfo, response.order);
         let successMessage = '';
@@ -601,13 +766,21 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         }
 
         this.notificationService.showSuccess(successMessage, successTitle);
+        // Establecer banderas antes de limpiar el carrito
         sessionStorage.setItem('orderJustPlaced', 'true');
-        this.cartService.clearCart();
+        sessionStorage.setItem('processingOrder', 'true');
+        // Limpiar el carrito después de un pequeño delay para evitar que se muestre el mensaje
         setTimeout(() => {
-          this.router.navigate(['/perfil']);
-        }, 2000);
-      },
-      error: (error) => {
+          this.cartService.clearCart();
+          sessionStorage.removeItem('processingOrder');
+          // Navegar después de limpiar el carrito
+          setTimeout(() => {
+            this.router.navigate(['/perfil']);
+          }, 500);
+        }, 100);
+        return response;
+      }),
+      catchError((error) => {
         this.isLoading = false;
         console.error('=== ERROR AL CREAR PEDIDO ===');
         console.error('Error completo:', error);
@@ -619,10 +792,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         console.error('Error url:', error.url);
         console.error('Datos enviados:', createOrderDto);
         console.error('Datos enviados (JSON):', JSON.stringify(createOrderDto, null, 2));
-        
+
         // Mensaje de error más específico
         let errorMessage = 'Hubo un error al procesar tu pedido. Por favor, intenta nuevamente.';
-        
+
         // Intentar obtener el mensaje de error del backend
         if (error.error) {
           if (typeof error.error === 'string') {
@@ -635,11 +808,21 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         } else if (error.message) {
           errorMessage = error.message;
         }
-        
+
         // Mensajes específicos según el código de estado
         if (error.status === 400) {
           if (!errorMessage || errorMessage.includes('Hubo un error')) {
-            errorMessage = 'Solicitud incorrecta. Por favor, verifica los datos enviados. Revisa la consola para más detalles.';
+            // Intentar obtener un mensaje más específico del backend
+            if (error.error?.message) {
+              const backendMsg = error.error.message.toLowerCase();
+              if (backendMsg.includes('add') || backendMsg.includes('adicional') || backendMsg.includes('adds') || backendMsg.includes('addid')) {
+                errorMessage = 'Error con los adicionales del pedido. Verifica que los adicionales seleccionados sean válidos.';
+              } else {
+                errorMessage = error.error.message;
+              }
+            } else {
+              errorMessage = 'Solicitud incorrecta. Por favor, verifica los datos enviados. Revisa la consola para más detalles.';
+            }
           }
         } else if (error.status === 401) {
           errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
@@ -651,8 +834,55 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         }
 
         this.notificationService.showError(errorMessage, 'Error al Procesar Pedido');
+        return throwError(() => error);
+      })
+    );
+  }
+
+  private continueWithoutMapping(
+    items: CartItem[],
+    userInfo: any,
+    userId: string
+  ): void {
+    // Si falla el mapeo, intentar enviar con los IDs del frontend tal cual
+    // Esto podría fallar si el backend valida los IDs, pero es un fallback
+    const productItems: ProductOrderItem[] = [];
+    items.forEach(item => {
+      if (!item.productId && item.productId !== 0) {
+        return;
       }
+      const dishId = String(item.productId);
+      if (dishId === 'undefined' || dishId === 'null' || dishId === '') {
+        return;
+      }
+
+      const adds: AddOrderItem[] = [];
+      if (item.selectedOptions && item.selectedOptions.length > 0) {
+        item.selectedOptions.forEach(option => {
+          const isAddonOrExtra = option.type === 'addon' || option.type === 'extra' ||
+            (!option.type && option.price > 0);
+          if (isAddonOrExtra && option.price > 0) {
+            adds.push({
+              addId: option.id,
+              name: option.name,
+              price: option.price,
+              quantity: 1
+            });
+          }
+        });
+      }
+
+      productItems.push({
+        dishId: dishId,
+        name: item.productName,
+        quantity: item.quantity || 1,
+        unit_price: item.basePrice,
+        description: item.productDescription || '',
+        adds: adds.length > 0 ? adds : undefined
+      });
     });
+
+    this.continueWithProductItems(productItems, items, userInfo, userId).subscribe();
   }
 
   private saveOrderLocally(items: CartItem[], paymentInfo: any, backendOrder: any): void {
@@ -741,4 +971,3 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.router.navigate(['/menu']);
   }
 }
-
