@@ -90,12 +90,11 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.cartItems$ = this.cartService.cartItems$;
     this.cartItems$.pipe(takeUntil(this.destroy$)).subscribe(items => {
       const orderJustPlaced = sessionStorage.getItem('orderJustPlaced');
-      // Solo mostrar mensaje de carrito vacío si no se acaba de completar una orden
+      // Redirigir al menú si el carrito está vacío (sin mostrar notificación)
       if (items.length === 0 && !orderJustPlaced) {
-        // Verificar que no estamos en proceso de checkout (evitar mostrar mensaje durante la compra)
+        // Verificar que no estamos en proceso de checkout (evitar redirigir durante la compra)
         const isProcessingOrder = sessionStorage.getItem('processingOrder');
         if (!isProcessingOrder) {
-          this.notificationService.showWarning('Tu carrito está vacío');
           this.router.navigate(['/menu']);
         }
       } else if (orderJustPlaced) {
@@ -440,7 +439,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     // Validar que hay items en el carrito
     if (!items || items.length === 0) {
       this.isLoading = false;
-      this.notificationService.showError('Tu carrito está vacío. Por favor, agrega productos antes de continuar.', 'Carrito Vacío');
+      // Carrito vacío - redirigir sin mostrar notificación
       this.router.navigate(['/menu']);
       return;
     }
@@ -713,7 +712,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
     if (!createOrderDto.products || createOrderDto.products.length === 0) {
       this.isLoading = false;
-      this.notificationService.showError('No hay productos en tu pedido. Por favor, agrega productos al carrito.', 'Carrito Vacío');
+      // No hay productos válidos - redirigir sin mostrar notificación
+      this.router.navigate(['/menu']);
       return new Observable(observer => {
         observer.complete();
       });

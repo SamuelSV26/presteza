@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -29,8 +29,9 @@ import { catchError } from 'rxjs/operators';
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.css']
 })
-export class AdminDashboardComponent implements OnInit {
+export class AdminDashboardComponent implements OnInit, OnDestroy {
   activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' | 'extras' | 'messages' = 'dashboard';
+  private refreshInterval: any = null;
 
   stats = {
     totalOrders: 0,
@@ -199,7 +200,19 @@ export class AdminDashboardComponent implements OnInit {
     this.loadReservations();
     this.loadExtras();
     // Los mensajes se cargan solo cuando el usuario accede a la pestaña
-    setInterval(() => {
+    // Limpiar intervalo anterior si existe
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
+    this.refreshInterval = setInterval(() => {
+      // Verificar autenticación antes de cargar datos
+      if (!this.authService.isAuthenticated() || !this.authService.isAdmin()) {
+        if (this.refreshInterval) {
+          clearInterval(this.refreshInterval);
+          this.refreshInterval = null;
+        }
+        return;
+      }
       if (this.activeTab === 'orders' || this.activeTab === 'dashboard') {
         this.loadOrders();
       }
@@ -1053,6 +1066,13 @@ export class AdminDashboardComponent implements OnInit {
 
   // Métodos para Reservas
   loadReservations(): void {
+    // Verificar autenticación antes de cargar
+    if (!this.authService.isAuthenticated() || !this.authService.isAdmin()) {
+      this.reservations = [];
+      this.calculateReservationStats();
+      return;
+    }
+
     this.reservationsService.findAll().subscribe({
       next: (reservations) => {
         this.reservations = reservations.map(r => this.reservationsService.mapBackendReservationToFrontend(r));
@@ -1064,8 +1084,23 @@ export class AdminDashboardComponent implements OnInit {
         this.calculateReservationStats();
       },
       error: (error) => {
-        this.notificationService.showError('Error al cargar las reservas');
+        // No mostrar error si el usuario no está autenticado (401, 403) o si es un error de conexión (0)
+        // Tampoco mostrar si es 404 (no hay reservas)
+        if (error?.status === 401 || error?.status === 403 || error?.status === 0 || error?.status === 404) {
+          // Silenciar estos errores ya que son esperados cuando el usuario no está autenticado
+          this.reservations = [];
+          this.calculateReservationStats();
+          return;
+        }
+
         console.error('Error loading reservations:', error);
+        // Solo mostrar notificación para errores reales del servidor
+        if (error?.status && error.status >= 500) {
+          this.notificationService.showError('Error al cargar las reservas');
+        }
+        // Inicializar con array vacío si hay error
+        this.reservations = [];
+        this.calculateReservationStats();
       }
     });
   }
@@ -1773,5 +1808,13 @@ export class AdminDashboardComponent implements OnInit {
 
   get unreadMessagesCount(): number {
     return this.contactMessages.filter(m => !m.read).length;
+  }
+
+  ngOnDestroy(): void {
+    // Limpiar el intervalo cuando el componente se destruye
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+    }
   }
 }

@@ -87,11 +87,7 @@
               />
             </div>
             <div class="login-modal-options">
-              <label class="remember-me">
-                <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" [disabled]="isLoading" />
-                <span>Recordarme</span>
-              </label>
-              <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
+              <a href="/forgot-password" class="forgot-password" (click)="onForgotPassword($event)">¿Olvidaste tu contraseña?</a>
             </div>
             <button type="submit" class="login-submit-btn" [disabled]="isLoading">
               <span *ngIf="!isLoading">Iniciar Sesión</span>

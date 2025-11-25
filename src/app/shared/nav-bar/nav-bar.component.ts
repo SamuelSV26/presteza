@@ -165,6 +165,13 @@ export class NavbarComponent implements OnInit {
     this.router.navigate(['/login']);
   }
 
+  onForgotPassword(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeLoginModal();
+    this.router.navigate(['/forgot-password']);
+  }
+
   onLoginSubmit() {
     if (!this.loginEmail || !this.loginPassword) {
       this.loginError = 'Por favor completa todos los campos';

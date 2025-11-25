@@ -4,11 +4,11 @@
 .glass-navbar {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  background: linear-gradient(135deg, 
-    rgba(107, 29, 61, 0.95) 0%, 
+  background: linear-gradient(135deg,
+    rgba(107, 29, 61, 0.95) 0%,
     rgba(139, 45, 79, 0.92) 50%,
     rgba(107, 29, 61, 0.95) 100%);
-  box-shadow: 
+  box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.3),
     0 1px 0 rgba(255, 255, 255, 0.1) inset,
     0 -1px 0 rgba(0, 0, 0, 0.1) inset;
@@ -24,12 +24,12 @@
 }
 
 .glass-navbar.scrolled {
-  background: linear-gradient(135deg, 
-    rgba(107, 29, 61, 0.98) 0%, 
+  background: linear-gradient(135deg,
+    rgba(107, 29, 61, 0.98) 0%,
     rgba(139, 45, 79, 0.96) 50%,
     rgba(107, 29, 61, 0.98) 100%);
   padding: 0.75rem 0;
-  box-shadow: 
+  box-shadow:
     0 6px 25px rgba(0, 0, 0, 0.4),
     0 1px 0 rgba(255, 255, 255, 0.15) inset,
     0 -1px 0 rgba(0, 0, 0, 0.15) inset;
@@ -43,7 +43,7 @@
   font-size: 1.75rem;
   letter-spacing: 2px;
   text-transform: uppercase;
-  text-shadow: 
+  text-shadow:
     0 2px 8px rgba(0, 0, 0, 0.5),
     0 0 20px rgba(107, 29, 61, 0.3);
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -68,7 +68,7 @@
 .navbar-brand:hover {
   color: #ffffff;
   transform: translateY(-2px);
-  text-shadow: 
+  text-shadow:
     0 4px 12px rgba(0, 0, 0, 0.6),
     0 0 30px rgba(107, 29, 61, 0.5);
 }
@@ -121,7 +121,7 @@
 .nav-link:hover {
   color: #ffffff !important;
   transform: translateY(-2px);
-  text-shadow: 
+  text-shadow:
     0 2px 8px rgba(0, 0, 0, 0.7),
     0 0 20px rgba(107, 29, 61, 0.4);
 }
@@ -145,7 +145,7 @@
 
 .navbar-toggler:focus {
   outline: none;
-  box-shadow: 
+  box-shadow:
     0 0 0 4px rgba(255, 255, 255, 0.2),
     0 4px 12px rgba(0, 0, 0, 0.3);
 }
@@ -212,7 +212,7 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 
+  box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   min-width: 50px;
@@ -228,7 +228,7 @@
   background: linear-gradient(135deg, rgba(107, 29, 61, 0.5) 0%, rgba(139, 45, 79, 0.5) 100%);
   border-color: rgba(255, 255, 255, 0.4);
   transform: scale(1.1);
-  box-shadow: 
+  box-shadow:
     0 6px 20px rgba(107, 29, 61, 0.5),
     0 0 30px rgba(107, 29, 61, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
@@ -323,7 +323,7 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 
+    box-shadow:
       0 4px 12px rgba(0, 0, 0, 0.3),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
     min-width: 50px;
@@ -339,7 +339,7 @@
     background: linear-gradient(135deg, rgba(107, 29, 61, 0.5) 0%, rgba(139, 45, 79, 0.5) 100%);
     border-color: rgba(255, 255, 255, 0.4);
     transform: scale(1.1);
-    box-shadow: 
+    box-shadow:
       0 6px 20px rgba(107, 29, 61, 0.5),
       0 0 30px rgba(107, 29, 61, 0.3),
       inset 0 1px 0 rgba(255, 255, 255, 0.2);
@@ -418,7 +418,7 @@
     text-align: left;
     gap: 0.5rem !important;
     border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 
+    box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.12),
       0 4px 16px rgba(0, 0, 0, 0.08);
     position: relative;
@@ -962,7 +962,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-decoration: none !important;
-  box-shadow: 
+  box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
@@ -986,7 +986,7 @@
   background: rgba(255, 255, 255, 0.25);
   border-color: rgba(255, 255, 255, 0.4);
   transform: translateY(-1px);
-  box-shadow: 
+  box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.2),
     0 2px 8px rgba(255, 255, 255, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
@@ -1221,21 +1221,6 @@
   gap: 0.5rem;
 }
 
-.remember-me {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  color: #6b1d3d;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.remember-me input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: #6b1d3d;
-}
 
 .forgot-password {
   color: #8b2d4f;

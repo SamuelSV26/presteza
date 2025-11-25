@@ -110,14 +110,28 @@ export class ErrorHandlerService {
             this.notificationService.showError(errorMessage);
             break;
           case 400:
-            errorMessage = error.error?.message || 'Datos inválidos';
+            // Intentar obtener el mensaje del backend de diferentes formas
+            errorMessage = error.error?.message || 
+                          error.error?.error?.message || 
+                          (Array.isArray(error.error?.message) ? error.error.message.join(', ') : error.error?.message) ||
+                          'Datos inválidos';
+            this.notificationService.showError(errorMessage);
+            break;
+          case 404:
+            errorMessage = error.error?.message || 'Recurso no encontrado';
             this.notificationService.showError(errorMessage);
             break;
           default:
-            errorMessage = `Error ${error.status}: ${error.error?.message || error.message}`;
+            errorMessage = error.error?.message || 
+                          `Error ${error.status}: ${error.statusText || 'Error desconocido'}`;
+            this.notificationService.showError(errorMessage);
         }
       }
     }
-    return throwError(() => new Error(errorMessage));
+    // Crear un error con el mensaje y también incluir el error original
+    const customError: any = new Error(errorMessage);
+    customError.originalError = error;
+    customError.error = error.error;
+    return throwError(() => customError);
   };
 }

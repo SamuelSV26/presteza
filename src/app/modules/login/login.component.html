@@ -65,11 +65,7 @@
 
             <!-- Opciones -->
             <div class="login-options mb-4">
-              <label class="remember-me">
-                <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" [disabled]="isLoading" />
-                <span>Recordarme</span>
-              </label>
-              <a href="javascript:void(0)" class="forgot-password" (click)="onForgotPassword($event)">¿Olvidaste tu contraseña?</a>
+              <button type="button" class="forgot-password-btn" (click)="onForgotPassword($event)">¿Olvidaste tu contraseña?</button>
             </div>
 
             <!-- Botón de Login -->
