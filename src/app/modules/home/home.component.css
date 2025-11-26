@@ -303,7 +303,6 @@
   box-shadow: 0 15px 40px rgba(255, 255, 255, 0.2);
 }
 
-
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -326,9 +325,6 @@
   }
 }
 
-/* ============================================
-   SECTION HEADERS
-   ============================================ */
 .section-header {
   margin-bottom: 2.5rem;
   text-align: center;
@@ -383,9 +379,6 @@
   line-height: 1.6;
 }
 
-/* ============================================
-   VALORES SECTION
-   ============================================ */
 .valores-section {
   padding: 4rem 0;
   background: linear-gradient(135deg, #ffffff 0%, #fafafa 50%, #ffffff 100%);
@@ -541,9 +534,6 @@
   box-shadow: 0 0 20px rgba(107, 29, 61, 0.5);
 }
 
-/* ============================================
-   FEATURED PRODUCTS SECTION
-   ============================================ */
 .featured-products-section {
   padding: 4rem 0;
   background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #fafafa 100%);
@@ -568,7 +558,6 @@
   z-index: 1;
 }
 
-/* Contenedor de scroll horizontal para productos */
 .products-scroll-container {
   position: relative;
   margin-bottom: 3rem;
@@ -587,21 +576,21 @@
   overflow-y: hidden;
   scroll-behavior: smooth;
   padding: 1rem 0;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE y Edge */
+  scrollbar-width: none; 
+  -ms-overflow-style: none; 
   -webkit-overflow-scrolling: touch;
 }
 
 .products-scroll-content::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  display: none; 
 }
 
 .scroll-indicators {
-  display: none !important; /* Ocultar indicadores de scroll */
+  display: none !important; 
 }
 
 .scroll-btn {
-  display: none !important; /* Ocultar botones de scroll */
+  display: none !important; 
 }
 
 .product-card {
@@ -855,9 +844,6 @@
   z-index: 1;
 }
 
-/* ============================================
-   CATEGORIES SECTION
-   ============================================ */
 .categories-section {
   padding: 4rem 0;
   background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #fafafa 100%);
@@ -1131,7 +1117,7 @@
 }
 
 .category-arrow {
-  display: none; /* Ocultar la flecha */
+  display: none; 
 }
 
 .no-categories-message {
@@ -1170,9 +1156,6 @@
   font-size: 1.2rem;
 }
 
-/* ============================================
-   CATEGORÍAS - Scroll Horizontal Elegante
-   ============================================ */
 .categories-collage {
   display: flex;
   gap: 1.5rem;
@@ -1182,12 +1165,11 @@
   margin: 0 -1rem;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; /* Firefox - ocultar scrollbar */
-  -ms-overflow-style: none; /* IE y Edge - ocultar scrollbar */
+  scrollbar-width: none; 
+  -ms-overflow-style: none; 
   scroll-snap-type: x proximity;
 }
 
-/* Ocultar scrollbar en Chrome, Safari y Opera */
 .categories-collage::-webkit-scrollbar {
   display: none;
 }
@@ -1211,7 +1193,6 @@
 .category-card-collage:nth-child(4) { animation-delay: 0.4s; }
 .category-card-collage:nth-child(5) { animation-delay: 0.5s; }
 
-/* Todos los tamaños uniformes */
 .category-large .category-card-inner,
 .category-medium .category-card-inner,
 .category-small .category-card-inner {
@@ -1252,7 +1233,6 @@
   line-height: 1.7;
 }
 
-/* Responsive para el collage */
 @media (max-width: 992px) {
   .categories-collage {
     gap: 1.25rem;
@@ -1368,9 +1348,6 @@
   }
 }
 
-/* ============================================
-   STATS SECTION - Diseño Elegante Mejorado
-   ============================================ */
 .stats-section {
   padding: 4rem 0;
   background: linear-gradient(180deg, #6b1d3d 0%, #7a2548 30%, #8b2d4f 50%, #7a2548 70%, #6b1d3d 100%);
@@ -1651,7 +1628,6 @@
   text-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
 }
 
-/* Responsive para productos con scroll */
 @media (max-width: 768px) {
   .product-card {
     flex: 0 0 320px;
@@ -1677,7 +1653,6 @@
   }
 }
 
-/* Responsive para stats grid */
 @media (max-width: 992px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1697,9 +1672,6 @@
   }
 }
 
-/* ============================================
-   CTA SECTION
-   ============================================ */
 .cta-section {
   padding: 4rem 0;
   background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 50%, #fafafa 100%);
@@ -1890,11 +1862,6 @@
   letter-spacing: 0.5px;
 }
 
-/* ============================================
-   RESPONSIVE DESIGN
-   ============================================ */
-
-/* Tablet y pantallas medianas */
 @media (max-width: 1200px) {
   .valores-section,
   .featured-products-section,
@@ -1905,7 +1872,6 @@
   }
 }
 
-/* Tablets */
 @media (max-width: 992px) {
   .hero-section {
     min-height: 650px;
@@ -1933,7 +1899,6 @@
   }
 }
 
-/* Móviles y tablets pequeñas */
 @media (max-width: 768px) {
   .home-page {
     margin-top: 70px;
@@ -2170,7 +2135,6 @@
   }
 }
 
-/* Móviles pequeños */
 @media (max-width: 576px) {
   .hero-section {
     height: 70vh;

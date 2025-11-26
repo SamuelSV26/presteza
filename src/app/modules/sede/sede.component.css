@@ -6,7 +6,6 @@
   overflow: hidden;
 }
 
-/* Hero Section */
 .hero-section {
   position: relative;
   height: 65vh;
@@ -101,7 +100,6 @@
   }
 }
 
-/* Location Section */
 .location-card {
   background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
   border-radius: 30px;
@@ -198,7 +196,6 @@
   opacity: 0.9;
 }
 
-/* Section Header */
 .section-header {
   display: flex;
   align-items: center;
@@ -229,7 +226,6 @@
   margin-top: 0.5rem;
 }
 
-/* Map Section */
 .map-section {
   background: #ffffff;
   border-radius: 30px;
@@ -266,7 +262,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
-/* Schedule Card */
 .schedule-card {
   background: linear-gradient(135deg, #6b1d3d 0%, #8b2d4f 100%);
   border-radius: 30px;
@@ -368,7 +363,6 @@
   display: block;
 }
 
-/* Features Section */
 .features-section {
   margin: 4rem 0;
 }
@@ -450,7 +444,6 @@
   opacity: 1;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .hero-title {
     font-size: 3rem;

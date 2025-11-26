@@ -10,9 +10,6 @@ export class ContactService {
 
   constructor() {}
 
-  /**
-   * Obtiene todos los mensajes desde localStorage
-   */
   private getMessagesFromStorage(): ContactMessageFromBackend[] {
     const messagesJson = localStorage.getItem(this.STORAGE_KEY);
     if (!messagesJson) {
@@ -26,9 +23,6 @@ export class ContactService {
     }
   }
 
-  /**
-   * Guarda los mensajes en localStorage
-   */
   private saveMessagesToStorage(messages: ContactMessageFromBackend[]): void {
     try {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(messages));
@@ -37,16 +31,10 @@ export class ContactService {
     }
   }
 
-  /**
-   * Genera un ID único para el mensaje
-   */
   private generateId(): string {
     return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  /**
-   * Envía un mensaje de contacto (guarda en localStorage)
-   */
   create(createContactMessageDto: CreateContactMessageDto): Observable<ContactMessageFromBackend> {
     try {
       const messages = this.getMessagesFromStorage();
@@ -75,9 +63,6 @@ export class ContactService {
     }
   }
 
-  /**
-   * Obtiene todos los mensajes de contacto (solo admin)
-   */
   findAll(): Observable<ContactMessageFromBackend[]> {
     try {
       const messages = this.getMessagesFromStorage();
@@ -90,9 +75,6 @@ export class ContactService {
     }
   }
 
-  /**
-   * Obtiene un mensaje de contacto por ID
-   */
   findOne(id: string): Observable<ContactMessageFromBackend> {
     try {
       const messages = this.getMessagesFromStorage();
@@ -114,9 +96,6 @@ export class ContactService {
     }
   }
 
-  /**
-   * Marca un mensaje como leído
-   */
   markAsRead(id: string): Observable<ContactMessageFromBackend> {
     try {
       const messages = this.getMessagesFromStorage();
@@ -142,9 +121,6 @@ export class ContactService {
     }
   }
 
-  /**
-   * Elimina un mensaje de contacto
-   */
   remove(id: string): Observable<void> {
     try {
       const messages = this.getMessagesFromStorage();
@@ -159,9 +135,6 @@ export class ContactService {
     }
   }
 
-  /**
-   * Convierte un mensaje del backend al formato del frontend
-   */
   mapBackendMessageToFrontend(backendMessage: ContactMessageFromBackend): ContactMessage {
     const messageId = backendMessage._id || backendMessage.id || '';
     return {

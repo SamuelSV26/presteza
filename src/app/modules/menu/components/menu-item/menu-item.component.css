@@ -239,7 +239,6 @@
   margin-bottom: 1rem;
 }
 
-/* Animación escalonada para cada item */
 .menu-item:nth-child(1) {
   animation-delay: 0.1s;
 }
@@ -275,7 +274,6 @@
   }
 }
 
-/* Botón de Favorito */
 .favorite-btn {
   position: absolute;
   top: 12px;

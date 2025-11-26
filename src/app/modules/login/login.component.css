@@ -6,7 +6,6 @@
   overflow: hidden;
 }
 
-/* Hero Section */
 .hero-section {
   position: relative;
   height: 50vh;
@@ -101,7 +100,6 @@
   }
 }
 
-/* Login Card */
 .login-card {
   background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
   border-radius: 30px;
@@ -169,7 +167,6 @@
   opacity: 0.9;
 }
 
-/* Form Styles */
 .login-form {
   width: 100%;
 }
@@ -214,7 +211,6 @@
   cursor: not-allowed;
 }
 
-/* Login Options */
 .login-options {
   display: flex;
   justify-content: space-between;
@@ -262,7 +258,6 @@
   text-decoration: underline;
 }
 
-/* Submit Button */
 .form-actions {
   text-align: center;
   margin-top: 2rem;
@@ -306,7 +301,6 @@
   cursor: not-allowed;
 }
 
-/* Alert Success */
 .alert-danger {
   background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
   color: #ffffff;
@@ -317,7 +311,6 @@
   box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
 }
 
-/* Footer */
 .login-footer {
   text-align: center;
   margin-top: 2rem;
@@ -343,7 +336,6 @@
   text-decoration: underline;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .hero-title {
     font-size: 2.5rem;
@@ -381,7 +373,6 @@
   }
 }
 
-/* Modal de Recuperación de Contraseña */
 .forgot-password-modal-overlay {
   position: fixed;
   top: 0;

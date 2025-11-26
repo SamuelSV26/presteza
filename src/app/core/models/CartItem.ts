@@ -5,7 +5,6 @@ export interface CartItemOption {
   type?: 'addon' | 'size' | 'extra' | 'removal';
 }
 
-
 export interface CartItem {
   id: string;
   productId: number | string; 

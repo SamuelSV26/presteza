@@ -1,16 +1,10 @@
 import { CreateOrderDto, ProductOrderItem } from './CreateOrderDto';
 
-/**
- * Respuesta del backend al crear/obtener una orden
- */
 export interface OrderResponse {
   message: string;
   order: OrderFromBackend;
 }
 
-/**
- * Respuesta del backend al obtener múltiples órdenes
- */
 export interface OrdersResponse {
   message: string;
   orders: OrderFromBackend[];
@@ -19,9 +13,6 @@ export interface OrdersResponse {
   status?: string;
 }
 
-/**
- * Estructura de orden que viene del backend (MongoDB)
- */
 export interface OrderFromBackend {
   _id?: string;
   id?: string;

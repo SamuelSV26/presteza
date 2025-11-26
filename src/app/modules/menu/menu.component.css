@@ -420,9 +420,6 @@
   }
 }
 
-/* ============================================
-   RESPONSIVE DESIGN - TABLETS
-   ============================================ */
 @media (max-width: 992px) {
   .categories-grid {
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -446,9 +443,6 @@
   }
 }
 
-/* ============================================
-   RESPONSIVE DESIGN - MOBILE
-   ============================================ */
 @media (max-width: 768px) {
   .menu-page {
     padding: 2rem 0;
@@ -498,9 +492,6 @@
   }
 }
 
-/* ============================================
-   RESPONSIVE DESIGN - SMALL MOBILE
-   ============================================ */
 @media (max-width: 576px) {
   .categories-grid {
     gap: 1.25rem;
@@ -531,9 +522,6 @@
   }
 }
 
-/* ============================================
-   TOUCH DEVICE OPTIMIZATIONS
-   ============================================ */
 @media (hover: none) and (pointer: coarse) {
   .category-card:hover {
     transform: translateY(0);

@@ -1,6 +1,5 @@
 @import url('../../../styles.css');
 
-/* NAVBAR TRANSPARENTE CON BLUR */
 .glass-navbar {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -36,7 +35,6 @@
   border-bottom: 2px solid rgba(255, 255, 255, 0.2);
 }
 
-/* BRAND */
 .navbar-brand {
   color: #fff;
   font-weight: 800;
@@ -77,7 +75,6 @@
   width: 100%;
 }
 
-/* LINKS */
 .nav-link {
   color: #fff !important;
   font-weight: 600;
@@ -130,7 +127,6 @@
   width: calc(100% - 1.5rem);
 }
 
-/* BOTÓN HAMBURGUESA */
 .navbar-toggler {
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
@@ -171,7 +167,6 @@
   transform: rotate(90deg);
 }
 
-/* MI CUENTA en el header - siempre visible a la derecha */
 .header-account {
   display: flex;
   align-items: center;
@@ -187,7 +182,6 @@
   display: flex !important;
 }
 
-/* Carrito en el header - siempre visible en móviles */
 .header-cart {
   display: none;
   align-items: center;
@@ -259,7 +253,6 @@
   box-shadow: 0 2px 8px rgba(220, 53, 69, 0.5);
 }
 
-/* RESPONSIVE */
 @media (max-width: 992px) {
   .glass-navbar {
     padding: 0.875rem 0;
@@ -574,13 +567,11 @@
     color: #6b1d3d;
   }
 
-  /* Ocultar el carrito dentro del menú móvil ya que está en el header */
   .nav-item.d-flex {
     display: none !important;
   }
 }
 
-/* Asegurar que el carrito del header sea visible solo en móviles */
 @media (min-width: 993px) {
   .header-cart {
     display: none !important;
@@ -650,7 +641,6 @@
   }
 }
 
-/* En pantallas grandes, siempre mostrar el navbar */
 @media (min-width: 993px) {
   .navbar-collapse {
     display: flex !important;
@@ -902,7 +892,6 @@
   margin-bottom: 1rem;
 }
 
-/* Animación escalonada para cada item */
 .menu-item:nth-child(1) {
   animation-delay: 0.1s;
 }
@@ -1013,7 +1002,6 @@
   border-bottom: none !important;
 }
 
-
 .account-btn:hover i {
   transform: scale(1.05);
 }
@@ -1047,7 +1035,6 @@
   }
 }
 
-/* Login Modal Dropdown */
 .login-modal-dropdown {
   position: absolute;
   top: calc(100% + 15px);
@@ -1057,7 +1044,6 @@
   min-width: 380px;
 }
 
-/* Cuando el modal se muestra desde la página de registro, centrarlo */
 .login-modal-dropdown.login-modal-centered {
   position: fixed;
   top: 50%;
@@ -1221,7 +1207,6 @@
   gap: 0.5rem;
 }
 
-
 .forgot-password {
   color: #8b2d4f;
   text-decoration: none;
@@ -1367,7 +1352,6 @@
   }
 }
 
-/* User Dropdown */
 .user-dropdown {
   position: absolute;
   top: calc(100% + 15px);

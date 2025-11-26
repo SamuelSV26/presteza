@@ -5,7 +5,6 @@ export interface ProductOption {
   type: 'addon' | 'size' | 'extra';
 }
 
-
 export interface ProductSupply {
   supplyId: string; // ID del insumo
   quantityRequired: number; // Cantidad de insumo requerida para el producto

@@ -126,10 +126,6 @@ export class ExtrasAvailabilityService {
     return `addon-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  /**
-   * Retorna un array vacío ya que los adicionales se gestionan desde el backend.
-   * Este método se mantiene para compatibilidad con código legacy.
-   */
   private getDefaultExtras(): ExtraAvailability[] {
     // Los adicionales ahora se gestionan desde el backend (AddsService)
     // Retornar array vacío para evitar conflictos

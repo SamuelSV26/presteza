@@ -82,9 +82,6 @@ export class ReservationsService {
     );
   }
 
-  /**
-   * Convierte una reserva del backend al formato del frontend
-   */
   mapBackendReservationToFrontend(backendReservation: ReservationFromBackend): Reservation {
     const reservationId = backendReservation._id || backendReservation.id || '';
     return {

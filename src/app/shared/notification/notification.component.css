@@ -1,4 +1,4 @@
-/* Notificaciones Toast */
+
 .notifications-container {
   position: fixed;
   top: 100px;
@@ -240,7 +240,6 @@
   }
 }
 
-/* Diálogo de Confirmación */
 .confirm-dialog-overlay {
   position: fixed;
   top: 0;
@@ -378,7 +377,6 @@
   }
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .notifications-container {
     right: 10px;

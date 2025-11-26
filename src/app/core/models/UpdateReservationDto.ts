@@ -1,6 +1,4 @@
-/**
- * DTO para actualizar una reserva - campos opcionales
- */
+
 export interface UpdateReservationDto {
   tableNumber?: string;
   date?: string;

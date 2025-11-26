@@ -72,6 +72,16 @@ export class NavbarComponent implements OnInit {
         this.userEmail = userInfo.email;
       }
     });
+    
+    // Escuchar actualizaciones del perfil
+    window.addEventListener('userInfoUpdated', () => {
+      const userInfo = this.authService.getUserInfo();
+      if (userInfo) {
+        this.userName = userInfo.name;
+        this.userEmail = userInfo.email;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   @HostListener('window:scroll', [])

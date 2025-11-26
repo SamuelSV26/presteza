@@ -30,6 +30,7 @@ import { UpdateReservationDto } from '../../core/models/UpdateReservationDto';
 })
 export class PerfilComponent implements OnInit, OnDestroy {
   activeTab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings' | 'reservations' = 'profile';
+  sidebarOpen = false;
   userProfile: UserProfile | null = null;
   orders: Order[] = [];
   addresses: Address[] = [];
@@ -167,6 +168,14 @@ export class PerfilComponent implements OnInit, OnDestroy {
       this.loadAddresses();
       this.loadPaymentMethods();
     });
+    
+    // Suscribirse a cambios en el perfil del usuario
+    this.userService.userProfile$.pipe(takeUntil(this.destroy$)).subscribe(profile => {
+      if (profile) {
+        this.userProfile = profile;
+        this.cdr.detectChanges();
+      }
+    });
     window.addEventListener('productsUpdated', () => {
       this.loadRecommendedDishes();
       this.loadFavoriteDishes();
@@ -197,25 +206,75 @@ private loadUserProfile() {
 
   const userId = userInfo.userId || userInfo.email;
 
-  let registrationDate: Date;
+  // Obtener la fecha de registro: NO crear una nueva fecha, solo usar la existente
+  let registrationDate: Date | null = null;
   const profile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
-  const savedDate =  profile?.memberSince;
+  const savedDate = profile?.memberSince;
 
   if (savedDate) {
     const parsed = new Date(savedDate);
-    registrationDate = isNaN(parsed.getTime()) ? new Date() : parsed;
-  } else {
-    registrationDate = new Date();
-    localStorage.setItem(`userProfile_${userId}`, JSON.stringify({ memberSince: registrationDate.toISOString() }));
+    if (!isNaN(parsed.getTime())) {
+      registrationDate = parsed; // Usar la fecha guardada si es válida
+    }
   }
+  
+  // NO crear una nueva fecha aquí - esperar a que venga del backend o del perfil cargado
 
-
-  this.userService.getUserProfile().subscribe(profile => {
-
-
-    if (profile && (profile.email === userInfo.email || profile.id === userInfo.userId)) {
-
-      profile.memberSince = registrationDate;
+  // Intentar obtener el perfil del backend
+  this.userService.getUserProfile().pipe(
+    takeUntil(this.destroy$),
+    catchError(() => {
+      // Si falla, usar el perfil del localStorage
+      const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
+      if (storedProfile && (storedProfile.email === userInfo.email || storedProfile.id === userId)) {
+        // Preservar la fecha de registro existente
+        if (storedProfile.memberSince) {
+          const savedDate = new Date(storedProfile.memberSince);
+          if (!isNaN(savedDate.getTime())) {
+            storedProfile.memberSince = savedDate;
+          } else if (registrationDate) {
+            storedProfile.memberSince = registrationDate;
+          } else {
+            storedProfile.memberSince = new Date(); // Solo si no hay ninguna fecha
+          }
+        } else if (registrationDate) {
+          storedProfile.memberSince = registrationDate;
+        } else {
+          storedProfile.memberSince = new Date(); // Solo si no hay ninguna fecha
+        }
+        return of(storedProfile);
+      }
+      
+      // Si no existe perfil, crear uno local con fecha actual (solo para usuarios nuevos)
+      const newUserProfile: UserProfile = {
+        id: userId,
+        fullName: userInfo.name || 'Usuario',
+        email: userInfo.email || '',
+        phone: localStorage.getItem('userPhone') || '',
+        memberSince: registrationDate || new Date(), // Usar fecha guardada o fecha actual
+        preferences: {
+          notifications: true,
+          emailNotifications: true,
+          smsNotifications: false,
+          favoriteCategories: []
+        }
+      };
+      return of(newUserProfile);
+    })
+  ).subscribe(profile => {
+    if (profile) {
+      // PRESERVAR SIEMPRE la fecha de registro original del backend o guardada
+      // Prioridad: 1) Fecha del perfil (del backend), 2) Fecha guardada, 3) Fecha actual (solo si es nuevo)
+      if (profile.memberSince && !isNaN(new Date(profile.memberSince).getTime())) {
+        // El perfil ya tiene una fecha válida (del backend), preservarla
+        profile.memberSince = new Date(profile.memberSince);
+      } else if (registrationDate && !isNaN(registrationDate.getTime())) {
+        // Usar la fecha guardada en localStorage
+        profile.memberSince = registrationDate;
+      } else {
+        // Solo usar fecha actual si es un usuario completamente nuevo sin fecha previa
+        profile.memberSince = new Date();
+      }
 
       this.userProfile = profile;
       this.profileForm.patchValue({
@@ -224,32 +283,11 @@ private loadUserProfile() {
         phone: profile.phone
       });
 
-      return;
-    }
-
-    // Si no existe perfil en backend, crear uno local
-    const newUserProfile: UserProfile = {
-      id: userId,
-      fullName: userInfo.name || 'Usuario',
-      email: userInfo.email || '',
-      phone: localStorage.getItem('userPhone') || '',
-      memberSince: registrationDate,
-      preferences: {
-        notifications: true,
-        emailNotifications: true,
-        smsNotifications: false,
-        favoriteCategories: []
+      // Si es un perfil nuevo, inicializarlo en el servicio
+      if (!profile.id || profile.id === userId) {
+        this.userService.initializeUserProfile(profile);
       }
-    };
-
-    this.userProfile = newUserProfile;
-    this.profileForm.patchValue({
-      fullName: newUserProfile.fullName,
-      email: newUserProfile.email,
-      phone: newUserProfile.phone
-    });
-
-    this.userService.initializeUserProfile(newUserProfile);
+    }
   });
 
   // Cargar datos secundarios
@@ -257,7 +295,6 @@ private loadUserProfile() {
   this.loadAddresses();
   this.loadPaymentMethods();
 }
-
 
   private loadRecommendedDishes() {
     this.userService.getOrders().pipe(takeUntil(this.destroy$)).subscribe(orders => {
@@ -454,8 +491,20 @@ private loadUserProfile() {
     return null;
   }
 
+  toggleSidebar(): void {
+    this.sidebarOpen = !this.sidebarOpen;
+  }
+
+  closeSidebar(): void {
+    this.sidebarOpen = false;
+  }
+
   setActiveTab(tab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings' | 'reservations') {
     this.activeTab = tab;
+    // Cerrar sidebar en móvil/tablet después de seleccionar una opción
+    if (window.innerWidth <= 992) {
+      this.sidebarOpen = false;
+    }
     if (tab === 'reservations') {
       this.loadReservations();
     }
@@ -775,21 +824,35 @@ private loadUserProfile() {
   onProfileSubmit() {
     this.submitted = true;
     if (this.profileForm.valid) {
-      this.userService.updateUserProfile(this.profileForm.value);
-      this.userService.getUserProfile().subscribe(updatedProfile => {
-        if (updatedProfile) {
+      this.userService.updateUserProfile(this.profileForm.value).subscribe({
+        next: (updatedProfile) => {
+          // Actualizar el perfil local inmediatamente
           this.userProfile = updatedProfile;
           this.profileForm.patchValue({
             fullName: updatedProfile.fullName,
             email: updatedProfile.email,
             phone: updatedProfile.phone
           });
+          
+          // Forzar detección de cambios
+          this.cdr.detectChanges();
+          
+          this.notificationService.showSuccess('Perfil actualizado correctamente');
+          this.submitted = false;
+          this.showProfileModal = false;
+          
+          // Recargar el perfil para asegurar que todo esté sincronizado
+          setTimeout(() => {
+            this.loadUserProfile();
+          }, 100);
+        },
+        error: (error) => {
+          console.error('Error al actualizar perfil:', error);
+          const errorMessage = error?.message || error?.error?.message || 'Error al actualizar el perfil';
+          this.notificationService.showError(errorMessage);
+          this.submitted = false;
         }
       });
-
-      this.notificationService.showSuccess('Perfil actualizado correctamente');
-      this.submitted = false;
-      this.showProfileModal = false;
     } else {
       this.notificationService.showError('Por favor, completa todos los campos correctamente');
     }
@@ -1441,17 +1504,11 @@ private loadUserProfile() {
     }
   }
 
-  /**
-   * Convierte una fecha de formato YYYY-MM-DD a DD/MM/YYYY
-   */
   private formatDateToDDMMYYYY(dateString: string): string {
     const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
   }
 
-  /**
-   * Convierte una hora de formato HH:mm a HH:mm a. m./p. m.
-   */
   private formatTimeToAMPM(timeString: string): string {
     const [hours, minutes] = timeString.split(':');
     const hour = parseInt(hours, 10);

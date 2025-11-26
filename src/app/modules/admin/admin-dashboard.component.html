@@ -66,6 +66,14 @@
         </button>
         <button
           class="nav-item"
+          [class.active]="activeTab === 'customers'"
+          (click)="setActiveTab('customers')">
+          <i class="bi bi-people"></i>
+          <span>Clientes</span>
+          <span class="badge">{{ stats.totalCustomers }}</span>
+        </button>
+        <button
+          class="nav-item"
           [class.active]="activeTab === 'settings'"
           (click)="setActiveTab('settings')">
           <i class="bi bi-gear"></i>
@@ -1308,6 +1316,282 @@
               <i class="bi bi-trash me-2"></i>
               Eliminar
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Clientes -->
+      <div *ngIf="activeTab === 'customers'" class="tab-content">
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="bi bi-people me-2"></i>
+            Gestión de Clientes
+          </h2>
+          <div class="header-actions">
+            <div class="view-toggle">
+              <button
+                class="view-toggle-btn"
+                [class.active]="customerViewMode === 'list'"
+                (click)="customerViewMode = 'list'"
+                title="Vista de lista">
+                <i class="bi bi-list-ul"></i>
+              </button>
+              <button
+                class="view-toggle-btn"
+                [class.active]="customerViewMode === 'grid'"
+                (click)="customerViewMode = 'grid'"
+                title="Vista de cuadrícula">
+                <i class="bi bi-grid-3x3-gap"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filtros y Búsqueda -->
+        <div class="customer-filter-section">
+          <div class="customer-filter-tabs">
+            <button class="customer-filter-tab" [class.active]="customerFilter === 'all'" (click)="customerFilter = 'all'">
+              Todos ({{ customers.length }})
+            </button>
+            <button class="customer-filter-tab" [class.active]="customerFilter === 'active'" (click)="customerFilter = 'active'">
+              Activos
+            </button>
+            <button class="customer-filter-tab" [class.active]="customerFilter === 'inactive'" (click)="customerFilter = 'inactive'">
+              Inactivos
+            </button>
+          </div>
+          <div class="customer-search-section">
+            <input
+              type="text"
+              class="customer-search-input"
+              placeholder="Buscar clientes por nombre, email o teléfono..."
+              [(ngModel)]="customerSearchTerm" />
+          </div>
+        </div>
+
+        <!-- Vista de Lista -->
+        <div *ngIf="customerViewMode === 'list'" class="customers-container-admin">
+          <div *ngFor="let customer of getFilteredCustomers()" class="customer-card-admin" [class.active]="customer.status === 'active'">
+            <div class="customer-header-admin">
+              <div class="customer-info-admin">
+                <div class="customer-avatar">
+                  {{ getCustomerInitials(customer.name) }}
+                </div>
+                <div>
+                  <div class="customer-id-row-admin">
+                    <span class="customer-name-admin">{{ customer.name }}</span>
+                    <span class="customer-role-badge" [ngClass]="customer.role">{{ customer.role }}</span>
+                    <span class="customer-status-badge" [ngClass]="customer.status">{{ customer.status === 'active' ? 'Activo' : 'Inactivo' }}</span>
+                  </div>
+                  <div class="customer-email-admin" *ngIf="customer.email">
+                    <i class="bi bi-envelope"></i>
+                    {{ customer.email }}
+                  </div>
+                  <div class="customer-phone-admin" *ngIf="customer.phone">
+                    <i class="bi bi-telephone"></i>
+                    {{ customer.phone }}
+                  </div>
+                  <div class="customer-address-info" *ngIf="customer.address">
+                    <i class="bi bi-geo-alt"></i>
+                    <span>{{ customer.address }}</span>
+                  </div>
+                  <div class="customer-registered-date" *ngIf="customer.lastOrderDate">
+                    <i class="bi bi-calendar3"></i>
+                    Última actividad: {{ formatDate(customer.lastOrderDate) }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="customer-stats">
+              <div class="customer-stat-item">
+                <span class="customer-stat-value">{{ customer.totalOrders || 0 }}</span>
+                <span class="customer-stat-label">Pedidos</span>
+              </div>
+              <div class="customer-stat-item">
+                <span class="customer-stat-value">{{ customer.totalReservations || 0 }}</span>
+                <span class="customer-stat-label">Reservas</span>
+              </div>
+              <div class="customer-stat-item">
+                <span class="customer-stat-value">${{ (customer.totalSpent || 0) | number:'1.0-0' }}</span>
+                <span class="customer-stat-label">Total Gastado</span>
+              </div>
+            </div>
+
+            <div class="customer-actions-admin">
+              <button class="btn-primary" (click)="openCustomerModal(customer)">
+                <i class="bi bi-eye me-1"></i>
+                Ver Detalles
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vista de Grid -->
+        <div *ngIf="customerViewMode === 'grid'" class="customers-grid-view">
+          <div *ngFor="let customer of getFilteredCustomers()" class="customer-card-compact" [class.active]="customer.status === 'active'">
+            <div class="customer-card-compact-header">
+              <div class="customer-avatar">
+                {{ getCustomerInitials(customer.name) }}
+              </div>
+              <div>
+                <h3 class="customer-name-admin">{{ customer.name }}</h3>
+                <span class="customer-status-badge" [ngClass]="customer.status">{{ customer.status === 'active' ? 'Activo' : 'Inactivo' }}</span>
+              </div>
+            </div>
+            <div class="customer-card-compact-body">
+              <div class="customer-email-admin" *ngIf="customer.email">
+                <i class="bi bi-envelope"></i>
+                {{ customer.email }}
+              </div>
+              <div class="customer-phone-admin" *ngIf="customer.phone">
+                <i class="bi bi-telephone"></i>
+                {{ customer.phone }}
+              </div>
+              <div class="customer-stats" style="margin: 0.5rem 0;">
+                <div class="customer-stat-item">
+                  <span class="customer-stat-value" style="font-size: 1.25rem;">{{ customer.totalOrders || 0 }}</span>
+                  <span class="customer-stat-label">Pedidos</span>
+                </div>
+                <div class="customer-stat-item">
+                  <span class="customer-stat-value" style="font-size: 1.25rem;">${{ (customer.totalSpent || 0) | number:'1.0-0' }}</span>
+                  <span class="customer-stat-label">Gastado</span>
+                </div>
+              </div>
+            </div>
+            <div class="customer-card-compact-footer">
+              <button class="btn-primary" (click)="openCustomerModal(customer)">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="getFilteredCustomers().length === 0" class="empty-state">
+          <i class="bi bi-people empty-icon"></i>
+          <h3>No se encontraron clientes</h3>
+          <p *ngIf="customerFilter !== 'all' || customerSearchTerm">No hay clientes que coincidan con los filtros seleccionados</p>
+          <p *ngIf="customerFilter === 'all' && !customerSearchTerm">Aún no hay clientes registrados</p>
+        </div>
+      </div>
+
+      <!-- Modal de Detalles de Cliente -->
+      <div *ngIf="showCustomerModal && selectedCustomer" class="modal-overlay" (click)="closeCustomerModal()">
+        <div class="modal-content customer-details-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3 class="modal-title">Detalles del Cliente</h3>
+            <button class="modal-close-btn" (click)="closeCustomerModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="customer-details-header">
+              <div class="customer-details-avatar">
+                {{ getCustomerInitials(selectedCustomer.name) }}
+              </div>
+              <div class="customer-details-info">
+                <h2 class="customer-details-name">{{ selectedCustomer.name }}</h2>
+                <div class="customer-details-email" *ngIf="selectedCustomer.email">
+                  <i class="bi bi-envelope me-1"></i>
+                  {{ selectedCustomer.email }}
+                </div>
+                <div class="customer-details-phone" *ngIf="selectedCustomer.phone">
+                  <i class="bi bi-telephone me-1"></i>
+                  {{ selectedCustomer.phone }}
+                </div>
+                <div style="margin-top: 0.5rem;">
+                  <span class="customer-role-badge" [ngClass]="selectedCustomer.role">{{ selectedCustomer.role }}</span>
+                  <span class="customer-status-badge" [ngClass]="selectedCustomer.status" style="margin-left: 0.5rem;">
+                    {{ selectedCustomer.status === 'active' ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="customer-details-sections">
+              <div class="customer-details-section">
+                <h4 class="customer-details-section-title">
+                  <i class="bi bi-info-circle"></i>
+                  Información General
+                </h4>
+                <div class="customer-details-grid">
+                  <div class="customer-detail-item">
+                    <span class="customer-detail-label">Nombre</span>
+                    <span class="customer-detail-value">{{ selectedCustomer.name }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="selectedCustomer.email">
+                    <span class="customer-detail-label">Email</span>
+                    <span class="customer-detail-value">{{ selectedCustomer.email }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="selectedCustomer.phone">
+                    <span class="customer-detail-label">Teléfono</span>
+                    <span class="customer-detail-value">{{ selectedCustomer.phone }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="selectedCustomer.address">
+                    <span class="customer-detail-label">Dirección</span>
+                    <span class="customer-detail-value">{{ selectedCustomer.address }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="selectedCustomer.lastOrderDate">
+                    <span class="customer-detail-label">Última Actividad</span>
+                    <span class="customer-detail-value">{{ formatDate(selectedCustomer.lastOrderDate) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="customer-details-section">
+                <h4 class="customer-details-section-title">
+                  <i class="bi bi-bar-chart"></i>
+                  Estadísticas
+                </h4>
+                <div class="customer-stats">
+                  <div class="customer-stat-item">
+                    <span class="customer-stat-value">{{ selectedCustomer.totalOrders || 0 }}</span>
+                    <span class="customer-stat-label">Total Pedidos</span>
+                  </div>
+                  <div class="customer-stat-item">
+                    <span class="customer-stat-value">{{ selectedCustomer.totalReservations || 0 }}</span>
+                    <span class="customer-stat-label">Total Reservas</span>
+                  </div>
+                  <div class="customer-stat-item">
+                    <span class="customer-stat-value">${{ (selectedCustomer.totalSpent || 0) | number:'1.0-0' }}</span>
+                    <span class="customer-stat-label">Total Gastado</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="customer-orders-list" *ngIf="getCustomerOrders(selectedCustomer.id).length > 0">
+                <h4 class="customer-orders-list-title">
+                  <i class="bi bi-receipt-cutoff"></i>
+                  Pedidos del Cliente
+                </h4>
+                <div *ngFor="let order of getCustomerOrders(selectedCustomer.id).slice(0, 5)" class="customer-order-item">
+                  <div class="customer-order-info">
+                    <span class="customer-order-id">Pedido #{{ order.id.slice(-8) }}</span>
+                    <span class="customer-order-date">{{ formatDate(order.date) }}</span>
+                  </div>
+                  <span class="customer-order-total">${{ order.total | number }}</span>
+                </div>
+              </div>
+
+              <div class="customer-reservations-list" *ngIf="getCustomerReservations(selectedCustomer.email, selectedCustomer.name).length > 0">
+                <h4 class="customer-reservations-list-title">
+                  <i class="bi bi-calendar-check"></i>
+                  Reservas del Cliente
+                </h4>
+                <div *ngFor="let reservation of getCustomerReservations(selectedCustomer.email, selectedCustomer.name).slice(0, 5)" class="customer-reservation-item">
+                  <div class="customer-reservation-info">
+                    <span class="customer-reservation-table">Mesa {{ reservation.tableNumber }}</span>
+                    <span class="customer-reservation-date">{{ reservation.date }} - {{ reservation.time }}</span>
+                  </div>
+                  <span class="status-badge" [ngClass]="getReservationStatusClass(reservation.status)">
+                    {{ getReservationStatusText(reservation.status) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-outline" (click)="closeCustomerModal()">Cerrar</button>
           </div>
         </div>
       </div>

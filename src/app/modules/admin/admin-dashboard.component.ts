@@ -30,8 +30,10 @@ import { catchError } from 'rxjs/operators';
   styleUrls: ['./admin-dashboard.component.css']
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
-  activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' | 'extras' | 'messages' = 'dashboard';
+  activeTab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' | 'extras' | 'messages' | 'customers' = 'dashboard';
   private refreshInterval: any = null;
+  sidebarOpen = false;
+  private resizeListener?: () => void;
 
   stats = {
     totalOrders: 0,
@@ -92,6 +94,14 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   selectedMessage: ContactMessage | null = null;
   showMessageModal = false;
   messageFilter: 'all' | 'unread' | 'read' = 'all';
+
+  // Clientes
+  customers: any[] = [];
+  selectedCustomer: any | null = null;
+  showCustomerModal = false;
+  customerFilter: 'all' | 'active' | 'inactive' = 'all';
+  customerSearchTerm = '';
+  customerViewMode: 'list' | 'grid' = 'list';
   get pendingOrdersCount(): number {
     return this.orders.filter(o => o.status === 'pending').length;
   }
@@ -190,6 +200,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Inicializar sidebar según el tamaño de pantalla
+    this.sidebarOpen = !this.isMobile();
+
+    // Listener para cambios de tamaño de ventana
+    this.resizeListener = () => {
+      if (!this.isMobile()) {
+        this.sidebarOpen = true;
+      } else {
+        this.sidebarOpen = false;
+      }
+    };
+    window.addEventListener('resize', this.resizeListener);
+
     this.loadDashboardData();
   }
 
@@ -199,6 +222,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.loadOrders();
     this.loadReservations();
     this.loadExtras();
+    this.loadCustomers();
     // Los mensajes se cargan solo cuando el usuario accede a la pestaña
     // Limpiar intervalo anterior si existe
     if (this.refreshInterval) {
@@ -258,25 +282,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.stats.totalCustomers = uniqueUserIds.size;
   }
 
-  setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' | 'extras' | 'messages'): void {
-    this.activeTab = tab;
-    if (tab === 'orders') {
-      this.loadOrders();
-    }
-    if (tab === 'inventory') {
-      this.loadSupplies();
-    }
-    if (tab === 'reservations') {
-      this.loadReservations();
-    }
-    if (tab === 'extras') {
-      this.loadExtras();
-      this.loadAdds();
-    }
-    if (tab === 'messages') {
-      this.loadContactMessages();
-    }
-  }
 
   openProductModal(product?: MenuItem): void {
     this.selectedProduct = product || null;
@@ -482,6 +487,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           return dateB - dateA;
         });
         this.calculateStats();
+        // Actualizar clientes cuando se cargan pedidos
+        if (this.activeTab === 'customers') {
+          this.loadCustomers();
+        }
       },
       error: () => {
         this.notificationService.showError('Error al cargar los pedidos');
@@ -495,6 +504,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             return String(b.id).localeCompare(String(a.id));
           });
           this.calculateStats();
+          // Actualizar clientes cuando se cargan pedidos
+          if (this.activeTab === 'customers') {
+            this.loadCustomers();
+          }
         });
       }
     });
@@ -1082,6 +1095,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           return dateB - dateA;
         });
         this.calculateReservationStats();
+        // Actualizar clientes cuando se cargan reservas
+        if (this.activeTab === 'customers') {
+          this.loadCustomers();
+        }
       },
       error: (error) => {
         // No mostrar error si el usuario no está autenticado (401, 403) o si es un error de conexión (0)
@@ -1810,11 +1827,168 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return this.contactMessages.filter(m => !m.read).length;
   }
 
+  // Métodos para controlar el sidebar en móvil
+  isMobile(): boolean {
+    return window.innerWidth <= 768;
+  }
+
+  toggleSidebar(): void {
+    this.sidebarOpen = !this.sidebarOpen;
+  }
+
+  closeSidebar(): void {
+    this.sidebarOpen = false;
+  }
+
+  // Cerrar sidebar al cambiar de tab en móvil
+  setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' | 'extras' | 'messages' | 'customers'): void {
+    this.activeTab = tab;
+    if (this.isMobile()) {
+      this.closeSidebar();
+    }
+    if (tab === 'orders') {
+      this.loadOrders();
+    }
+    if (tab === 'inventory') {
+      this.loadSupplies();
+    }
+    if (tab === 'reservations') {
+      this.loadReservations();
+    }
+    if (tab === 'extras') {
+      this.loadExtras();
+      this.loadAdds();
+    }
+    if (tab === 'messages') {
+      this.loadContactMessages();
+    }
+    if (tab === 'customers') {
+      this.loadCustomers();
+    }
+  }
+
+  // Métodos para Clientes
+  loadCustomers(): void {
+    // Extraer clientes únicos de pedidos y reservas
+    const customersMap = new Map<string, any>();
+
+    // De pedidos
+    this.orders.forEach(order => {
+      const customerKey = order.userName || order.deliveryPhone || order.id;
+      if (customerKey && !customersMap.has(customerKey)) {
+        const customerOrders = this.orders.filter(o =>
+          (o.userName && o.userName === order.userName) ||
+          (o.deliveryPhone && o.deliveryPhone === order.deliveryPhone)
+        );
+
+        customersMap.set(customerKey, {
+          id: customerKey,
+          name: order.userName || 'Cliente',
+          email: '',
+          phone: order.deliveryPhone || '',
+          address: order.deliveryAddress || '',
+          totalOrders: customerOrders.length,
+          totalSpent: customerOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0),
+          lastOrderDate: order.date,
+          status: 'active',
+          role: 'customer'
+        });
+      }
+    });
+
+    // De reservas
+    this.reservations.forEach(reservation => {
+      const customerKey = reservation.userEmail || reservation.userName;
+      if (customerKey) {
+        if (customersMap.has(customerKey)) {
+          const customer = customersMap.get(customerKey);
+          customer.totalReservations = (customer.totalReservations || 0) + 1;
+        } else {
+          const customerReservations = this.reservations.filter(r =>
+            r.userEmail === reservation.userEmail || r.userName === reservation.userName
+          );
+
+          customersMap.set(customerKey, {
+            id: customerKey,
+            name: reservation.userName || 'Cliente',
+            email: reservation.userEmail || '',
+            phone: '',
+            address: '',
+            totalOrders: 0,
+            totalReservations: customerReservations.length,
+            totalSpent: 0,
+            lastOrderDate: reservation.createdAt ? new Date(reservation.createdAt) : new Date(),
+            status: 'active',
+            role: 'customer'
+          });
+        }
+      }
+    });
+
+    this.customers = Array.from(customersMap.values());
+    this.stats.totalCustomers = this.customers.length;
+  }
+
+  getFilteredCustomers(): any[] {
+    let filtered = this.customers;
+
+    if (this.customerFilter !== 'all') {
+      filtered = filtered.filter(customer => customer.status === this.customerFilter);
+    }
+
+    if (this.customerSearchTerm) {
+      const search = this.customerSearchTerm.toLowerCase();
+      filtered = filtered.filter(customer =>
+        customer.name.toLowerCase().includes(search) ||
+        customer.email.toLowerCase().includes(search) ||
+        customer.phone.toLowerCase().includes(search)
+      );
+    }
+
+    return filtered;
+  }
+
+  openCustomerModal(customer: any): void {
+    this.selectedCustomer = customer;
+    this.showCustomerModal = true;
+  }
+
+  closeCustomerModal(): void {
+    this.showCustomerModal = false;
+    this.selectedCustomer = null;
+  }
+
+  getCustomerInitials(name: string): string {
+    if (!name) return 'C';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
+
+  getCustomerOrders(customerId: string): Order[] {
+    return this.orders.filter(order =>
+      (order.userName && order.userName === customerId) ||
+      (order.deliveryPhone && order.deliveryPhone === customerId)
+    );
+  }
+
+  getCustomerReservations(customerEmail: string, customerName: string): Reservation[] {
+    return this.reservations.filter(reservation =>
+      reservation.userEmail === customerEmail || reservation.userName === customerName
+    );
+  }
+
   ngOnDestroy(): void {
     // Limpiar el intervalo cuando el componente se destruye
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
       this.refreshInterval = null;
+    }
+    // Remover listener de resize
+    if (this.resizeListener) {
+      window.removeEventListener('resize', this.resizeListener);
     }
   }
 }

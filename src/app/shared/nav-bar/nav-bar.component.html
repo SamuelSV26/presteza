@@ -19,8 +19,11 @@
       <div *ngIf="showUserDropdown" class="user-dropdown" (click)="$event.stopPropagation()">
         <div class="user-dropdown-content">
           <div class="user-dropdown-header">
-            <i class="bi bi-person-circle"></i>
+            <div class="user-dropdown-avatar">
+              <i class="bi bi-person-circle"></i>
+            </div>
             <div class="user-dropdown-info">
+              <p class="user-dropdown-name">{{ userName }}</p>
               <p class="user-dropdown-email">{{ userEmail }}</p>
             </div>
           </div>
@@ -29,6 +32,7 @@
             <i class="bi bi-person"></i>
             <span>Mi Perfil</span>
           </button>
+          <div class="user-dropdown-divider"></div>
           <button class="user-dropdown-item user-dropdown-logout" (click)="logout()">
             <i class="bi bi-box-arrow-right"></i>
             <span>Cerrar Sesión</span>

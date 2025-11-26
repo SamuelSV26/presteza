@@ -20,12 +20,23 @@
 
   <!-- Contenido Principal -->
   <div class="container py-5">
-    <!-- Tabs de Navegación -->
-    <div class="profile-tabs">
+    <!-- Botón Hamburguesa para Móvil/Tablet -->
+    <button class="sidebar-toggle-btn" (click)="toggleSidebar()" [class.active]="sidebarOpen">
+      <i class="bi bi-list"></i>
+    </button>
+    
+    <!-- Overlay para cerrar sidebar -->
+    <div class="sidebar-overlay" *ngIf="sidebarOpen" (click)="closeSidebar()"></div>
+    
+    <div class="profile-container-wrapper">
+      <!-- Sidebar de Navegación -->
+      <div class="profile-sidebar" [class.open]="sidebarOpen">
+        <!-- Tabs de Navegación -->
+        <div class="profile-tabs">
       <button
         class="tab-btn"
         [class.active]="activeTab === 'profile'"
-        (click)="setActiveTab('profile')"
+        (click)="setActiveTab('profile'); closeSidebar()"
       >
         <i class="bi bi-person-circle me-2"></i>
         Mi Perfil
@@ -33,7 +44,7 @@
       <button
         class="tab-btn"
         [class.active]="activeTab === 'orders'"
-        (click)="setActiveTab('orders')"
+        (click)="setActiveTab('orders'); closeSidebar()"
       >
         <i class="bi bi-receipt me-2"></i>
         Mis Pedidos
@@ -42,7 +53,7 @@
       <button
         class="tab-btn"
         [class.active]="activeTab === 'addresses'"
-        (click)="setActiveTab('addresses')"
+        (click)="setActiveTab('addresses'); closeSidebar()"
       >
         <i class="bi bi-geo-alt me-2"></i>
         Direcciones
@@ -50,7 +61,7 @@
       <button
         class="tab-btn"
         [class.active]="activeTab === 'payment'"
-        (click)="setActiveTab('payment')"
+        (click)="setActiveTab('payment'); closeSidebar()"
       >
         <i class="bi bi-credit-card me-2"></i>
         Métodos de Pago
@@ -58,7 +69,7 @@
       <button
         class="tab-btn"
         [class.active]="activeTab === 'reservations'"
-        (click)="setActiveTab('reservations')"
+        (click)="setActiveTab('reservations'); closeSidebar()"
       >
         <i class="bi bi-calendar-check me-2"></i>
         Mis Reservas
@@ -67,15 +78,16 @@
       <button
         class="tab-btn"
         [class.active]="activeTab === 'settings'"
-        (click)="setActiveTab('settings')"
+        (click)="setActiveTab('settings'); closeSidebar()"
       >
         <i class="bi bi-gear me-2"></i>
         Configuración
       </button>
-    </div>
+        </div>
+      </div>
 
-    <!-- Contenido de las Tabs -->
-    <div class="profile-content">
+      <!-- Contenido de las Tabs -->
+      <div class="profile-content">
       <!-- Tab: Mi Perfil -->
       <div *ngIf="activeTab === 'profile'" class="tab-content">
         <!-- Resumen Rápido -->
@@ -92,6 +104,55 @@
               <i class="bi bi-pencil me-2"></i>
               Editar Perfil
             </button>
+          </div>
+          
+          <!-- Información del Usuario -->
+          <div class="profile-info-section" *ngIf="userProfile">
+            <div class="profile-info-grid">
+              <!-- Tarjeta de Nombre -->
+              <div class="profile-info-card">
+                <div class="profile-info-icon-wrapper name-icon">
+                  <i class="bi bi-person-fill"></i>
+                </div>
+                <div class="profile-info-content">
+                  <div class="profile-info-label">Nombre Completo</div>
+                  <div class="profile-info-value">{{ userProfile.fullName || 'No especificado' }}</div>
+                </div>
+              </div>
+              
+              <!-- Tarjeta de Email -->
+              <div class="profile-info-card">
+                <div class="profile-info-icon-wrapper email-icon">
+                  <i class="bi bi-envelope-fill"></i>
+                </div>
+                <div class="profile-info-content">
+                  <div class="profile-info-label">Correo Electrónico</div>
+                  <div class="profile-info-value">{{ userProfile.email || 'No especificado' }}</div>
+                </div>
+              </div>
+              
+              <!-- Tarjeta de Teléfono -->
+              <div class="profile-info-card">
+                <div class="profile-info-icon-wrapper phone-icon">
+                  <i class="bi bi-telephone-fill"></i>
+                </div>
+                <div class="profile-info-content">
+                  <div class="profile-info-label">Teléfono</div>
+                  <div class="profile-info-value">{{ userProfile.phone || 'No especificado' }}</div>
+                </div>
+              </div>
+              
+              <!-- Tarjeta de Miembro desde -->
+              <div class="profile-info-card" *ngIf="userProfile.memberSince">
+                <div class="profile-info-icon-wrapper date-icon">
+                  <i class="bi bi-calendar-check-fill"></i>
+                </div>
+                <div class="profile-info-content">
+                  <div class="profile-info-label">Miembro desde</div>
+                  <div class="profile-info-value">{{ formatDate(userProfile.memberSince) }}</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1178,6 +1239,7 @@
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   </div>

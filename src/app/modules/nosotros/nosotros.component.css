@@ -6,7 +6,6 @@
   overflow: hidden;
 }
 
-/* Hero Section */
 .hero-section {
   position: relative;
   height: 65vh;
@@ -101,7 +100,6 @@
   }
 }
 
-/* Section Title */
 .section-title {
   color: #6b1d3d;
   font-weight: 800;
@@ -113,7 +111,6 @@
   margin: 0;
 }
 
-/* History Section */
 .history-section {
   margin: 4rem 0;
 }
@@ -246,7 +243,6 @@
   transform: scale(1.1);
 }
 
-/* Values Section */
 .values-section {
   margin: 4rem 0;
 }
@@ -331,7 +327,6 @@
   opacity: 1;
 }
 
-/* Team Section */
 .team-section {
   margin: 4rem 0;
 }
@@ -414,7 +409,6 @@
   margin-bottom: 0;
 }
 
-/* Mission and Vision Section */
 .mission-vision-section {
   margin: 4rem 0;
 }
@@ -490,7 +484,6 @@
   text-align: justify;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .hero-title {
     font-size: 3rem;
