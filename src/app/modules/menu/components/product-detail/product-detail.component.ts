@@ -10,6 +10,7 @@ import { takeUntil } from 'rxjs/operators';
 import { MenuItem, ProductOption } from '../../../../core/models/MenuItem';
 import { MenuService } from '../../../../core/services/menu.service';
 import { AddsService, Add } from '../../../../core/services/adds.service';
+import { Meta, Title } from '@angular/platform-browser';
 
 interface SelectedOption {
   option: ProductOption;
@@ -57,8 +58,13 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private notificationService: NotificationService,
     private cartService: CartService,
-    private addsService: AddsService
-  ) { }
+    private addsService: AddsService,
+    private title: Title,
+    private meta: Meta
+  ) {
+    this.title.setTitle('Detalle del Producto - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Detalles del producto en PRESTEZA. Personaliza tu pedido con opciones y adicionales.' });
+  }
 
   ngOnInit(): void {
     this.isLoggedIn = this.authService.isAuthenticated();

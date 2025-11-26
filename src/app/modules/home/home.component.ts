@@ -6,6 +6,7 @@ import { LoadingService } from '../../core/services/loading.service';
 import { ErrorHandlerService } from '../../core/services/error-handler.service';
 import { HomeData } from '../../core/resolvers/home.resolver';
 import { MenuCategory } from '../../core/models/MenuCategory';
+import { Meta, Title } from '@angular/platform-browser';
 
 const DEFAULT_CATEGORY_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80';
 const GRADIENT_OVERLAY = 'linear-gradient(135deg, rgba(107, 29, 61, 0.7) 0%, rgba(139, 45, 79, 0.6) 50%, rgba(0, 0, 0, 0.5) 100%)';
@@ -99,8 +100,13 @@ export class HomeComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private loadingService: LoadingService,
-    private errorHandler: ErrorHandlerService
-  ) {}
+    private errorHandler: ErrorHandlerService,
+    private title: Title,
+    private meta: Meta
+  ) {
+    this.title.setTitle('Home - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Bienvenido a PRESTEZA, tu lugar para disfrutar de la mejor comida.' });
+  }
 
   ngOnInit() {
     window.addEventListener('productsUpdated', () => {

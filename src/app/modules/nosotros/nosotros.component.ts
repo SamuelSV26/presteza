@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-nosotros',
@@ -53,4 +54,12 @@ export class NosotrosComponent {
     year: '2020',
     milestone: 'Iniciamos con el sueño de compartir nuestra pasión por la gastronomía'
   };
+
+  constructor(
+    private title: Title,
+    private meta: Meta
+  ) {
+    this.title.setTitle('Nosotros - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Conoce la historia, misión y valores.' });
+  }
 }

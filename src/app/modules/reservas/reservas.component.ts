@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { ReservationsService } from '../../core/services/reservations.service';
 import { CreateReservationDto } from '../../core/models/CreateReservationDto';
+import { Meta, Title } from '@angular/platform-browser';
 
 interface Table {
   id: string;
@@ -76,8 +77,12 @@ export class ReservasComponent implements OnInit {
     private reservationsService: ReservationsService,
     private authService: AuthService,
     private router: Router,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private title : Title,
+    private meta : Meta
   ) {
+    this.title.setTitle('Reservas - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Realiza una reserva.' });
     this.reservationForm = this.fb.group({
       date: ['', [Validators.required]],
       time: ['', [Validators.required]],

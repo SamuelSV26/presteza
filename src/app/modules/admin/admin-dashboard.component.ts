@@ -21,6 +21,7 @@ import { ContactService } from '../../core/services/contact.service';
 import { ContactMessageFromBackend, ContactMessage } from '../../core/models/ContactMessage';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -109,6 +110,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   constructor(
+    private title: Title,
+    private meta: Meta,
     private menuService: MenuService,
     private extrasAvailabilityService: ExtrasAvailabilityService,
     private addsService: AddsService,
@@ -123,6 +126,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     private notificationService: NotificationService,
     private cdr: ChangeDetectorRef
   ) {
+
+    this.title.setTitle('Admin Dashboard - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Panel de administración de PRESTEZA. Gestiona productos, pedidos, categorías, inventario y más.' });
     this.productForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
       description: ['', [Validators.required, Validators.minLength(10)]],

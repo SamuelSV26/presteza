@@ -7,6 +7,7 @@ import { NotificationService } from '../../core/services/notification.service';
 import { filter, take } from 'rxjs/operators';
 import { timeout } from 'rxjs';
 import { TokenService } from '../../core/services/token.service';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-login',
@@ -30,12 +31,15 @@ export class LoginComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private notificationService: NotificationService,
-    private tokenService: TokenService
-  ) {}
+    private tokenService: TokenService,
+    private title: Title,
+    private meta: Meta
+  ) {
+    this.title.setTitle('Login - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Inicia sesión en PRESTEZA para acceder a tu cuenta y realizar pedidos.' });
+  }
 
   ngOnInit() {
-    // Solo redirigir si el usuario está autenticado Y está en la página de login
-    // No redirigir automáticamente desde otras rutas
     const currentUrl = this.router.url;
     if (currentUrl === '/login' && this.authService.isAuthenticated()) {
       const userRole = this.authService.getRole();

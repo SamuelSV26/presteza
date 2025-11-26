@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DomSanitizer, Meta, SafeResourceUrl, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-sede',
@@ -27,7 +27,10 @@ export class SedeComponent {
 
   safeMapUrl: SafeResourceUrl;
 
-  constructor(private sanitizer: DomSanitizer) {
+  constructor(private sanitizer: DomSanitizer, private title: Title, private meta: Meta) {
     this.safeMapUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.sede.mapUrl);
+    this.title.setTitle('Sede - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Conoce la sede principal de PRESTEZA en Manizales.' });
+
   }
 }

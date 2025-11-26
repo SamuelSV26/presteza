@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-forgot-password',
@@ -21,8 +22,13 @@ export class ForgotPasswordComponent {
   constructor(
     private authService: AuthService,
     private router: Router,
-    private notificationService: NotificationService
-  ) {}
+    private notificationService: NotificationService,
+    private title: Title,
+    private meta: Meta
+  ) {
+    this.title.setTitle('Recuperar Contraseña - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Recupera tu contraseña.' });
+  }
 
   onSubmit() {
     if (!this.email || !this.email.trim()) {
@@ -48,7 +54,7 @@ export class ForgotPasswordComponent {
         // Mostrar mensaje más detallado
         const message = response?.message || 'Se ha enviado un enlace de recuperación a tu correo electrónico. Por favor revisa tu bandeja de entrada y también la carpeta de spam.';
         this.notificationService.showSuccess(message);
-        
+
         // Advertencia en desarrollo
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
           console.warn('⚠️ MODO DESARROLLO: Si no recibes el correo, verifica que el backend tenga configurado el servicio de envío de correos (SMTP).');
@@ -59,10 +65,10 @@ export class ForgotPasswordComponent {
         console.error('Error original:', error?.originalError);
         console.error('Error data:', error?.error);
         this.isLoading = false;
-        
+
         // Manejo más detallado de errores
         let errorMessage = 'Error al solicitar recuperación de contraseña.';
-        
+
         if (error?.originalError) {
           const originalError = error.originalError;
           if (originalError.status === 0) {
@@ -81,7 +87,7 @@ export class ForgotPasswordComponent {
         } else if (error?.error?.message) {
           errorMessage = error.error.message;
         }
-        
+
         this.error = errorMessage;
         this.notificationService.showError(errorMessage);
       }

@@ -133,7 +133,6 @@ export class UserService {
         try {
           const userInfo = JSON.parse(userInfoStr);
           userId = userInfo.userId || userInfo.email;
-          // Intentar obtener fecha de registro guardada
           const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
           if (storedProfile.memberSince) {
             try {
