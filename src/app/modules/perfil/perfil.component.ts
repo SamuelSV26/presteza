@@ -20,6 +20,7 @@ import { OrderFromBackend } from '../../core/models/OrderResponse';
 import { ReservationsService } from '../../core/services/reservations.service';
 import { Reservation, ReservationFromBackend } from '../../core/models/ReservationResponse';
 import { UpdateReservationDto } from '../../core/models/UpdateReservationDto';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-perfil',
@@ -71,8 +72,12 @@ export class PerfilComponent implements OnInit, OnDestroy {
     private cartService: CartService,
     private cdr: ChangeDetectorRef,
     private orderService: OrderService,
-    private reservationsService: ReservationsService
+    private reservationsService: ReservationsService,
+    private title: Title,
+    private meta: Meta
   ) {
+    this.title.setTitle('Perfil - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Gestiona tu perfil, pedidos, direcciones y métodos de pago.' });
     this.profileForm = this.fb.group({
       fullName: ['', [Validators.required, Validators.minLength(3)]],
       email: ['', [Validators.required, Validators.email]],

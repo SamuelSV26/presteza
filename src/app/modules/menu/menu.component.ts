@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { MenuCategory } from '../../core/models/MenuCategory';
 import { Observable, of, Subject } from 'rxjs';
 import { catchError, map, takeUntil } from 'rxjs/operators';
+import { Meta, Title } from '@angular/platform-browser';
 
 const DEFAULT_CATEGORY_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80';
 const GRADIENT_OVERLAY = 'linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6))';
@@ -49,8 +50,12 @@ export class MenuComponent implements OnInit, OnDestroy {
   constructor(
     private menuService: MenuService,
     private router: Router,
-    private authService: AuthService
-  ) { }
+    private authService: AuthService,
+    private title: Title,
+    private meta: Meta
+    ) {
+      this.title.setTitle('Menú - PRESTEZA');
+      this.meta.updateTag({ name: 'description', content: 'Explora el menú de PRESTEZA y elige entre opciones para tu pedido.' }); }
 
   ngOnInit(): void {
     this.initializeAuthentication();

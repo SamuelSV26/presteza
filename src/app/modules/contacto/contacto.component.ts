@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ContactService } from '../../core/services/contact.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-contacto',
@@ -38,8 +39,12 @@ export class ContactoComponent {
   constructor(
     private fb: FormBuilder,
     private contactService: ContactService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private title: Title,
+    private meta: Meta
   ) {
+    this.title.setTitle('Contacto - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Contáctanos.' });
     this.contactForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       email: ['', [Validators.required, Validators.email]],
@@ -54,7 +59,7 @@ export class ContactoComponent {
     if (this.contactForm.valid) {
       this.isLoading = true;
       const formValue = this.contactForm.value;
-      
+
       this.contactService.create(formValue).subscribe({
         next: () => {
           this.isLoading = false;

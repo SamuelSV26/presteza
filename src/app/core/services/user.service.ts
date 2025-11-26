@@ -93,10 +93,10 @@ export class UserService {
           console.error('Error al parsear fecha de registro:', e);
         }
       }
-      
+
       // Si no hay fecha guardada, será null y se establecerá cuando se obtenga del backend
       // o cuando se cree el perfil por primera vez
-      
+
       const defaultProfile: UserProfile = {
         id: userId,
         fullName: userInfo.name || 'Usuario',
@@ -127,7 +127,7 @@ export class UserService {
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      
+
       if (!userId) {
         return this.userProfile$;
       }
@@ -139,7 +139,7 @@ export class UserService {
           // El backend debe tener createdAt con la fecha exacta de cuando se registró el usuario
           let registrationDate: Date;
           const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
-          
+
           if (response.createdAt) {
             // PRIORIDAD 1: Usar la fecha de creación del backend (fecha exacta de registro)
             registrationDate = new Date(response.createdAt);
@@ -165,7 +165,7 @@ export class UserService {
             // Esto solo debería pasar en casos excepcionales
             registrationDate = new Date();
           }
-          
+
           // Mapear la respuesta del backend al formato UserProfile
           const backendProfile: UserProfile = {
             id: response._id || response.id || userId,
@@ -189,7 +189,7 @@ export class UserService {
         catchError((error: HttpErrorResponse) => {
           // Si falla, usar el perfil del localStorage
           console.warn('No se pudo obtener el perfil del backend, usando perfil local:', error);
-          
+
           // Obtener perfil del localStorage como fallback
           const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
           if (storedProfile && (storedProfile.email === userInfo.email || storedProfile.id === userId)) {
@@ -204,13 +204,13 @@ export class UserService {
             this.userProfileSubject.next(storedProfile);
             return of(storedProfile);
           }
-          
+
           // Si no hay perfil guardado, usar el del subject o crear uno por defecto
           const currentProfile = this.userProfileSubject.value;
           if (currentProfile) {
             return of(currentProfile);
           }
-          
+
           // Crear perfil por defecto (solo para usuarios nuevos sin perfil)
           const defaultProfile: UserProfile = {
             id: userId,
@@ -242,16 +242,54 @@ export class UserService {
     this.userProfileSubject.next(profile);
   }
 
-  updateUserProfile(updates: Partial<UserProfile>): Observable<UserProfile> {
-    const userInfoStr = localStorage.getItem('userInfo');
-    if (!userInfoStr) {
-      return throwError(() => new Error('Usuario no autenticado'));
+  updateUserProfile(updates: Partial<UserProfile>): void {
+    let currentProfile = this.userProfileSubject.value;
+
+    if (!currentProfile) {
+      const userInfoStr = localStorage.getItem('userInfo');
+      let userId: string | null = null;
+      let registrationDate: Date = new Date();
+
+      if (userInfoStr) {
+        try {
+          const userInfo = JSON.parse(userInfoStr);
+          userId = userInfo.userId || userInfo.email;
+          const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
+          if (storedProfile.memberSince) {
+            try {
+              registrationDate = new Date(storedProfile.memberSince);
+              if (isNaN(registrationDate.getTime())) {
+                registrationDate = new Date();
+              }
+            } catch (e) {
+              registrationDate = new Date();
+            }
+          }
+        } catch (e) {
+          console.error('Error al obtener userId:', e);
+        }
+      }
+
+      const user = JSON.parse(localStorage.getItem('userInfo') || 'null');
+      currentProfile = {
+        id: userId || 'user_' + Date.now(),
+        fullName: updates.fullName || user?.name ,
+        email: updates.email || user?.email || '',
+        phone: updates.phone || user?.phone || '',
+        memberSince: registrationDate,
+        preferences: {
+          notifications: true,
+          emailNotifications: true,
+          smsNotifications: false,
+          favoriteCategories: []
+        }
+      };
     }
 
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      
+
       if (!userId) {
         return throwError(() => new Error('ID de usuario no encontrado'));
       }
@@ -268,11 +306,11 @@ export class UserService {
         map((response: any) => {
           // Mapear la respuesta del backend al formato UserProfile
           let currentProfile = this.userProfileSubject.value;
-          
+
           // PRESERVAR SIEMPRE la fecha de registro original
           let registrationDate: Date;
           const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
-          
+
           // Prioridad: 1) Fecha del perfil actual, 2) Fecha guardada en localStorage, 3) createdAt del backend, 4) Fecha actual (solo si es nuevo usuario)
           if (currentProfile?.memberSince) {
             registrationDate = new Date(currentProfile.memberSince);
@@ -330,7 +368,7 @@ export class UserService {
         catchError((error: HttpErrorResponse) => {
           // Si falla la petición al backend, actualizar solo en localStorage como fallback
           console.warn('Error al actualizar perfil en el backend, actualizando solo en localStorage:', error);
-          
+
           let currentProfile = this.userProfileSubject.value;
           if (!currentProfile) {
             const user = JSON.parse(localStorage.getItem('userInfo') || 'null');
@@ -368,7 +406,7 @@ export class UserService {
               preservedDate = new Date();
             }
           }
-          
+
           const updatedProfile = {
             ...currentProfile,
             ...updates,
@@ -376,15 +414,15 @@ export class UserService {
           };
           this.saveUserProfile(updatedProfile);
           this.userProfileSubject.next(updatedProfile);
-          
+
           // Guardar el teléfono en localStorage también en el fallback
           if (updatedProfile.phone) {
             localStorage.setItem('userPhone', updatedProfile.phone);
           }
-          
+
           // Disparar evento para actualizar la UI
           window.dispatchEvent(new CustomEvent('userInfoUpdated'));
-          
+
           return throwError(() => this.errorHandler.handleHttpError(error));
         })
       );

@@ -15,6 +15,7 @@ import { PaymentMethod as SavedPaymentMethod } from '../../core/models/PaymentMe
 import { Address } from '../../core/models/Address';
 import { Order } from '../../core/models/Order';
 import { CreateOrderDto, ProductOrderItem, AddOrderItem } from '../../core/models/CreateOrderDto';
+import { Meta, Title } from '@angular/platform-browser';
 
 export type OrderType = 'pickup' | 'delivery';
 export type PaymentMethod = 'card' | 'cash' | 'nequi' | 'daviplata' | 'transfer';
@@ -63,8 +64,12 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private orderService: OrderService,
     private addsService: AddsService,
-    private menuService: MenuService
+    private menuService: MenuService,
+    private title: Title,
+    private meta: Meta
   ) {
+    this.title.setTitle('Checkout - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Realiza tu pedido en PRESTEZA. Elige entre recogida en tienda o entrega a domicilio.' });
     this.deliveryForm = this.fb.group({
       address: ['', [Validators.required]],
       neighborhood: ['', [Validators.required]],

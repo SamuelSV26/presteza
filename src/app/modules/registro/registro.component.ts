@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { TokenService } from '../../core/services/token.service';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-registro',
@@ -24,8 +25,12 @@ export class RegistroComponent implements OnInit {
     private fb: FormBuilder,
     private router: Router,
     private authService: AuthService,
-    private tokenService: TokenService
+    private tokenService: TokenService,
+    private title : Title,
+    private meta : Meta
   ) {
+    this.title.setTitle('Registro - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Regístrate para disfrutar de nuestros servicios.' });
     this.registroForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       email: ['', [Validators.required, Validators.email]],
