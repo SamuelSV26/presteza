@@ -53,7 +53,53 @@ constructor(
       password
     }).pipe(
       tap(response => {
+        // Obtener el userId y email del token antes de limpiar (si existe)
+        let oldUserId: string | null = null;
+        let oldEmail: string | null = null;
+        const oldUserInfoStr = localStorage.getItem('userInfo');
+        if (oldUserInfoStr) {
+          try {
+            const oldUserInfo = JSON.parse(oldUserInfoStr);
+            oldUserId = oldUserInfo.userId || oldUserInfo.email;
+            oldEmail = oldUserInfo.email;
+          } catch (e) {
+            // Ignorar error
+          }
+        }
+
+        // Preservar datos del usuario antes de limpiar (buscar con userId y email)
+        let preservedData: any = {};
+        if (oldUserId) {
+          preservedData.userProfile = localStorage.getItem(`userProfile_${oldUserId}`);
+          preservedData.userAddresses = localStorage.getItem(`userAddresses_${oldUserId}`);
+          preservedData.userPaymentMethods = localStorage.getItem(`userPaymentMethods_${oldUserId}`);
+          preservedData.userFavoriteDishes = localStorage.getItem(`userFavoriteDishes_${oldUserId}`);
+          preservedData.userOrders = localStorage.getItem(`userOrders_${oldUserId}`);
+          preservedData.userPhone = localStorage.getItem('userPhone');
+          
+          // También buscar con email como clave (por si acaso)
+          if (oldEmail && oldEmail !== oldUserId) {
+            if (!preservedData.userProfile) {
+              preservedData.userProfile = localStorage.getItem(`userProfile_${oldEmail}`);
+            }
+            if (!preservedData.userAddresses) {
+              preservedData.userAddresses = localStorage.getItem(`userAddresses_${oldEmail}`);
+            }
+            if (!preservedData.userPaymentMethods) {
+              preservedData.userPaymentMethods = localStorage.getItem(`userPaymentMethods_${oldEmail}`);
+            }
+            if (!preservedData.userFavoriteDishes) {
+              preservedData.userFavoriteDishes = localStorage.getItem(`userFavoriteDishes_${oldEmail}`);
+            }
+            if (!preservedData.userOrders) {
+              preservedData.userOrders = localStorage.getItem(`userOrders_${oldEmail}`);
+            }
+          }
+        }
+
+        // Limpiar todo
         localStorage.clear();
+        
         let token: string | undefined;
         if (response.token) {
           token = response.token;
@@ -71,6 +117,40 @@ constructor(
         const payload = this.decodeToken(token);
         const userRole = payload?.role || payload?.userRole || payload?.rol || payload?.type || 'client';
         this.decodeAndStoreUserInfo(token);
+        
+        // Obtener el nuevo userId después de decodificar el token
+        const newUserInfo = this.getUserInfo();
+        const newUserId = newUserInfo?.userId || newUserInfo?.email;
+        const newEmail = newUserInfo?.email;
+        
+        // Restaurar datos del usuario si es el mismo usuario (comparar por email o userId)
+        const isSameUser = newUserId && oldUserId && (
+          newUserId === oldUserId || 
+          newEmail === oldEmail ||
+          (newUserInfo?.email && newUserInfo.email === oldEmail)
+        );
+        
+        if (isSameUser && newUserId) {
+          if (preservedData.userProfile) {
+            localStorage.setItem(`userProfile_${newUserId}`, preservedData.userProfile);
+          }
+          if (preservedData.userAddresses) {
+            localStorage.setItem(`userAddresses_${newUserId}`, preservedData.userAddresses);
+          }
+          if (preservedData.userPaymentMethods) {
+            localStorage.setItem(`userPaymentMethods_${newUserId}`, preservedData.userPaymentMethods);
+          }
+          if (preservedData.userFavoriteDishes) {
+            localStorage.setItem(`userFavoriteDishes_${newUserId}`, preservedData.userFavoriteDishes);
+          }
+          if (preservedData.userOrders) {
+            localStorage.setItem(`userOrders_${newUserId}`, preservedData.userOrders);
+          }
+          if (preservedData.userPhone) {
+            localStorage.setItem('userPhone', preservedData.userPhone);
+          }
+        }
+        
         this.tokenSubject.next(token);
         this.userInfoSubject.next(this.getUserInfo());
         const event = new CustomEvent('userLoggedIn', {
@@ -99,8 +179,71 @@ constructor(
   }
 
   logout(): void {
+    // Obtener el userId y email antes de limpiar
+    const userInfo = this.getUserInfo();
+    const userId = userInfo?.userId || userInfo?.email;
+    const email = userInfo?.email;
+    
+    // Guardar datos del usuario antes de limpiar (para preservarlos)
+    // Buscar con userId y también con email por si acaso
+    let preservedData: any = {};
+    
+    if (userId) {
+      preservedData.userProfile = localStorage.getItem(`userProfile_${userId}`);
+      preservedData.userAddresses = localStorage.getItem(`userAddresses_${userId}`);
+      preservedData.userPaymentMethods = localStorage.getItem(`userPaymentMethods_${userId}`);
+      preservedData.userFavoriteDishes = localStorage.getItem(`userFavoriteDishes_${userId}`);
+      preservedData.userOrders = localStorage.getItem(`userOrders_${userId}`);
+      preservedData.userPhone = localStorage.getItem('userPhone');
+      
+      // También buscar con email si es diferente
+      if (email && email !== userId) {
+        if (!preservedData.userProfile) {
+          preservedData.userProfile = localStorage.getItem(`userProfile_${email}`);
+        }
+        if (!preservedData.userAddresses) {
+          preservedData.userAddresses = localStorage.getItem(`userAddresses_${email}`);
+        }
+        if (!preservedData.userPaymentMethods) {
+          preservedData.userPaymentMethods = localStorage.getItem(`userPaymentMethods_${email}`);
+        }
+        if (!preservedData.userFavoriteDishes) {
+          preservedData.userFavoriteDishes = localStorage.getItem(`userFavoriteDishes_${email}`);
+        }
+        if (!preservedData.userOrders) {
+          preservedData.userOrders = localStorage.getItem(`userOrders_${email}`);
+        }
+      }
+    }
+    
+    // Limpiar todo
     localStorage.clear();
     sessionStorage.clear();
+    
+    // Restaurar datos del usuario (sin información de autenticación)
+    // Usar userId o email, el que esté disponible
+    const restoreKey = userId || email;
+    if (restoreKey) {
+      if (preservedData.userProfile) {
+        localStorage.setItem(`userProfile_${restoreKey}`, preservedData.userProfile);
+      }
+      if (preservedData.userAddresses) {
+        localStorage.setItem(`userAddresses_${restoreKey}`, preservedData.userAddresses);
+      }
+      if (preservedData.userPaymentMethods) {
+        localStorage.setItem(`userPaymentMethods_${restoreKey}`, preservedData.userPaymentMethods);
+      }
+      if (preservedData.userFavoriteDishes) {
+        localStorage.setItem(`userFavoriteDishes_${restoreKey}`, preservedData.userFavoriteDishes);
+      }
+      if (preservedData.userOrders) {
+        localStorage.setItem(`userOrders_${restoreKey}`, preservedData.userOrders);
+      }
+      if (preservedData.userPhone) {
+        localStorage.setItem('userPhone', preservedData.userPhone);
+      }
+    }
+    
     this.tokenSubject.next(null);
     this.userInfoSubject.next(null);
     this.tokenService.deleteToken();

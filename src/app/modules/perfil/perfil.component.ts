@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
@@ -251,11 +252,12 @@ private loadUserProfile() {
       }
       
       // Si no existe perfil, crear uno local con fecha actual (solo para usuarios nuevos)
+      const phoneFromStorage = localStorage.getItem('userPhone') || '';
       const newUserProfile: UserProfile = {
         id: userId,
         fullName: userInfo.name || 'Usuario',
         email: userInfo.email || '',
-        phone: localStorage.getItem('userPhone') || '',
+        phone: phoneFromStorage,
         memberSince: registrationDate || new Date(), // Usar fecha guardada o fecha actual
         preferences: {
           notifications: true,
@@ -264,6 +266,10 @@ private loadUserProfile() {
           favoriteCategories: []
         }
       };
+      // Guardar el perfil con el teléfono si existe
+      if (phoneFromStorage) {
+        localStorage.setItem(`userProfile_${userId}`, JSON.stringify(newUserProfile));
+      }
       return of(newUserProfile);
     })
   ).subscribe(profile => {
@@ -281,12 +287,28 @@ private loadUserProfile() {
         profile.memberSince = new Date();
       }
 
+      // Asegurar que el teléfono esté presente (buscar en múltiples lugares)
+      if (!profile.phone || profile.phone === '' || profile.phone === 'No especificado') {
+        const phoneFromStorage = localStorage.getItem('userPhone');
+        if (phoneFromStorage) {
+          profile.phone = phoneFromStorage;
+          // Guardar el perfil actualizado con el teléfono
+          const userId = userInfo.userId || userInfo.email;
+          if (userId) {
+            localStorage.setItem(`userProfile_${userId}`, JSON.stringify(profile));
+          }
+        }
+      }
+
       this.userProfile = profile;
       this.profileForm.patchValue({
         fullName: profile.fullName,
         email: profile.email,
-        phone: profile.phone
+        phone: profile.phone || ''
       });
+      
+      // Forzar detección de cambios para asegurar que la vista se actualice
+      this.cdr.detectChanges();
 
       // Si es un perfil nuevo, inicializarlo en el servicio
       if (!profile.id || profile.id === userId) {
@@ -608,7 +630,46 @@ private loadUserProfile() {
         }
       }
     } catch {}
-    const orderItems = detailedOrder?.items || [];
+    
+    // Mapear items del backend si no se encontró detailedOrder
+    let orderItems: any[] = [];
+    if (detailedOrder?.items && detailedOrder.items.length > 0) {
+      orderItems = detailedOrder.items;
+    } else if (backendOrder.products && Array.isArray(backendOrder.products) && backendOrder.products.length > 0) {
+      // Si el backend tiene products, mapearlos a items
+      const firstProduct = backendOrder.products[0];
+      if (typeof firstProduct === 'object' && 'name' in firstProduct) {
+        // Es un array de ProductOrderItem
+        orderItems = (backendOrder.products as any[]).map((product: any) => {
+          const selectedOptions = product.adds ? product.adds.map((add: any) => ({
+            id: add.addId || '',
+            name: add.name || '',
+            price: add.price || 0,
+            type: 'addon' as const
+          })) : [];
+
+          return {
+            id: product.dishId || product.id || '',
+            name: product.name || `Producto #${product.dishId || product.id}`,
+            quantity: product.quantity || 1,
+            price: product.unit_price || product.price || 0,
+            selectedOptions: selectedOptions,
+            unavailable: product.unavailable || false,
+            unavailableReason: product.unavailableReason || product.unavailable_reason || ''
+          };
+        });
+      } else if (typeof firstProduct === 'string') {
+        // Es un array de IDs (legacy) - crear items básicos
+        orderItems = (backendOrder.products as string[]).map((productId: string, index: number) => ({
+          id: productId,
+          name: `Producto #${productId.substring(0, 8)}`,
+          quantity: 1,
+          price: 0,
+          selectedOptions: []
+        }));
+      }
+    }
+    
     const statusMap: Record<string, Order['status']> = {
       'pendiente': 'pending',
       'en_proceso': 'preparing',
@@ -630,24 +691,60 @@ private loadUserProfile() {
       orderDate = detailedOrder?.date ? new Date(detailedOrder.date) : new Date();
     }
 
+    // Calcular subtotal si no existe
+    let subtotal = detailedOrder?.subtotal;
+    if (subtotal === undefined || subtotal === null) {
+      const items = detailedOrder?.items || orderItems;
+      subtotal = items.reduce((sum: number, item: any) => {
+        const itemTotal = (item.price || 0) * (item.quantity || 1);
+        const optionsTotal = (item.selectedOptions || []).reduce((optSum: number, opt: any) => 
+          optSum + ((opt.price || 0) * (item.quantity || 1)), 0);
+        return sum + itemTotal + optionsTotal;
+      }, 0);
+    }
+
+    // Calcular additionalFees si no existe
+    let additionalFees = detailedOrder?.additionalFees;
+    if (additionalFees === undefined || additionalFees === null) {
+      additionalFees = 0;
+    }
+
+    // Determinar orderType si no existe
+    let orderType = detailedOrder?.orderType;
+    if (!orderType) {
+      orderType = detailedOrder?.deliveryAddress ? 'delivery' : 'pickup';
+    }
+
+    // Generar trackingCode si no existe
+    let trackingCode = detailedOrder?.trackingCode;
+    if (!trackingCode) {
+      trackingCode = orderId.substring(0, 8).toUpperCase();
+    }
+
+    // Asegurar que siempre haya items
+    const finalItems = (detailedOrder?.items && detailedOrder.items.length > 0) 
+      ? detailedOrder.items 
+      : (orderItems.length > 0 ? orderItems : []);
+
     return {
       id: orderId,
       date: orderDate,
-      items: detailedOrder?.items || orderItems,
+      items: finalItems,
       total: backendOrder.total,
       status: mappedStatus,
-      paymentMethod: backendOrder.payment_method,
-      trackingCode: detailedOrder?.trackingCode || orderId.substring(0, 8).toUpperCase(),
+      paymentMethod: backendOrder.payment_method || detailedOrder?.paymentMethod || 'cash',
+      trackingCode: trackingCode,
       deliveryAddress: detailedOrder?.deliveryAddress,
       deliveryNeighborhood: detailedOrder?.deliveryNeighborhood,
       deliveryPhone: detailedOrder?.deliveryPhone,
-      orderType: detailedOrder?.orderType,
-      subtotal: detailedOrder?.subtotal,
-      additionalFees: detailedOrder?.additionalFees,
+      orderType: orderType,
+      subtotal: subtotal,
+      additionalFees: additionalFees,
       estimatedDeliveryTime: detailedOrder?.estimatedDeliveryTime,
       estimatedPrepTime: detailedOrder?.estimatedPrepTime,
       statusHistory: detailedOrder?.statusHistory,
-      canCancel: detailedOrder?.canCancel
+      canCancel: detailedOrder?.canCancel,
+      deliveryInstructions: detailedOrder?.deliveryInstructions
     };
   }
 
@@ -830,7 +927,7 @@ private loadUserProfile() {
     this.submitted = true;
     if (this.profileForm.valid) {
       this.userService.updateUserProfile(this.profileForm.value).subscribe({
-        next: (updatedProfile) => {
+        next: (updatedProfile: UserProfile) => {
           // Actualizar el perfil local inmediatamente
           this.userProfile = updatedProfile;
           this.profileForm.patchValue({
@@ -851,7 +948,7 @@ private loadUserProfile() {
             this.loadUserProfile();
           }, 100);
         },
-        error: (error) => {
+        error: (error: HttpErrorResponse) => {
           console.error('Error al actualizar perfil:', error);
           const errorMessage = error?.message || error?.error?.message || 'Error al actualizar el perfil';
           this.notificationService.showError(errorMessage);
@@ -1102,73 +1199,135 @@ private loadUserProfile() {
   }
 
   reorder(order: Order): void {
-    let itemsAdded = 0;
-    const totalItems = order.items.reduce((sum, it) => sum + it.quantity, 0);
-    order.items.forEach(item => {
-      // Validar que el ID sea válido antes de hacer la petición
-      if (!item.id || item.id === null || item.id === undefined) {
-        console.warn('Item con ID inválido en reorder:', item);
-        return;
-      }
-      // Convertir a string para validar
-      const idStr = String(item.id);
-      if (idStr === '0' || idStr === '' || idStr === 'null' || idStr === 'undefined') {
-        console.warn('Item con ID inválido en reorder:', item);
-        return;
-      }
-      this.menuService.getItemById(item.id).subscribe(product => {
-        if (product) {
-          const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
-            id: opt.id || `opt_${item.id}_${index}`,
-            name: opt.name,
-            price: opt.price
-          }));
+    if (!order || !order.items || order.items.length === 0) {
+      this.notificationService.showError('No hay items para volver a pedir');
+      return;
+    }
 
-          for (let i = 0; i < item.quantity; i++) {
-            this.cartService.addItem({
-              productId: product.id,
-              productName: product.name,
-              productDescription: product.description || '',
-              basePrice: product.price,
-              selectedOptions: cartOptions,
-              quantity: 1,
-              imageUrl: product.imageUrl
-            });
-            itemsAdded++;
-          }
-          if (itemsAdded === totalItems) {
-            this.notificationService.showSuccess(`Se agregaron ${itemsAdded} item(s) al carrito`);
-            setTimeout(() => {
-              this.router.navigate(['/menu']);
-            }, 1000);
-          }
-        } else {
-          const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
-            id: opt.id || `opt_${item.id}_${index}`,
-            name: opt.name,
-            price: opt.price
-          }));
-
-          for (let i = 0; i < item.quantity; i++) {
-            this.cartService.addItem({
-              productId: item.id,
-              productName: item.name,
-              productDescription: '',
-              basePrice: item.price,
-              selectedOptions: cartOptions,
-              quantity: 1
-            });
-            itemsAdded++;
-          }
-          if (itemsAdded === totalItems) {
-            this.notificationService.showSuccess(`Se agregaron ${itemsAdded} item(s) al carrito`);
-            setTimeout(() => {
-              this.router.navigate(['/menu']);
-            }, 1000);
-          }
-        }
-      });
+    // Filtrar items que tengan al menos nombre y precio (mínimo requerido)
+    const validItems = order.items.filter(item => {
+      return item && item.name && item.price !== undefined && item.price !== null && item.quantity > 0;
     });
+
+    if (validItems.length === 0) {
+      this.notificationService.showError('No hay items válidos para volver a pedir');
+      return;
+    }
+
+    // Separar items con ID válido de los que no lo tienen
+    const itemsWithId = validItems.filter(item => {
+      if (item.id === null || item.id === undefined) return false;
+      const idStr = String(item.id);
+      return idStr !== '0' && idStr !== '' && idStr !== 'null' && idStr !== 'undefined';
+    });
+
+    const itemsWithoutId = validItems.filter(item => {
+      if (item.id === null || item.id === undefined) return true;
+      const idStr = String(item.id);
+      return idStr === '0' || idStr === '' || idStr === 'null' || idStr === 'undefined';
+    });
+
+    let totalItemsAdded = 0;
+    let hasErrors = false;
+
+    // Procesar items con ID válido (intentar obtener del menú)
+    if (itemsWithId.length > 0) {
+      const productObservables = itemsWithId.map(item =>
+        this.menuService.getItemById(item.id).pipe(
+          catchError(() => of(null))
+        )
+      );
+
+      forkJoin(productObservables).pipe(
+        takeUntil(this.destroy$)
+      ).subscribe(products => {
+        itemsWithId.forEach((item, index) => {
+          const product = products[index];
+
+          if (product) {
+            // Producto encontrado, usar datos del producto
+            const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
+              id: opt.id || `opt_${item.id}_${index}`,
+              name: opt.name,
+              price: opt.price
+            }));
+
+            // Agregar cada unidad al carrito
+            for (let i = 0; i < item.quantity; i++) {
+              this.cartService.addItem({
+                productId: product.id,
+                productName: product.name,
+                productDescription: product.description || '',
+                basePrice: product.price,
+                selectedOptions: cartOptions,
+                quantity: 1,
+                imageUrl: product.imageUrl
+              });
+              totalItemsAdded++;
+            }
+          } else {
+            // Producto no encontrado, usar datos del pedido como fallback
+            this.addItemToCartFromOrder(item);
+            totalItemsAdded += item.quantity;
+            hasErrors = true;
+          }
+        });
+
+        // Procesar items sin ID válido (usar datos del pedido directamente)
+        itemsWithoutId.forEach(item => {
+          this.addItemToCartFromOrder(item);
+          totalItemsAdded += item.quantity;
+          hasErrors = true;
+        });
+
+        // Mostrar mensaje y navegar
+        this.finishReorder(totalItemsAdded, hasErrors);
+      });
+    } else {
+      // Todos los items no tienen ID válido, usar datos del pedido directamente
+      itemsWithoutId.forEach(item => {
+        this.addItemToCartFromOrder(item);
+        totalItemsAdded += item.quantity;
+      });
+      hasErrors = itemsWithoutId.length > 0;
+      this.finishReorder(totalItemsAdded, hasErrors);
+    }
+  }
+
+  private addItemToCartFromOrder(item: OrderItem): void {
+    const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
+      id: opt.id || `opt_${item.id || 'unknown'}_${index}`,
+      name: opt.name,
+      price: opt.price
+    }));
+
+    // Usar el ID del item o generar uno temporal
+    const productId = (item.id && item.id !== 0) ? item.id : `temp_${Date.now()}_${Math.random()}`;
+
+    for (let i = 0; i < item.quantity; i++) {
+      this.cartService.addItem({
+        productId: productId,
+        productName: item.name,
+        productDescription: '',
+        basePrice: item.price,
+        selectedOptions: cartOptions,
+        quantity: 1
+      });
+    }
+  }
+
+  private finishReorder(totalItemsAdded: number, hasErrors: boolean): void {
+    if (totalItemsAdded > 0) {
+      const message = hasErrors
+        ? `Se agregaron ${totalItemsAdded} item(s) al carrito. Algunos productos pueden no estar disponibles.`
+        : `Se agregaron ${totalItemsAdded} item(s) al carrito`;
+      this.notificationService.showSuccess(message);
+      setTimeout(() => {
+        this.router.navigate(['/menu']);
+      }, 1000);
+    } else {
+      this.notificationService.showError('No se pudieron agregar items al carrito');
+    }
   }
 
   getOrderStatusSteps(order: Order): Array<{status: string, label: string, icon: string, completed: boolean, current: boolean}> {
@@ -1214,15 +1373,20 @@ private loadUserProfile() {
     if (!this.expandedOrders) {
       this.expandedOrders = new Set<string>();
     }
-    if (this.expandedOrders.has(order.id)) {
-      this.expandedOrders.delete(order.id);
+    const orderId = String(order.id);
+    if (this.expandedOrders.has(orderId)) {
+      this.expandedOrders.delete(orderId);
     } else {
-      this.expandedOrders.add(order.id);
+      this.expandedOrders.add(orderId);
     }
+    this.cdr.detectChanges();
   }
 
   isOrderExpanded(order: Order): boolean {
-    return this.expandedOrders?.has(order.id) || false;
+    if (!this.expandedOrders || !order || !order.id) {
+      return false;
+    }
+    return this.expandedOrders.has(String(order.id));
   }
 
   formatDate(date: Date): string {
@@ -1251,7 +1415,7 @@ private loadUserProfile() {
 
   getAvatarImage(): string {
     if (!this.userProfile) {
-      return 'https://i.pravatar.cc/150?img=1';
+      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Usuario&backgroundColor=b6e3f4,c0aede';
     }
 
     const name = this.userProfile.fullName?.toLowerCase() || '';
@@ -1287,7 +1451,7 @@ private loadUserProfile() {
       }
     }
     let hash = 0;
-    const nameForHash = name || email;
+    const nameForHash = name || email || 'Usuario';
     for (let i = 0; i < nameForHash.length; i++) {
       hash = nameForHash.charCodeAt(i) + ((hash << 5) - hash);
     }
@@ -1319,6 +1483,12 @@ private loadUserProfile() {
     }
   }
 
+  handleImageError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    const nameForHash = this.userProfile?.fullName || this.userProfile?.email || 'Usuario';
+    img.src = 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede';
+  }
+
   getPaymentMethodName(method: string): string {
     const methods: { [key: string]: string } = {
       'card': 'Tarjeta',
@@ -1341,7 +1511,7 @@ private loadUserProfile() {
           return dateB - dateA;
         });
       },
-      error: (error) => {
+      error: (error: HttpErrorResponse) => {
         console.error('Error loading reservations:', error);
         this.reservations = [];
       }
@@ -1477,7 +1647,7 @@ private loadUserProfile() {
         this.notificationService.showSuccess('Reserva actualizada exitosamente');
         this.closeEditReservationModal();
       },
-      error: (error) => {
+      error: (error: HttpErrorResponse) => {
         const errorMessage = error?.message || error?.error?.message || 'Error al actualizar la reserva';
         this.notificationService.showError(errorMessage);
       }
@@ -1501,7 +1671,7 @@ private loadUserProfile() {
           this.reservations = this.reservations.filter(r => r.id !== reservation.id);
           this.notificationService.showSuccess('Reserva eliminada exitosamente');
         },
-        error: (error) => {
+        error: (error: HttpErrorResponse) => {
           const errorMessage = error?.message || error?.error?.message || 'Error al eliminar la reserva';
           this.notificationService.showError(errorMessage);
         }

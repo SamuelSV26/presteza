@@ -1,8 +1,11 @@
 <section class="admin-dashboard">
   <div class="admin-container-wrapper">
+    <!-- Overlay para móvil -->
+    <div class="sidebar-overlay" [class.active]="sidebarOpen && isMobile()" (click)="toggleSidebar()"></div>
+    
     <div class="container-fluid admin-container">
     <!-- Navegación Lateral -->
-    <div class="admin-sidebar">
+    <div class="admin-sidebar" [class.sidebar-open]="sidebarOpen">
       <nav class="admin-nav">
         <button
           class="nav-item"
@@ -90,6 +93,15 @@
 
     <!-- Contenido Principal -->
     <div class="admin-content">
+      <!-- Botón para abrir/cerrar sidebar en móvil -->
+      <button 
+        class="mobile-sidebar-toggle" 
+        *ngIf="isMobile()" 
+        (click)="toggleSidebar()"
+        [title]="sidebarOpen ? 'Cerrar menú' : 'Abrir menú'">
+        <i class="bi" [ngClass]="sidebarOpen ? 'bi-x-lg' : 'bi-list'"></i>
+      </button>
+      
       <!-- Mensaje de Bienvenida -->
       <div class="welcome-section">
         <h1 class="welcome-title">
@@ -266,6 +278,11 @@
             <option value="">Todas las categorías</option>
             <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
           </select>
+          <select class="filter-select" [(ngModel)]="availabilityFilter">
+            <option value="all">Todos los productos</option>
+            <option value="available">Solo disponibles</option>
+            <option value="unavailable">Solo no disponibles</option>
+          </select>
         </div>
 
         <!-- Vista de Lista -->
@@ -285,7 +302,7 @@
               <tr *ngFor="let product of getFilteredProducts()">
                 <td>{{ product.id }}</td>
                 <td>{{ product.name }}</td>
-                <td>{{ product.categoryId }}</td>
+                <td>{{ getCategoryName(product.categoryId) }}</td>
                 <td>${{ product.price | number }}</td>
                 <td>
                   <span class="status-badge" [class.status-success]="product.available" [class.status-danger]="!product.available">
@@ -294,6 +311,9 @@
                 </td>
                 <td>
                   <div class="action-buttons">
+                    <button class="btn-icon-small" (click)="viewProductDetails(product)" title="Ver">
+                      <i class="bi bi-eye"></i>
+                    </button>
                     <button class="btn-icon-small" (click)="openProductModal(product)" title="Editar">
                       <i class="bi bi-pencil"></i>
                     </button>
@@ -334,9 +354,12 @@
                 <p class="product-description">{{ product.description }}</p>
                 <div class="product-category">
                   <i class="bi bi-folder"></i>
-                  <span>{{ product.categoryId }}</span>
+                  <span>{{ getCategoryName(product.categoryId) }}</span>
                 </div>
                 <div class="product-card-actions">
+                  <button class="btn-icon-small" (click)="viewProductDetails(product)" title="Ver">
+                    <i class="bi bi-eye"></i>
+                  </button>
                   <button class="btn-icon-small" (click)="openProductModal(product)" title="Editar">
                     <i class="bi bi-pencil"></i>
                   </button>
@@ -454,13 +477,9 @@
                   <div class="item-main-info">
                     <span class="item-name-admin">
                       {{ item.name }}
-                      <span class="unavailable-badge" *ngIf="item.unavailable">
-                        <i class="bi bi-exclamation-triangle me-1"></i>
-                        No Disponible
-                      </span>
                     </span>
-                    <span class="item-quantity-admin" *ngIf="!item.unavailable || item.quantity > 0">x{{ item.quantity }}</span>
-                    <span class="item-price-admin" *ngIf="!item.unavailable || item.quantity > 0">${{ (item.price * item.quantity) | number }}</span>
+                    <span class="item-quantity-admin">x{{ item.quantity }}</span>
+                    <span class="item-price-admin">${{ (item.price * item.quantity) | number }}</span>
                     <button class="btn-unavailable"
                             *ngIf="!item.unavailable && order.status !== 'delivered' && order.status !== 'cancelled'"
                             (click)="markItemAsUnavailable(order, item, itemIndex)"
@@ -666,16 +685,6 @@
                     <div>
                       <strong>Notificar al Cliente</strong>
                       <small>Marcar como no disponible y notificar al cliente</small>
-                    </div>
-                  </button>
-                </div>
-
-                <div class="action-option">
-                  <button class="action-option-btn" (click)="handleUnavailableItem('replace', 'Producto reemplazado')">
-                    <i class="bi bi-arrow-repeat"></i>
-                    <div>
-                      <strong>Reemplazar Producto</strong>
-                      <small>Reemplazar con otro producto similar</small>
                     </div>
                   </button>
                 </div>
@@ -1366,6 +1375,10 @@
               class="customer-search-input"
               placeholder="Buscar clientes por nombre, email o teléfono..."
               [(ngModel)]="customerSearchTerm" />
+            <button class="btn-primary" (click)="openAdminModal()" style="margin-left: 1rem;">
+              <i class="bi bi-person-plus me-2"></i>
+              Crear Admin
+            </button>
           </div>
         </div>
 
@@ -1399,6 +1412,14 @@
                     <i class="bi bi-calendar3"></i>
                     Última actividad: {{ formatDate(customer.lastOrderDate) }}
                   </div>
+                  <div class="customer-registered-date" *ngIf="!customer.lastOrderDate && customer.createdAt">
+                    <i class="bi bi-calendar3"></i>
+                    Registrado: {{ formatDate(customer.createdAt) }}
+                  </div>
+                  <div class="customer-registered-date" *ngIf="!customer.lastOrderDate && !customer.createdAt">
+                    <i class="bi bi-calendar3"></i>
+                    Sin actividad registrada
+                  </div>
                 </div>
               </div>
             </div>
@@ -1422,6 +1443,12 @@
               <button class="btn-primary" (click)="openCustomerModal(customer)">
                 <i class="bi bi-eye me-1"></i>
                 Ver Detalles
+              </button>
+              <button class="btn-icon-small" (click)="openCustomerModal(customer, true)" title="Editar">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn-icon-small btn-danger" (click)="deleteCustomer(customer)" title="Eliminar">
+                <i class="bi bi-trash"></i>
               </button>
             </div>
           </div>
@@ -1508,7 +1535,7 @@
               </div>
             </div>
 
-            <div class="customer-details-sections">
+            <div class="customer-details-sections" *ngIf="!isEditingCustomer">
               <div class="customer-details-section">
                 <h4 class="customer-details-section-title">
                   <i class="bi bi-info-circle"></i>
@@ -1534,6 +1561,14 @@
                   <div class="customer-detail-item" *ngIf="selectedCustomer.lastOrderDate">
                     <span class="customer-detail-label">Última Actividad</span>
                     <span class="customer-detail-value">{{ formatDate(selectedCustomer.lastOrderDate) }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="!selectedCustomer.lastOrderDate && selectedCustomer.createdAt">
+                    <span class="customer-detail-label">Fecha de Registro</span>
+                    <span class="customer-detail-value">{{ formatDate(selectedCustomer.createdAt) }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="!selectedCustomer.lastOrderDate && !selectedCustomer.createdAt">
+                    <span class="customer-detail-label">Última Actividad</span>
+                    <span class="customer-detail-value">Sin actividad registrada</span>
                   </div>
                 </div>
               </div>
@@ -1589,9 +1624,124 @@
                 </div>
               </div>
             </div>
+
+            <!-- Formulario de Edición -->
+            <div *ngIf="isEditingCustomer" class="customer-edit-form">
+              <h4 class="customer-details-section-title">
+                <i class="bi bi-pencil"></i>
+                Editar Cliente
+              </h4>
+              <form [formGroup]="customerForm" (ngSubmit)="saveCustomer()">
+                <div class="form-group">
+                  <label class="form-label">Nombre *</label>
+                  <input type="text" formControlName="name" class="form-control" />
+                  <div *ngIf="customerForm.get('name')?.invalid && customerForm.get('name')?.touched" class="text-danger">
+                    El nombre es requerido (mínimo 2 caracteres)
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Email *</label>
+                  <input type="email" formControlName="email" class="form-control" />
+                  <div *ngIf="customerForm.get('email')?.invalid && customerForm.get('email')?.touched" class="text-danger">
+                    El email es requerido y debe ser válido
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Teléfono *</label>
+                  <input type="text" formControlName="phone" class="form-control" />
+                  <div *ngIf="customerForm.get('phone')?.invalid && customerForm.get('phone')?.touched" class="text-danger">
+                    El teléfono es requerido
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Dirección</label>
+                  <input type="text" formControlName="address" class="form-control" />
+                </div>
+              </form>
+            </div>
           </div>
           <div class="modal-footer">
-            <button class="btn-outline" (click)="closeCustomerModal()">Cerrar</button>
+            <button *ngIf="!isEditingCustomer" class="btn-primary" (click)="openCustomerModal(selectedCustomer, true)">
+              <i class="bi bi-pencil me-2"></i>
+              Editar Cliente
+            </button>
+            <button *ngIf="!isEditingCustomer" class="btn-danger" (click)="deleteCustomer(selectedCustomer)">
+              <i class="bi bi-trash me-2"></i>
+              Eliminar Cliente
+            </button>
+            <button *ngIf="isEditingCustomer" type="button" class="btn-outline" (click)="closeCustomerModal()">Cancelar</button>
+            <button *ngIf="isEditingCustomer" type="submit" class="btn-primary" [disabled]="customerForm.invalid" (click)="saveCustomer()">
+              Guardar Cambios
+            </button>
+            <button *ngIf="!isEditingCustomer" class="btn-outline" (click)="closeCustomerModal()">Cerrar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal para Crear Admin -->
+      <div *ngIf="showAdminModal" class="modal-overlay" (click)="closeAdminModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Crear Nuevo Administrador</h3>
+            <button class="modal-close-btn" (click)="closeAdminModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form [formGroup]="adminForm" (ngSubmit)="createAdmin()">
+              <div class="form-group">
+                <label class="form-label">Nombre Completo *</label>
+                <input type="text" formControlName="name" class="form-control" />
+                <div *ngIf="adminForm.get('name')?.invalid && adminForm.get('name')?.touched" class="text-danger">
+                  El nombre es requerido (mínimo 2 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Email *</label>
+                <input type="email" formControlName="email" class="form-control" />
+                <div *ngIf="adminForm.get('email')?.invalid && adminForm.get('email')?.touched" class="text-danger">
+                  El email es requerido y debe ser válido
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Teléfono *</label>
+                <input type="text" formControlName="phone" class="form-control" placeholder="10 dígitos" />
+                <div *ngIf="adminForm.get('phone')?.invalid && adminForm.get('phone')?.touched" class="text-danger">
+                  El teléfono es requerido (10 dígitos)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Contraseña *</label>
+                <input type="password" formControlName="password" class="form-control" />
+                <div *ngIf="adminForm.get('password')?.invalid && adminForm.get('password')?.touched" class="text-danger">
+                  La contraseña debe tener al menos 8 caracteres, incluir mayúsculas, minúsculas y números
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Confirmar Contraseña *</label>
+                <input type="password" formControlName="confirmPassword" class="form-control" />
+                <div *ngIf="adminForm.get('confirmPassword')?.invalid && adminForm.get('confirmPassword')?.touched" class="text-danger">
+                  Las contraseñas deben coincidir
+                </div>
+                <div *ngIf="adminForm.hasError('passwordMismatch') && adminForm.get('confirmPassword')?.touched" class="text-danger">
+                  Las contraseñas no coinciden
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn-outline" (click)="closeAdminModal()">Cancelar</button>
+                <button type="submit" class="btn-primary" [disabled]="adminForm.invalid">
+                  Crear Administrador
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -1691,4 +1841,188 @@
                 <input type="number" formControlName="maxDeliveryDistance" class="form-control" min="1" />
               </div>
             </div>
-          </div>
+          </div>
+
+          <div class="settings-form-footer">
+            <button type="submit" class="btn-primary" [disabled]="settingsForm.invalid">
+              <i class="bi bi-save me-2"></i>
+              Guardar Configuración
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Modal de Producto -->
+      <div *ngIf="showProductModal" class="modal-overlay" (click)="closeProductModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>{{ isViewingProduct ? 'Ver Producto' : (selectedProduct ? 'Editar Producto' : 'Nuevo Producto') }}</h3>
+            <button class="modal-close-btn" (click)="closeProductModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form [formGroup]="productForm" (ngSubmit)="saveProduct()">
+              <div class="form-group">
+                <label class="form-label">Nombre *</label>
+                <input type="text" formControlName="name" class="form-control" />
+                <div *ngIf="productForm.get('name')?.invalid && productForm.get('name')?.touched" class="text-danger">
+                  El nombre es requerido (mínimo 3 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Descripción *</label>
+                <textarea formControlName="description" class="form-control" rows="3"></textarea>
+                <div *ngIf="productForm.get('description')?.invalid && productForm.get('description')?.touched" class="text-danger">
+                  La descripción es requerida (mínimo 10 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Precio *</label>
+                <input type="number" formControlName="price" class="form-control" min="1" step="100" />
+                <div *ngIf="productForm.get('price')?.invalid && productForm.get('price')?.touched" class="text-danger">
+                  El precio es requerido y debe ser mayor a 0
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Categoría *</label>
+                <select formControlName="categoryId" class="form-control">
+                  <option value="">Selecciona una categoría</option>
+                  <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
+                </select>
+                <div *ngIf="productForm.get('categoryId')?.invalid && productForm.get('categoryId')?.touched" class="text-danger">
+                  La categoría es requerida
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">URL de Imagen</label>
+                <input type="text" formControlName="imageUrl" class="form-control" placeholder="https://..." />
+              </div>
+
+              <div class="form-group">
+                <label class="form-check-label">
+                  <input type="checkbox" formControlName="available" class="form-check-input" />
+                  Disponible
+                </label>
+              </div>
+
+              <div class="modal-footer">
+                <button *ngIf="!isViewingProduct" type="button" class="btn-outline" (click)="closeProductModal()">Cancelar</button>
+                <button *ngIf="isViewingProduct" type="button" class="btn-primary" (click)="openProductModal(selectedProduct || undefined)">
+                  <i class="bi bi-pencil me-2"></i>
+                  Editar
+                </button>
+                <button *ngIf="!isViewingProduct" type="submit" class="btn-primary" [disabled]="productForm.invalid">
+                  {{ selectedProduct ? 'Actualizar' : 'Crear' }}
+                </button>
+                <button *ngIf="isViewingProduct" type="button" class="btn-outline" (click)="closeProductModal()">Cerrar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de Categoría -->
+      <div *ngIf="showCategoryModal" class="modal-overlay" (click)="closeCategoryModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>{{ selectedCategory ? 'Editar Categoría' : 'Nueva Categoría' }}</h3>
+            <button class="modal-close-btn" (click)="closeCategoryModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()">
+              <div class="form-group">
+                <label class="form-label">Nombre *</label>
+                <input type="text" formControlName="name" class="form-control" />
+                <div *ngIf="categoryForm.get('name')?.invalid && categoryForm.get('name')?.touched" class="text-danger">
+                  El nombre es requerido (mínimo 2 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Descripción *</label>
+                <textarea formControlName="description" class="form-control" rows="3"></textarea>
+                <div *ngIf="categoryForm.get('description')?.invalid && categoryForm.get('description')?.touched" class="text-danger">
+                  La descripción es requerida (mínimo 5 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">URL de Imagen</label>
+                <input type="text" formControlName="imageUrl" class="form-control" placeholder="https://..." />
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn-outline" (click)="closeCategoryModal()">Cancelar</button>
+                <button type="submit" class="btn-primary" [disabled]="categoryForm.invalid">
+                  {{ selectedCategory ? 'Actualizar' : 'Crear' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de Inventario/Insumo -->
+      <div *ngIf="showSupplyModal" class="modal-overlay" (click)="closeSupplyModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>{{ selectedSupply ? 'Editar Insumo' : 'Nuevo Insumo' }}</h3>
+            <button class="modal-close-btn" (click)="closeSupplyModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form [formGroup]="supplyForm" (ngSubmit)="saveSupply()">
+              <div class="form-group">
+                <label class="form-label">Nombre *</label>
+                <input type="text" formControlName="name" class="form-control" />
+                <div *ngIf="supplyForm.get('name')?.invalid && supplyForm.get('name')?.touched" class="text-danger">
+                  El nombre es requerido (mínimo 3 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Descripción *</label>
+                <textarea formControlName="description" class="form-control" rows="3"></textarea>
+                <div *ngIf="supplyForm.get('description')?.invalid && supplyForm.get('description')?.touched" class="text-danger">
+                  La descripción es requerida (mínimo 10 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Precio Unitario *</label>
+                <input type="number" formControlName="unit_price" class="form-control" min="0" step="100" />
+                <div *ngIf="supplyForm.get('unit_price')?.invalid && supplyForm.get('unit_price')?.touched" class="text-danger">
+                  El precio unitario es requerido y debe ser mayor o igual a 0
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Cantidad *</label>
+                <input type="number" formControlName="quantity" class="form-control" min="0" />
+                <div *ngIf="supplyForm.get('quantity')?.invalid && supplyForm.get('quantity')?.touched" class="text-danger">
+                  La cantidad es requerida y debe ser mayor o igual a 0
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn-outline" (click)="closeSupplyModal()">Cancelar</button>
+                <button type="submit" class="btn-primary" [disabled]="supplyForm.invalid">
+                  {{ selectedSupply ? 'Actualizar' : 'Crear' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+</section>

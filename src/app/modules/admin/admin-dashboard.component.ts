@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -22,6 +23,7 @@ import { ContactMessageFromBackend, ContactMessage } from '../../core/models/Con
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Meta, Title } from '@angular/platform-browser';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -52,6 +54,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   selectedProduct: MenuItem | null = null;
   showProductModal = false;
   productForm: FormGroup;
+  isViewingProduct = false;
   selectedCategory: MenuCategory | null = null;
   showCategoryModal = false;
   categoryForm: FormGroup;
@@ -69,6 +72,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   orderFilter: 'all' | 'pending' | 'preparing' | 'ready' | 'delivered' = 'all';
   searchTerm = '';
   categoryFilter = '';
+  availabilityFilter: 'all' | 'available' | 'unavailable' = 'all';
   productViewMode: 'grid' | 'list' = 'list';
   orderViewMode: 'list' | 'grid' = 'list';
   settingsForm!: FormGroup;
@@ -103,6 +107,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   customerFilter: 'all' | 'active' | 'inactive' = 'all';
   customerSearchTerm = '';
   customerViewMode: 'list' | 'grid' = 'list';
+  customerForm: FormGroup;
+  isEditingCustomer = false;
+
+  // Admins
+  showAdminModal = false;
+  adminForm: FormGroup;
   get pendingOrdersCount(): number {
     return this.orders.filter(o => o.status === 'pending').length;
   }
@@ -134,7 +144,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     private router: Router,
     private fb: FormBuilder,
     private notificationService: NotificationService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private http: HttpClient
   ) {
 
     this.title.setTitle('Admin Dashboard - PRESTEZA');
@@ -190,6 +201,23 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       unit_price: [0, [Validators.required, Validators.min(0)]],
       quantity: [0, [Validators.required, Validators.min(0)]]
     });
+
+    this.customerForm = this.fb.group({
+      name: ['', [Validators.required, Validators.minLength(2)]],
+      email: ['', [Validators.required, Validators.email]],
+      phone: ['', [Validators.required]],
+      address: ['']
+    });
+
+    // Formulario para crear nuevos admins
+    this.adminForm = this.fb.group({
+      name: ['', [Validators.required, Validators.minLength(2)]],
+      email: ['', [Validators.required, Validators.email]],
+      phone: ['', [Validators.required, Validators.pattern(/^[0-9]{10}$/)]],
+      password: ['', [Validators.required, Validators.minLength(8),
+        Validators.pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)]],
+      confirmPassword: ['', [Validators.required]]
+    }, { validators: this.adminPasswordMatchValidator });
   }
 
   ngOnInit(): void {
@@ -290,7 +318,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
 
   openProductModal(product?: MenuItem): void {
+    this.isViewingProduct = false;
     this.selectedProduct = product || null;
+    this.productForm.enable(); // Asegurar que el formulario esté habilitado para editar
     if (product) {
       this.productForm.patchValue({
         name: product.name,
@@ -308,10 +338,27 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.showProductModal = true;
   }
 
+  viewProductDetails(product: MenuItem): void {
+    this.isViewingProduct = true;
+    this.selectedProduct = product;
+    this.productForm.patchValue({
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      categoryId: product.categoryId,
+      imageUrl: product.imageUrl || '',
+      available: product.available
+    });
+    this.productForm.disable(); // Deshabilitar el formulario para solo ver
+    this.showProductModal = true;
+  }
+
   closeProductModal(): void {
     this.showProductModal = false;
     this.selectedProduct = null;
+    this.isViewingProduct = false;
     this.productForm.reset();
+    this.productForm.enable(); // Habilitar el formulario al cerrar
   }
 
   saveProduct(): void {
@@ -462,7 +509,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       );
     }
 
+    if (this.availabilityFilter === 'available') {
+      filtered = filtered.filter(p => p.available === true);
+    } else if (this.availabilityFilter === 'unavailable') {
+      filtered = filtered.filter(p => p.available === false || p.available === undefined);
+    }
+
     return filtered;
+  }
+
+  getCategoryName(categoryId: string): string {
+    const category = this.categories.find(c => c.id === categoryId);
+    return category ? category.name : categoryId;
   }
   getFilteredOrders(): Order[] {
     let filtered = this.orders;
@@ -732,7 +790,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.selectedItemForUnavailable = null;
   }
 
-  handleUnavailableItem(action: 'cancel' | 'notify' | 'replace', reason?: string, replacementId?: number): void {
+  handleUnavailableItem(action: 'cancel' | 'notify', reason?: string): void {
     if (!this.selectedItemForUnavailable) return;
 
     const { order, item, itemIndex } = this.selectedItemForUnavailable;
@@ -764,16 +822,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           unavailable: true,
           unavailableReason: reason || 'Producto no disponible temporalmente'
         };
-        break;
-      case 'replace':
-        if (replacementId) {
-          updatedItems[itemIndex] = {
-            ...item,
-            unavailable: true,
-            unavailableReason: reason || 'Producto reemplazado',
-            replacedWith: replacementId
-          };
-        }
         break;
     }
     this.orders[orderIndex] = {
@@ -892,13 +940,26 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   saveCategory(): void {
     if (this.categoryForm.valid) {
       const formValue = this.categoryForm.value;
+      const categoryName = formValue.name.trim();
+      
+      // El backend solo acepta name y description, no imageUrl
       const categoryData = {
-        name: formValue.name.trim(),
-        description: formValue.description.trim(),
-        imageUrl: formValue.imageUrl?.trim() || undefined
+        name: categoryName,
+        description: formValue.description.trim()
       };
 
       if (this.selectedCategory) {
+        // Al editar, verificar si el nuevo nombre ya existe en otra categoría
+        const existingCategory = this.categories.find(
+          cat => cat.id !== this.selectedCategory!.id && 
+          cat.name.toLowerCase().trim() === categoryName.toLowerCase()
+        );
+        
+        if (existingCategory) {
+          this.notificationService.showError('Ya existe una categoría con ese nombre. Por favor, elige otro nombre.');
+          return;
+        }
+        
         this.menuService.updateCategory(this.selectedCategory.id, categoryData).subscribe({
           next: () => {
             this.notificationService.showSuccess('Categoría actualizada correctamente');
@@ -915,6 +976,16 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           }
         });
       } else {
+        // Al crear, verificar si ya existe una categoría con el mismo nombre
+        const existingCategory = this.categories.find(
+          cat => cat.name.toLowerCase().trim() === categoryName.toLowerCase()
+        );
+        
+        if (existingCategory) {
+          this.notificationService.showError('Ya existe una categoría con ese nombre. Por favor, elige otro nombre.');
+          return;
+        }
+        
         this.menuService.createCategory(categoryData).subscribe({
           next: () => {
             this.notificationService.showSuccess('Categoría creada correctamente');
@@ -1024,14 +1095,27 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   saveSupply(): void {
     if (this.supplyForm.valid) {
       const formValue = this.supplyForm.value;
+      const supplyName = formValue.name.trim();
+      
       const supplyData: CreateSupplyDto | UpdateSupplyDto = {
-        name: formValue.name.trim(),
+        name: supplyName,
         description: formValue.description.trim(),
         unit_price: Number(formValue.unit_price),
         quantity: Number(formValue.quantity)
       };
 
       if (this.selectedSupply) {
+        // Al editar, verificar si el nuevo nombre ya existe en otro insumo
+        const existingSupply = this.supplies.find(
+          sup => (sup._id || sup.id) !== (this.selectedSupply!._id || this.selectedSupply!.id) && 
+          sup.name.toLowerCase().trim() === supplyName.toLowerCase()
+        );
+        
+        if (existingSupply) {
+          this.notificationService.showError('Ya existe un insumo con ese nombre. Por favor, elige otro nombre.');
+          return;
+        }
+        
         this.supplyService.update(this.selectedSupply._id || this.selectedSupply.id || '', supplyData).subscribe({
           next: () => {
             this.notificationService.showSuccess('Insumo actualizado correctamente');
@@ -1043,6 +1127,16 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           }
         });
       } else {
+        // Al crear, verificar si ya existe un insumo con el mismo nombre
+        const existingSupply = this.supplies.find(
+          sup => sup.name.toLowerCase().trim() === supplyName.toLowerCase()
+        );
+        
+        if (existingSupply) {
+          this.notificationService.showError('Ya existe un insumo con ese nombre. Por favor, elige otro nombre.');
+          return;
+        }
+        
         this.supplyService.create(supplyData as CreateSupplyDto).subscribe({
           next: () => {
             this.notificationService.showSuccess('Insumo creado correctamente');
@@ -1057,8 +1151,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  deleteSupply(id: string): void {
-    if (confirm('¿Estás seguro de que quieres eliminar este insumo?')) {
+  async deleteSupply(id: string): Promise<void> {
+    const confirmed = await this.notificationService.confirm(
+      'Eliminar Insumo',
+      '¿Estás seguro de que quieres eliminar este insumo? Esta acción no se puede deshacer.',
+      'Eliminar',
+      'Cancelar'
+    );
+
+    if (confirmed) {
       this.supplyService.remove(id).subscribe({
         next: () => {
           this.notificationService.showSuccess('Insumo eliminado correctamente');
@@ -1833,9 +1934,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return this.contactMessages.filter(m => !m.read).length;
   }
 
-  // Métodos para controlar el sidebar en móvil
+  // Métodos para controlar el sidebar en móvil y tablet
   isMobile(): boolean {
-    return window.innerWidth <= 768;
+    return window.innerWidth <= 1200;
   }
 
   toggleSidebar(): void {
@@ -1848,6 +1949,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   // Cerrar sidebar al cambiar de tab en móvil
   setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' | 'extras' | 'messages' | 'customers'): void {
+    // Cerrar sidebar en móvil al cambiar de tab
+    if (this.isMobile()) {
+      this.sidebarOpen = false;
+    }
     this.activeTab = tab;
     if (this.isMobile()) {
       this.closeSidebar();
@@ -1875,7 +1980,112 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   // Métodos para Clientes
   loadCustomers(): void {
-    // Extraer clientes únicos de pedidos y reservas
+    // Cargar clientes desde el backend
+    this.userService.getAllUsers().subscribe({
+      next: (response) => {
+        // El backend puede devolver los usuarios directamente o dentro de un objeto
+        let users: any[] = [];
+        if (Array.isArray(response)) {
+          users = response;
+        } else if (response && Array.isArray(response.users)) {
+          users = response.users;
+        } else if (response && Array.isArray(response.data)) {
+          users = response.data;
+        } else {
+          console.warn('Formato de respuesta inesperado del backend:', response);
+          this.loadCustomersFromOrders();
+          return;
+        }
+
+        console.log('Usuarios cargados del backend:', users.length);
+
+        // Mapear usuarios del backend y enriquecer con datos de pedidos y reservas
+        const customersMap = new Map<string, any>();
+
+        users.forEach(user => {
+          const userId = user._id || user.id || user.email;
+          
+          if (!userId) {
+            console.warn('Usuario sin ID válido:', user);
+            return;
+          }
+          
+          // Calcular estadísticas desde pedidos y reservas
+          const customerOrders = this.orders.filter(o => 
+            o.userName === user.complete_name || 
+            o.userName === user.name ||
+            o.deliveryPhone === user.phone_number ||
+            o.deliveryPhone === user.phone
+          );
+
+          const customerReservations = this.reservations.filter(r =>
+            r.userEmail === user.email ||
+            r.userName === user.complete_name ||
+            r.userName === user.name
+          );
+
+          const totalSpent = customerOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+          
+          // Calcular la última actividad real: considerar pedidos y reservas
+          let lastActivityDate: Date | null = null;
+          
+          // Obtener la fecha del último pedido
+          if (customerOrders.length > 0) {
+            const lastOrder = customerOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+            lastActivityDate = new Date(lastOrder.date);
+          }
+          
+          // Obtener la fecha de la última reserva y comparar
+          if (customerReservations.length > 0) {
+            const lastReservation = customerReservations.sort((a, b) => {
+              const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+              return dateB - dateA;
+            })[0];
+            
+            const reservationDate = lastReservation.createdAt ? new Date(lastReservation.createdAt) : null;
+            if (reservationDate) {
+              // Usar la fecha más reciente entre pedidos y reservas
+              if (!lastActivityDate || reservationDate > lastActivityDate) {
+                lastActivityDate = reservationDate;
+              }
+            }
+          }
+          
+          // Si no hay actividad, usar la fecha de creación del usuario
+          const lastOrderDate = lastActivityDate || (user.createdAt ? new Date(user.createdAt) : null);
+
+          customersMap.set(userId, {
+            id: userId,
+            name: user.complete_name || user.name || 'Cliente',
+            email: user.email || '',
+            phone: user.phone_number || user.phone || '',
+            address: user.address || '',
+            totalOrders: customerOrders.length,
+            totalReservations: customerReservations.length,
+            totalSpent: totalSpent,
+            lastOrderDate: lastOrderDate, // Puede ser null si no hay actividad
+            status: user.status || 'active',
+            role: user.role || 'customer',
+            createdAt: user.createdAt
+          });
+        });
+
+        this.customers = Array.from(customersMap.values());
+        this.stats.totalCustomers = this.customers.length;
+        console.log('Clientes mapeados:', this.customers.length);
+      },
+      error: (error) => {
+        console.error('Error al cargar clientes desde el backend:', error);
+        this.notificationService.showError('Error al cargar clientes desde el backend. Usando datos locales.');
+        // Fallback: extraer clientes de pedidos y reservas si falla el backend
+        this.loadCustomersFromOrders();
+      }
+    });
+  }
+
+  // Método de respaldo: cargar clientes desde pedidos y reservas
+  private loadCustomersFromOrders(): void {
     const customersMap = new Map<string, any>();
 
     // De pedidos
@@ -1954,14 +2164,143 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return filtered;
   }
 
-  openCustomerModal(customer: any): void {
+  openCustomerModal(customer: any, edit: boolean = false): void {
     this.selectedCustomer = customer;
+    this.isEditingCustomer = edit;
+    if (edit && customer) {
+      this.customerForm.patchValue({
+        name: customer.name || '',
+        email: customer.email || '',
+        phone: customer.phone || '',
+        address: customer.address || ''
+      });
+    } else {
+      this.customerForm.reset();
+    }
     this.showCustomerModal = true;
   }
 
   closeCustomerModal(): void {
     this.showCustomerModal = false;
     this.selectedCustomer = null;
+    this.isEditingCustomer = false;
+    this.customerForm.reset();
+  }
+
+  saveCustomer(): void {
+    if (this.customerForm.valid && this.selectedCustomer) {
+      const formValue = this.customerForm.value;
+      const updateData: any = {
+        complete_name: formValue.name.trim(),
+        email: formValue.email.trim(),
+        phone_number: formValue.phone.trim()
+      };
+      if (formValue.address) {
+        updateData.address = formValue.address.trim();
+      }
+
+      const customerId = this.selectedCustomer.id || this.selectedCustomer.email;
+      if (!customerId) {
+        this.notificationService.showError('Error: ID del cliente no válido');
+        return;
+      }
+
+      // Actualizar usando HttpClient directamente
+      this.http.patch<any>(`${environment.apiUrl}/users/${customerId}`, updateData).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Cliente actualizado correctamente');
+          this.closeCustomerModal();
+          this.loadCustomers();
+        },
+        error: (error) => {
+          let errorMessage = 'Error al actualizar el cliente. Por favor, intenta nuevamente.';
+          if (error.error && error.error.message) {
+            errorMessage = `Error: ${error.error.message}`;
+          }
+          this.notificationService.showError(errorMessage);
+        }
+      });
+    }
+  }
+
+  // Validator para el formulario de admin
+  adminPasswordMatchValidator(form: FormGroup) {
+    const password = form.get('password');
+    const confirmPassword = form.get('confirmPassword');
+    if (password && confirmPassword && password.value !== confirmPassword.value) {
+      confirmPassword.setErrors({ passwordMismatch: true });
+      return { passwordMismatch: true };
+    }
+    return null;
+  }
+
+  // Métodos para crear nuevos admins
+  openAdminModal(): void {
+    this.showAdminModal = true;
+    this.adminForm.reset();
+  }
+
+  closeAdminModal(): void {
+    this.showAdminModal = false;
+    this.adminForm.reset();
+  }
+
+  createAdmin(): void {
+    if (this.adminForm.valid) {
+      const formValue = this.adminForm.value;
+      const adminData = {
+        complete_name: formValue.name.trim(),
+        email: formValue.email.trim(),
+        phone_number: formValue.phone.trim(),
+        password: formValue.password,
+        role: 'admin'
+      };
+
+      this.authService.register(adminData).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Administrador creado correctamente');
+          this.closeAdminModal();
+          this.loadCustomers(); // Recargar para mostrar el nuevo admin en la lista
+        },
+        error: (error) => {
+          let errorMessage = 'Error al crear el administrador. Por favor, intenta nuevamente.';
+          if (error.error && error.error.message) {
+            errorMessage = `Error: ${error.error.message}`;
+          }
+          this.notificationService.showError(errorMessage);
+        }
+      });
+    }
+  }
+
+  async deleteCustomer(customer: any): Promise<void> {
+    const confirmed = await this.notificationService.confirm(
+      'Eliminar Cliente',
+      `¿Estás seguro de que deseas eliminar al cliente "${customer.name}"? Esta acción no se puede deshacer.`
+    );
+
+    if (confirmed) {
+      const customerId = customer.id || customer.email;
+      if (!customerId) {
+        this.notificationService.showError('Error: ID del cliente no válido');
+        return;
+      }
+
+      // Eliminar usando HttpClient directamente
+      this.http.delete<any>(`${environment.apiUrl}/users/${customerId}`).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Cliente eliminado correctamente');
+          this.loadCustomers();
+        },
+        error: (error) => {
+          let errorMessage = 'Error al eliminar el cliente. Por favor, intenta nuevamente.';
+          if (error.error && error.error.message) {
+            errorMessage = `Error: ${error.error.message}`;
+          }
+          this.notificationService.showError(errorMessage);
+        }
+      });
+    }
   }
 
   getCustomerInitials(name: string): string {

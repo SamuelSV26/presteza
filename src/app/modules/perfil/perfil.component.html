@@ -4,12 +4,22 @@
     <div class="hero-content-wrapper">
       <div class="profile-avatar-large">
         <div class="avatar-circle-large">
-          <img [src]="getAvatarImage()" [alt]="userProfile?.fullName || 'Usuario'" class="avatar-image" />
+          <img [src]="getAvatarImage()" [alt]="userProfile?.fullName || 'Usuario'" class="avatar-image" 
+               (error)="handleImageError($event)" />
+          <div class="avatar-badge">
+            <i class="bi bi-check-circle-fill"></i>
+          </div>
         </div>
       </div>
       <div class="hero-content">
         <h1 class="hero-title">{{ userProfile?.fullName || 'Mi Perfil' }}</h1>
         <p class="hero-subtitle">Gestiona tu cuenta y preferencias</p>
+        <div class="hero-stats" *ngIf="userProfile && orders.length > 0">
+          <div class="hero-stat-item">
+            <i class="bi bi-bag-check"></i>
+            <span>{{ orders.length }} {{ orders.length === 1 ? 'pedido' : 'pedidos' }}</span>
+          </div>
+        </div>
         <div *ngIf="!userProfile" class="alert alert-info mt-3">
           <i class="bi bi-info-circle me-2"></i>
           <strong>Modo de demostración:</strong> Mostrando datos de prueba
@@ -142,16 +152,6 @@
                 </div>
               </div>
               
-              <!-- Tarjeta de Miembro desde -->
-              <div class="profile-info-card" *ngIf="userProfile.memberSince">
-                <div class="profile-info-icon-wrapper date-icon">
-                  <i class="bi bi-calendar-check-fill"></i>
-                </div>
-                <div class="profile-info-content">
-                  <div class="profile-info-label">Miembro desde</div>
-                  <div class="profile-info-value">{{ formatDate(userProfile.memberSince) }}</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -177,99 +177,7 @@
               Agregar Primera Dirección
             </button>
           </div>
-          <!-- Grid para Desktop -->
-          <div *ngIf="addresses.length > 0" class="addresses-grid">
-            <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
-              <div class="address-card-header">
-                <div class="address-icon-wrapper">
-                  <i class="bi bi-geo-alt-fill"></i>
-                </div>
-                <div class="address-title-section">
-                  <h3 class="address-title">{{ address.title }}</h3>
-                  <span class="address-badge" *ngIf="address.isDefault">
-                    <i class="bi bi-star-fill"></i>
-                    Principal
-                  </span>
-                </div>
-              </div>
-              <div class="address-details">
-                <div class="address-detail-item">
-                  <i class="bi bi-geo-alt"></i>
-                  <span>{{ address.address }}</span>
-                </div>
-                <div class="address-detail-item" *ngIf="address.neighborhood">
-                  <i class="bi bi-pin-map"></i>
-                  <span>{{ address.neighborhood }}</span>
-                </div>
-                <div class="address-detail-item">
-                  <i class="bi bi-geo"></i>
-                  <span>{{ address.city }} - {{ address.postalCode }}</span>
-                </div>
-              </div>
-              <div class="address-actions">
-                <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
-                  <i class="bi bi-star"></i>
-                  <span>Principal</span>
-                </button>
-                <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
-                  <i class="bi bi-pencil"></i>
-                  <span>Editar</span>
-                </button>
-                <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
-                  <i class="bi bi-trash"></i>
-                  <span>Eliminar</span>
-                </button>
-              </div>
-            </div>
-          </div>
-          <!-- Scroll Horizontal para Móvil -->
-          <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
-            <div class="addresses-scroll-content">
-              <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
-                <div class="address-card-header">
-                  <div class="address-icon-wrapper">
-                    <i class="bi bi-geo-alt-fill"></i>
-                  </div>
-                  <div class="address-title-section">
-                    <h3 class="address-title">{{ address.title }}</h3>
-                    <span class="address-badge" *ngIf="address.isDefault">
-                      <i class="bi bi-star-fill"></i>
-                      Principal
-                    </span>
-                  </div>
-                </div>
-                <div class="address-details">
-                  <div class="address-detail-item">
-                    <i class="bi bi-geo-alt"></i>
-                    <span>{{ address.address }}</span>
-                  </div>
-                  <div class="address-detail-item" *ngIf="address.neighborhood">
-                    <i class="bi bi-pin-map"></i>
-                    <span>{{ address.neighborhood }}</span>
-                  </div>
-                  <div class="address-detail-item">
-                    <i class="bi bi-geo"></i>
-                    <span>{{ address.city }} - {{ address.postalCode }}</span>
-                  </div>
-                </div>
-                <div class="address-actions">
-                  <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
-                    <i class="bi bi-star"></i>
-                    <span>Principal</span>
-                  </button>
-                  <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
-                    <i class="bi bi-pencil"></i>
-                    <span>Editar</span>
-                  </button>
-                  <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
-                    <i class="bi bi-trash"></i>
-                    <span>Eliminar</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- Scroll Horizontal para Móvil -->
+          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
             <div class="addresses-scroll-content">
               <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
@@ -330,30 +238,7 @@
               <i class="bi bi-arrow-right ms-2"></i>
             </button>
           </div>
-          <!-- Grid para Desktop -->
-          <div class="dishes-grid">
-            <div *ngFor="let dish of recommendedDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
-              <div class="dish-image-wrapper">
-                <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'"
-                     [alt]="dish.name"
-                     class="dish-image" />
-                <div class="dish-overlay">
-                  <i class="bi bi-eye"></i>
-                </div>
-              </div>
-              <div class="dish-content">
-                <h3 class="dish-name">{{ dish.name }}</h3>
-                <p class="dish-description">{{ dish.description }}</p>
-                <div class="dish-footer">
-                  <span class="dish-price">${{ dish.price | number }}</span>
-                  <button class="dish-btn" (click)="navigateToProductDetail(dish.id, dish.categoryId); $event.stopPropagation()">
-                    <i class="bi bi-cart-plus"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- Scroll Horizontal para Móvil -->
+          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div class="dishes-scroll-wrapper">
             <div class="dishes-scroll-content">
               <div *ngFor="let dish of recommendedDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
@@ -396,33 +281,7 @@
               <i class="bi bi-arrow-right ms-2"></i>
             </button>
           </div>
-          <!-- Grid para Desktop -->
-          <div class="dishes-grid">
-            <div *ngFor="let dish of favoriteDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
-              <div class="dish-image-wrapper">
-                <div class="favorite-badge">
-                  <i class="bi bi-heart-fill"></i>
-                </div>
-                <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'"
-                     [alt]="dish.name"
-                     class="dish-image" />
-                <div class="dish-overlay">
-                  <i class="bi bi-eye"></i>
-                </div>
-              </div>
-              <div class="dish-content">
-                <h3 class="dish-name">{{ dish.name }}</h3>
-                <p class="dish-description">{{ dish.description }}</p>
-                <div class="dish-footer">
-                  <span class="dish-price">${{ dish.price | number }}</span>
-                  <button class="dish-btn" (click)="navigateToProductDetail(dish.id, dish.categoryId); $event.stopPropagation()">
-                    <i class="bi bi-cart-plus"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- Scroll Horizontal para Móvil -->
+          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div class="dishes-scroll-wrapper">
             <div class="dishes-scroll-content">
               <div *ngFor="let dish of favoriteDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
@@ -540,11 +399,15 @@
 
               <!-- Vista de Lista - Items completos -->
               <div class="order-items" *ngIf="orderViewMode === 'list'">
-                <div *ngFor="let item of order.items" class="order-item">
+                <div *ngFor="let item of order.items" class="order-item" [class.item-unavailable]="item.unavailable">
                   <div class="item-main">
                     <span class="item-name">{{ item.name }}</span>
-                    <span class="item-quantity">x{{ item.quantity }}</span>
-                    <span class="item-price">${{ (item.price * item.quantity) | number }}</span>
+                    <span class="item-quantity" *ngIf="!item.unavailable || item.quantity > 0">x{{ item.quantity }}</span>
+                    <span class="item-price" *ngIf="!item.unavailable || item.quantity > 0">${{ (item.price * item.quantity) | number }}</span>
+                  </div>
+                  <div class="unavailable-notice" *ngIf="item.unavailable && item.unavailableReason">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span><strong>Producto no disponible:</strong> {{ item.unavailableReason }}</span>
                   </div>
                   <div class="item-options" *ngIf="item.selectedOptions && item.selectedOptions.length > 0">
                     <small *ngFor="let option of item.selectedOptions" class="option-tag">
@@ -579,13 +442,68 @@
               </div>
 
               <div class="order-details" *ngIf="isOrderExpanded(order)">
+                <!-- Items del pedido - SIEMPRE mostrar -->
+                <div class="details-section-title" *ngIf="order.items && order.items.length > 0">
+                  <h4>Productos pedidos:</h4>
+                </div>
+                <div class="order-items-details" *ngIf="order.items && order.items.length > 0">
+                  <div *ngFor="let item of order.items" class="order-item-detail" [class.item-detail-unavailable]="item.unavailable">
+                    <div class="item-detail-main">
+                      <span class="item-detail-name">{{ item.name || 'Producto sin nombre' }}</span>
+                      <span class="item-detail-quantity" *ngIf="!item.unavailable || item.quantity > 0">x{{ item.quantity || 1 }}</span>
+                      <span class="item-detail-price" *ngIf="!item.unavailable || item.quantity > 0">${{ ((item.price || 0) * (item.quantity || 1)) | number }}</span>
+                    </div>
+                    <div class="unavailable-notice-detail" *ngIf="item.unavailable && item.unavailableReason">
+                      <i class="bi bi-exclamation-triangle-fill"></i>
+                      <span><strong>Producto no disponible:</strong> {{ item.unavailableReason }}</span>
+                    </div>
+                    <div class="item-detail-options" *ngIf="item.selectedOptions && item.selectedOptions.length > 0">
+                      <small *ngFor="let option of item.selectedOptions" class="option-detail-tag">
+                        <span class="option-detail-name">{{ option.name }}</span>
+                        <span class="option-detail-price" *ngIf="option.price > 0">+${{ option.price | number }}</span>
+                      </small>
+                    </div>
+                    <div class="item-detail-notes" *ngIf="item.notes">
+                      <small><i class="bi bi-chat-left-text me-1"></i>{{ item.notes }}</small>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Información del pedido -->
+                <div class="details-section-title">
+                  <h4>Información del pedido:</h4>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Fecha del pedido:</span>
+                  <span class="detail-value">{{ formatDate(order.date) }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.trackingCode">
+                  <span class="detail-label">Código de seguimiento:</span>
+                  <span class="detail-value">{{ order.trackingCode }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.paymentMethod">
+                  <span class="detail-label">Método de pago:</span>
+                  <span class="detail-value">{{ getPaymentMethodName(order.paymentMethod) }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.items && order.items.length > 0">
+                  <span class="detail-label">Cantidad de items:</span>
+                  <span class="detail-value">{{ order.items.length }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.subtotal !== undefined && order.subtotal !== null">
+                  <span class="detail-label">Subtotal:</span>
+                  <span class="detail-value">${{ order.subtotal | number }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.additionalFees !== undefined && order.additionalFees !== null && order.additionalFees > 0">
+                  <span class="detail-label">Costos adicionales:</span>
+                  <span class="detail-value">${{ order.additionalFees | number }}</span>
+                </div>
                 <div class="detail-row" *ngIf="order.orderType">
                   <span class="detail-label">Tipo de pedido:</span>
                   <span class="detail-value">{{ order.orderType === 'delivery' ? 'Entrega a Domicilio' : 'Recoger en Restaurante' }}</span>
                 </div>
                 <div class="detail-row" *ngIf="order.deliveryAddress">
                   <span class="detail-label">Dirección:</span>
-                  <span class="detail-value">{{ order.deliveryAddress }}, {{ order.deliveryNeighborhood || '' }}</span>
+                  <span class="detail-value">{{ order.deliveryAddress }}{{ order.deliveryNeighborhood ? ', ' + order.deliveryNeighborhood : '' }}</span>
                 </div>
                 <div class="detail-row" *ngIf="order.deliveryPhone">
                   <span class="detail-label">Teléfono:</span>
@@ -594,18 +512,6 @@
                 <div class="detail-row" *ngIf="order.deliveryInstructions">
                   <span class="detail-label">Instrucciones:</span>
                   <span class="detail-value">{{ order.deliveryInstructions }}</span>
-                </div>
-                <div class="detail-row" *ngIf="order.paymentMethod">
-                  <span class="detail-label">Método de pago:</span>
-                  <span class="detail-value">{{ getPaymentMethodName(order.paymentMethod) }}</span>
-                </div>
-                <div class="detail-row" *ngIf="order.subtotal">
-                  <span class="detail-label">Subtotal:</span>
-                  <span class="detail-value">${{ order.subtotal | number }}</span>
-                </div>
-                <div class="detail-row" *ngIf="order.additionalFees">
-                  <span class="detail-label">Costos adicionales:</span>
-                  <span class="detail-value">${{ order.additionalFees | number }}</span>
                 </div>
                 <div class="detail-row" *ngIf="order.estimatedPrepTime">
                   <span class="detail-label">Tiempo estimado de preparación:</span>
@@ -657,52 +563,7 @@
             <h3>No tienes direcciones guardadas</h3>
             <p>Agrega una dirección para facilitar tus pedidos</p>
           </div>
-          <!-- Grid para Desktop -->
-          <div *ngIf="addresses.length > 0" class="addresses-grid">
-            <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
-              <div class="address-card-header">
-                <div class="address-icon-wrapper">
-                  <i class="bi bi-geo-alt-fill"></i>
-                </div>
-                <div class="address-title-section">
-                  <h3 class="address-title">{{ address.title }}</h3>
-                  <span class="address-badge" *ngIf="address.isDefault">
-                    <i class="bi bi-star-fill"></i>
-                    Principal
-                  </span>
-                </div>
-              </div>
-              <div class="address-details">
-                <div class="address-detail-item">
-                  <i class="bi bi-geo-alt"></i>
-                  <span>{{ address.address }}</span>
-                </div>
-                <div class="address-detail-item" *ngIf="address.neighborhood">
-                  <i class="bi bi-pin-map"></i>
-                  <span>{{ address.neighborhood }}</span>
-                </div>
-                <div class="address-detail-item">
-                  <i class="bi bi-geo"></i>
-                  <span>{{ address.city }} - {{ address.postalCode }}</span>
-                </div>
-              </div>
-              <div class="address-actions">
-                <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
-                  <i class="bi bi-star"></i>
-                  <span>Principal</span>
-                </button>
-                <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
-                  <i class="bi bi-pencil"></i>
-                  <span>Editar</span>
-                </button>
-                <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
-                  <i class="bi bi-trash"></i>
-                  <span>Eliminar</span>
-                </button>
-              </div>
-            </div>
-          </div>
-          <!-- Scroll Horizontal para Móvil -->
+          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
             <div class="addresses-scroll-content">
               <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">

@@ -11,8 +11,9 @@
 
       <a class="account-btn header-account-btn" role="button" (click)="onAccountClick($event)">
         <i class="bi bi-person-circle"></i>
-        <span *ngIf="userName">{{ userName }}</span>
-        <span *ngIf="!userName">MI CUENTA</span>
+        <span *ngIf="isAuthenticated && isAdmin">ADMIN</span>
+        <span *ngIf="isAuthenticated && !isAdmin && userName">{{ userName }}</span>
+        <span *ngIf="!isAuthenticated">MI CUENTA</span>
       </a>
 
       <!-- Dropdown del Usuario Autenticado -->

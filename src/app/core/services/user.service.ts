@@ -19,6 +19,30 @@ export class UserService {
   userProfile$ = this.userProfileSubject.asObservable();
   private apiUrl = `${environment.apiUrl}/users`;
 
+  // Obtener todos los usuarios (solo para admins)
+  getAllUsers(): Observable<any> {
+    return this.http.get<any>(this.apiUrl).pipe(
+      map((response: any) => {
+        // Manejar diferentes formatos de respuesta del backend
+        if (Array.isArray(response)) {
+          return response;
+        } else if (response && Array.isArray(response.users)) {
+          return response.users;
+        } else if (response && Array.isArray(response.data)) {
+          return response.data;
+        } else {
+          console.warn('Formato de respuesta inesperado:', response);
+          return [];
+        }
+      }),
+      catchError((error: HttpErrorResponse) => {
+        console.error('Error al obtener usuarios:', error);
+        const appError = this.errorHandler.handleHttpError(error);
+        return throwError(() => appError);
+      })
+    );
+  }
+
   constructor(
     private http: HttpClient,
     private errorHandler: ErrorHandlerService
@@ -72,6 +96,16 @@ export class UserService {
               }
             } catch (e) {
               console.error('Error al actualizar fecha de registro en perfil guardado:', e);
+            }
+          }
+
+          // Asegurar que el teléfono esté presente (buscar en userPhone si no está en el perfil)
+          if (!storedProfile.phone || storedProfile.phone === '') {
+            const phoneFromStorage = localStorage.getItem('userPhone');
+            if (phoneFromStorage) {
+              storedProfile.phone = phoneFromStorage;
+              // Guardar el perfil actualizado con el teléfono
+              localStorage.setItem(`userProfile_${userId}`, JSON.stringify(storedProfile));
             }
           }
 
@@ -167,11 +201,23 @@ export class UserService {
           }
 
           // Mapear la respuesta del backend al formato UserProfile
+          // Obtener el teléfono del backend con múltiples posibles campos
+          const backendPhone = response.phone_number || response.phone || response.phoneNumber || response.telefono || '';
+          // Si el backend no tiene teléfono, intentar obtenerlo de localStorage
+          const phoneFromStorage = localStorage.getItem('userPhone') || '';
+          // Priorizar el teléfono del backend, pero usar el de localStorage si el backend no lo tiene
+          const finalPhone = backendPhone || phoneFromStorage;
+          
+          // SIEMPRE guardar el teléfono en localStorage si existe (para persistencia)
+          if (finalPhone) {
+            localStorage.setItem('userPhone', finalPhone);
+          }
+
           const backendProfile: UserProfile = {
             id: response._id || response.id || userId,
             fullName: response.complete_name || response.fullName || response.name || userInfo.name || 'Usuario',
             email: response.email || userInfo.email || '',
-            phone: response.phone_number || response.phone || localStorage.getItem('userPhone') || '',
+            phone: finalPhone,
             memberSince: registrationDate, // SIEMPRE usar la fecha de registro original
             preferences: {
               notifications: response.preferences?.notifications ?? true,
@@ -201,6 +247,17 @@ export class UserService {
               // Si no hay fecha guardada, usar la fecha actual (solo para usuarios nuevos)
               storedProfile.memberSince = new Date();
             }
+            
+            // Asegurar que el teléfono esté presente (buscar en userPhone si no está en el perfil)
+            if (!storedProfile.phone || storedProfile.phone === '') {
+              const phoneFromStorage = localStorage.getItem('userPhone');
+              if (phoneFromStorage) {
+                storedProfile.phone = phoneFromStorage;
+                // Guardar el perfil actualizado con el teléfono
+                localStorage.setItem(`userProfile_${userId}`, JSON.stringify(storedProfile));
+              }
+            }
+            
             this.userProfileSubject.next(storedProfile);
             return of(storedProfile);
           }
@@ -242,7 +299,7 @@ export class UserService {
     this.userProfileSubject.next(profile);
   }
 
-  updateUserProfile(updates: Partial<UserProfile>): void {
+  updateUserProfile(updates: Partial<UserProfile>): Observable<UserProfile> {
     let currentProfile = this.userProfileSubject.value;
 
     if (!currentProfile) {
@@ -286,6 +343,11 @@ export class UserService {
       };
     }
 
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return throwError(() => new Error('No se encontró información del usuario'));
+    }
+
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
@@ -298,8 +360,16 @@ export class UserService {
       const updateData: any = {};
       if (updates.fullName) updateData.complete_name = updates.fullName;
       if (updates.email) updateData.email = updates.email;
-      if (updates.phone) updateData.phone_number = updates.phone;
+      // IMPORTANTE: Siempre enviar phone_number si existe, incluso si es una cadena vacía
+      if (updates.phone !== undefined && updates.phone !== null) {
+        updateData.phone_number = updates.phone;
+      }
       if (updates.preferences) updateData.preferences = updates.preferences;
+      
+      // Guardar el teléfono en localStorage ANTES de enviar al backend (para tenerlo disponible)
+      if (updates.phone) {
+        localStorage.setItem('userPhone', updates.phone);
+      }
 
       // Hacer la petición al backend usando el ID del usuario
       return this.http.patch<any>(`${this.apiUrl}/${userId}`, updateData).pipe(
@@ -326,11 +396,30 @@ export class UserService {
             registrationDate = new Date();
           }
 
+          // Obtener el teléfono con prioridad: actualización > respuesta del backend > perfil actual > localStorage
+          // IMPORTANTE: Si el usuario está actualizando, priorizar el teléfono que está enviando
+          const updatePhone = updates.phone || '';
+          const backendPhone = response.phone_number || response.phone || response.phoneNumber || response.telefono || '';
+          const currentPhone = currentProfile?.phone || '';
+          const storagePhone = localStorage.getItem('userPhone') || '';
+          
+          // Prioridad: update (lo que el usuario está enviando) > backend > current > storage
+          // Si el usuario envió un teléfono, usarlo siempre (incluso si el backend no lo devuelve)
+          const finalPhone = updatePhone || backendPhone || currentPhone || storagePhone;
+          
+          // SIEMPRE guardar el teléfono en localStorage si existe (para persistencia)
+          // Priorizar el teléfono que el usuario está enviando
+          if (updatePhone) {
+            localStorage.setItem('userPhone', updatePhone);
+          } else if (finalPhone) {
+            localStorage.setItem('userPhone', finalPhone);
+          }
+
           const updatedProfile: UserProfile = {
             id: response._id || response.id || userId,
             fullName: response.complete_name || response.fullName || response.name || updates.fullName || currentProfile?.fullName || 'Usuario',
             email: response.email || updates.email || currentProfile?.email || userInfo.email || '',
-            phone: response.phone_number || response.phone || updates.phone || currentProfile?.phone || '',
+            phone: finalPhone,
             memberSince: registrationDate,
             preferences: response.preferences || updates.preferences || currentProfile?.preferences || {
               notifications: true,
@@ -349,19 +438,34 @@ export class UserService {
             localStorage.setItem('userPhone', updatedProfile.phone);
           }
 
-          // Actualizar userInfo en localStorage si cambió el nombre o email
-          if (updatedProfile.fullName !== userInfo.name || updatedProfile.email !== userInfo.email) {
-            const updatedUserInfo = {
-              ...userInfo,
-              name: updatedProfile.fullName,
-              email: updatedProfile.email
-            };
-            localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
-            window.dispatchEvent(new CustomEvent('userInfoUpdated'));
-          } else {
-            // Disparar evento incluso si solo cambió el teléfono
-            window.dispatchEvent(new CustomEvent('userInfoUpdated'));
+          // Actualizar userInfo en localStorage si cambió el nombre, email o teléfono
+          const userInfoStr = localStorage.getItem('userInfo');
+          if (userInfoStr) {
+            try {
+              const currentUserInfo = JSON.parse(userInfoStr);
+              const needsUpdate = 
+                updatedProfile.fullName !== currentUserInfo.name || 
+                updatedProfile.email !== currentUserInfo.email ||
+                (updatedProfile.phone && updatedProfile.phone !== currentUserInfo.phone);
+              
+              if (needsUpdate) {
+                const updatedUserInfo = {
+                  ...currentUserInfo,
+                  name: updatedProfile.fullName,
+                  email: updatedProfile.email
+                };
+                if (updatedProfile.phone) {
+                  updatedUserInfo.phone = updatedProfile.phone;
+                }
+                localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+              }
+            } catch (e) {
+              console.error('Error al actualizar userInfo:', e);
+            }
           }
+          
+          // Disparar evento para actualizar la UI
+          window.dispatchEvent(new CustomEvent('userInfoUpdated'));
 
           return updatedProfile;
         }),
@@ -418,6 +522,20 @@ export class UserService {
           // Guardar el teléfono en localStorage también en el fallback
           if (updatedProfile.phone) {
             localStorage.setItem('userPhone', updatedProfile.phone);
+            // También actualizar en userInfo si existe
+            const userInfoStr = localStorage.getItem('userInfo');
+            if (userInfoStr) {
+              try {
+                const currentUserInfo = JSON.parse(userInfoStr);
+                const updatedUserInfo = {
+                  ...currentUserInfo,
+                  phone: updatedProfile.phone
+                };
+                localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+              } catch (e) {
+                console.error('Error al actualizar userInfo con teléfono:', e);
+              }
+            }
           }
 
           // Disparar evento para actualizar la UI
@@ -617,9 +735,20 @@ export class UserService {
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
+      const email = userInfo.email;
 
-      // Retornar direcciones asociadas al usuario actual
-      const storedAddresses = localStorage.getItem(`userAddresses_${userId}`);
+      // Buscar direcciones con userId
+      let storedAddresses = localStorage.getItem(`userAddresses_${userId}`);
+      
+      // Si no se encuentra, buscar con email
+      if (!storedAddresses && email && email !== userId) {
+        storedAddresses = localStorage.getItem(`userAddresses_${email}`);
+        // Si se encuentra con email, migrar a userId para consistencia
+        if (storedAddresses) {
+          localStorage.setItem(`userAddresses_${userId}`, storedAddresses);
+        }
+      }
+
       if (storedAddresses) {
         return of(JSON.parse(storedAddresses));
       }
@@ -677,9 +806,20 @@ export class UserService {
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
+      const email = userInfo.email;
 
-      // Retornar métodos de pago asociados al usuario actual
-      const storedMethods = localStorage.getItem(`userPaymentMethods_${userId}`);
+      // Buscar métodos de pago con userId
+      let storedMethods = localStorage.getItem(`userPaymentMethods_${userId}`);
+      
+      // Si no se encuentra, buscar con email
+      if (!storedMethods && email && email !== userId) {
+        storedMethods = localStorage.getItem(`userPaymentMethods_${email}`);
+        // Si se encuentra con email, migrar a userId para consistencia
+        if (storedMethods) {
+          localStorage.setItem(`userPaymentMethods_${userId}`, storedMethods);
+        }
+      }
+
       if (storedMethods) {
         return of(JSON.parse(storedMethods));
       }
@@ -767,10 +907,21 @@ export class UserService {
 
     try {
       const userInfo = JSON.parse(userInfoStr);
-      const userId = userInfo.userId || userInfo.email; // Usar userId o email como identificador
+      const userId = userInfo.userId || userInfo.email;
+      const email = userInfo.email;
 
-      // Retornar IDs de platos favoritos asociados al usuario actual
-      const storedFavorites = localStorage.getItem(`userFavoriteDishes_${userId}`);
+      // Buscar favoritos con userId
+      let storedFavorites = localStorage.getItem(`userFavoriteDishes_${userId}`);
+      
+      // Si no se encuentra, buscar con email
+      if (!storedFavorites && email && email !== userId) {
+        storedFavorites = localStorage.getItem(`userFavoriteDishes_${email}`);
+        // Si se encuentra con email, migrar a userId para consistencia
+        if (storedFavorites) {
+          localStorage.setItem(`userFavoriteDishes_${userId}`, storedFavorites);
+        }
+      }
+
       if (storedFavorites) {
         return of(JSON.parse(storedFavorites));
       }
