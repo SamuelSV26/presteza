@@ -358,6 +358,7 @@ constructor(
         userId: payload.userId || payload.sub,
         email: payload.email,
         name: payload.name,
+        phone: payload.phone,
         role: role
       };
       const oldUserInfoStr = localStorage.getItem('userInfo');
@@ -373,9 +374,28 @@ constructor(
         localStorage.removeItem('userProfile');
       }
       localStorage.setItem('userInfo', JSON.stringify(userInfo));
-      if (payload.phone || payload.phone_number) {
-        localStorage.setItem('userPhone', payload.phone || payload.phone_number);
+      
+      // Guardar el teléfono del token (priorizar phone_number que es lo que envía el backend)
+      const phoneNumber = payload.phone_number || payload.phone;
+      if (phoneNumber) {
+        localStorage.setItem('userPhone', phoneNumber);
+        // También actualizar el perfil si ya existe
+        if (newUserId) {
+          const existingProfileStr = localStorage.getItem(`userProfile_${newUserId}`);
+          if (existingProfileStr) {
+            try {
+              const existingProfile = JSON.parse(existingProfileStr);
+              if (!existingProfile.phone || existingProfile.phone === '' || existingProfile.phone === 'No especificado') {
+                existingProfile.phone = phoneNumber;
+                localStorage.setItem(`userProfile_${newUserId}`, JSON.stringify(existingProfile));
+              }
+            } catch (e) {
+              console.error('Error al actualizar perfil con teléfono del token:', e);
+            }
+          }
+        }
       }
+      
       this.userInfoSubject.next(userInfo);
       window.dispatchEvent(new CustomEvent('userInfoUpdated', { detail: userInfo }));
     }

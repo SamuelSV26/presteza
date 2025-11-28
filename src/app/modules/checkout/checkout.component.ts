@@ -200,9 +200,11 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.savedAddresses = addresses;
       const defaultAddress = addresses.find(a => a.isDefault);
       if (defaultAddress && this.orderType === 'delivery') {
-        this.selectedSavedAddress = defaultAddress.id;
-        this.useSavedAddress = true;
-        this.loadSavedAddressData(defaultAddress);
+        if (defaultAddress.id) {
+          this.selectedSavedAddress = defaultAddress.id;
+          this.useSavedAddress = true;
+          this.loadSavedAddressData(defaultAddress);
+        }
       }
     });
   }
@@ -221,7 +223,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.deliveryForm.get('neighborhood')?.updateValueAndValidity();
   }
 
-  onSavedAddressSelect(addressId: string): void {
+  onSavedAddressSelect(addressId: string | undefined): void {
+    if (!addressId) {
+      return;
+    }
     const address = this.savedAddresses.find(a => a.id === addressId);
     if (address) {
       this.selectedSavedAddress = addressId;
@@ -274,7 +279,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       if (this.savedAddresses.length > 0 && !this.selectedSavedAddress) {
         const defaultAddress = this.savedAddresses.find(a => a.isDefault);
         if (defaultAddress) {
-          this.onSavedAddressSelect(defaultAddress.id);
+          if (defaultAddress.id) {
+            this.onSavedAddressSelect(defaultAddress.id);
+          }
         } else {
           if (!this.useSavedAddress) {
             this.deliveryForm.get('address')?.setValidators([Validators.required]);

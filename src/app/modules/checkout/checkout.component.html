@@ -58,9 +58,9 @@
                     <input
                       type="radio"
                       name="savedAddress"
-                      [value]="savedAddress.id"
+                      [value]="savedAddress.id || ''"
                       [checked]="selectedSavedAddress === savedAddress.id"
-                      (change)="onSavedAddressSelect(savedAddress.id)"
+                      (change)="onSavedAddressSelect(savedAddress.id || undefined)"
                     />
                     <div class="saved-address-content">
                       <div class="saved-address-icon">

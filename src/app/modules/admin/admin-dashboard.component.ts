@@ -1838,19 +1838,23 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   loadContactMessages(): void {
     this.contactService.findAll().subscribe({
       next: (messages) => {
+        // El servicio ya devuelve ContactMessageFromBackend[], solo necesitamos mapear a ContactMessage
         this.contactMessages = messages.map(m => this.contactService.mapBackendMessageToFrontend(m));
         this.contactMessages.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          const dateA = a.createdAt ? (a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime()) : 0;
+          const dateB = b.createdAt ? (b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime()) : 0;
           return dateB - dateA;
         });
         this.calculateMessageStats();
       },
       error: (error) => {
         console.error('Error loading contact messages:', error);
+        // Solo mostrar error si no es un error de conexión o 404 (no hay mensajes)
+        if (error?.status !== 404 && error?.status !== 0) {
+          this.notificationService.showError('Error al cargar los mensajes de contacto');
+        }
         this.contactMessages = [];
         this.calculateMessageStats();
-        this.notificationService.showError('Error al cargar los mensajes de contacto');
       }
     });
   }
@@ -1895,8 +1899,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.selectedMessage = null;
   }
 
-  deleteMessage(message: ContactMessage): void {
-    if (confirm('¿Estás seguro de que deseas eliminar este mensaje?')) {
+  async deleteMessage(message: ContactMessage): Promise<void> {
+    const confirmed = await this.notificationService.confirm(
+      'Eliminar Mensaje',
+      `¿Estás seguro de que deseas eliminar el mensaje "${message.subject}"? Esta acción no se puede deshacer.`,
+      'Eliminar',
+      'Cancelar'
+    );
+
+    if (confirmed) {
       this.contactService.remove(message.id).subscribe({
         next: () => {
           this.contactMessages = this.contactMessages.filter(m => m.id !== message.id);

@@ -100,13 +100,16 @@ export class UserService {
           }
 
           // Asegurar que el teléfono esté presente (buscar en userPhone si no está en el perfil)
-          if (!storedProfile.phone || storedProfile.phone === '') {
-            const phoneFromStorage = localStorage.getItem('userPhone');
-            if (phoneFromStorage) {
-              storedProfile.phone = phoneFromStorage;
-              // Guardar el perfil actualizado con el teléfono
-              localStorage.setItem(`userProfile_${userId}`, JSON.stringify(storedProfile));
-            }
+          // Priorizar el teléfono del token sobre el del perfil guardado
+          const phoneFromStorage = localStorage.getItem('userPhone');
+          if (phoneFromStorage && (!storedProfile.phone || storedProfile.phone === '' || storedProfile.phone === 'No especificado')) {
+            storedProfile.phone = phoneFromStorage;
+            // Guardar el perfil actualizado con el teléfono
+            localStorage.setItem(`userProfile_${userId}`, JSON.stringify(storedProfile));
+          } else if (phoneFromStorage && storedProfile.phone !== phoneFromStorage) {
+            // Si el teléfono del token es diferente, actualizarlo (el token es la fuente de verdad)
+            storedProfile.phone = phoneFromStorage;
+            localStorage.setItem(`userProfile_${userId}`, JSON.stringify(storedProfile));
           }
 
           this.userProfileSubject.next( storedProfile );
@@ -131,11 +134,14 @@ export class UserService {
       // Si no hay fecha guardada, será null y se establecerá cuando se obtenga del backend
       // o cuando se cree el perfil por primera vez
 
+      // Obtener el teléfono del token (prioridad sobre cualquier otro valor)
+      const phoneFromToken = localStorage.getItem('userPhone') || '';
+      
       const defaultProfile: UserProfile = {
         id: userId,
         fullName: userInfo.name || 'Usuario',
         email: userInfo.email || '',
-        phone: localStorage.getItem('userPhone') || '',
+        phone: phoneFromToken,
         memberSince: registrationDate || new Date(), // Usar fecha guardada o fecha actual (solo para usuarios nuevos)
         preferences: {
           notifications: true,
@@ -726,7 +732,6 @@ export class UserService {
   }
 
   getAddresses(): Observable<Address[]> {
-    // Obtener el userId del usuario actual
     const userInfoStr = localStorage.getItem('userInfo');
     if (!userInfoStr) {
       return of([]);
@@ -735,64 +740,334 @@ export class UserService {
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      const email = userInfo.email;
 
-      // Buscar direcciones con userId
-      let storedAddresses = localStorage.getItem(`userAddresses_${userId}`);
-      
-      // Si no se encuentra, buscar con email
-      if (!storedAddresses && email && email !== userId) {
-        storedAddresses = localStorage.getItem(`userAddresses_${email}`);
-        // Si se encuentra con email, migrar a userId para consistencia
-        if (storedAddresses) {
-          localStorage.setItem(`userAddresses_${userId}`, storedAddresses);
-        }
-      }
+      // Obtener direcciones del backend (el apiUrl ya incluye /users)
+      return this.http.get<any>(`${this.apiUrl}/${userId}`).pipe(
+        map(response => {
+          // El backend puede devolver diferentes formatos
+          let backendAddresses: any[] = [];
 
-      if (storedAddresses) {
-        return of(JSON.parse(storedAddresses));
-      }
+          if (Array.isArray(response)) {
+            // Si la respuesta es directamente un array (no debería pasar, pero por si acaso)
+            backendAddresses = response;
+          } else if (response.addresses && Array.isArray(response.addresses)) {
+            // Formato: { addresses: [...] }
+            backendAddresses = response.addresses;
+          } else if (response.data?.addresses && Array.isArray(response.data.addresses)) {
+            // Formato: { data: { addresses: [...] } }
+            backendAddresses = response.data.addresses;
+          } else if (response.user?.addresses && Array.isArray(response.user.addresses)) {
+            // Formato: { user: { addresses: [...] } }
+            backendAddresses = response.user.addresses;
+          } else {
+            console.warn('Formato de respuesta inesperado al obtener direcciones:', response);
+            backendAddresses = [];
+          }
+          
+          // Mapear direcciones del backend al formato del frontend
+          const mappedAddresses = backendAddresses.map((addr: any, index: number) => {
+            try {
+              return this.mapBackendAddressToFrontend(addr, index);
+            } catch (error) {
+              console.error(`Error al mapear dirección en índice ${index}:`, error, addr);
+              // Retornar una dirección por defecto para evitar romper la lista
+              return {
+                id: `${index}`,
+                title: `Dirección ${index + 1}`,
+                name: `Dirección ${index + 1}`,
+                address: addr.address || '',
+                neighborhood: addr.neighborhood || '',
+                city: addr.city || '',
+                postalCode: addr.postal_code || addr.postalCode || '',
+                postal_code: addr.postal_code || addr.postalCode || '',
+                isDefault: addr.is_primary || false,
+                is_primary: addr.is_primary || false
+              };
+            }
+          });
+
+          // Guardar en localStorage como caché
+          try {
+            localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(mappedAddresses));
+          } catch (e) {
+            console.error('Error al guardar direcciones en localStorage:', e);
+          }
+
+          return mappedAddresses;
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error al obtener direcciones del backend:', error);
+          // Fallback: intentar obtener de localStorage
+          const storedAddresses = localStorage.getItem(`userAddresses_${userId}`);
+          if (storedAddresses) {
+            try {
+              const parsed = JSON.parse(storedAddresses);
+              if (Array.isArray(parsed)) {
+                return of(parsed);
+              }
+            } catch (e) {
+              console.error('Error al parsear direcciones de localStorage:', e);
+            }
+          }
+          return of([]);
+        })
+      );
     } catch (e) {
-      console.error('Error al obtener direcciones del usuario:', e);
+      console.error('Error al obtener direcciones:', e);
+      return of([]);
     }
-
-    return of([]);
   }
 
+  // Mapear dirección del backend al formato del frontend
+  private mapBackendAddressToFrontend(backendAddr: any, index: number): Address {
+    return {
+      id: `${index}`, // Usar índice como ID temporal
+      title: backendAddr.name || backendAddr.title || `Dirección ${index + 1}`,
+      name: backendAddr.name,
+      address: backendAddr.address || '',
+      neighborhood: backendAddr.neighborhood || '',
+      city: backendAddr.city || '',
+      postalCode: backendAddr.postal_code || backendAddr.postalCode || '',
+      postal_code: backendAddr.postal_code || backendAddr.postalCode || '',
+      isDefault: backendAddr.is_primary || backendAddr.isDefault || false,
+      is_primary: backendAddr.is_primary || backendAddr.isDefault || false
+    };
+  }
+
+  // Mapear dirección del frontend al formato del backend
+  private mapFrontendAddressToBackend(frontendAddr: Address): any {
+    return {
+      name: frontendAddr.name || frontendAddr.title || 'Dirección',
+      address: frontendAddr.address,
+      neighborhood: frontendAddr.neighborhood || '',
+      city: frontendAddr.city,
+      postal_code: frontendAddr.postal_code || frontendAddr.postalCode || '',
+      is_primary: frontendAddr.is_primary !== undefined ? frontendAddr.is_primary : (frontendAddr.isDefault || false)
+    };
+  }
+
+  addAddress(address: Address): Observable<Address> {
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return throwError(() => new Error('Usuario no autenticado'));
+    }
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      // Mapear al formato del backend
+      const addressDto = this.mapFrontendAddressToBackend(address);
+
+      return this.http.post<any>(`${this.apiUrl}/${userId}/addresses`, addressDto).pipe(
+        map(response => {
+          // El backend puede devolver diferentes formatos:
+          // 1. El usuario completo con addresses
+          // 2. Solo la dirección nueva
+          // 3. Un objeto con data.addresses
+          let addresses: any[] = [];
+          let newAddress: any = null;
+
+          if (response.addresses && Array.isArray(response.addresses)) {
+            // Formato: { addresses: [...] }
+            addresses = response.addresses;
+            newAddress = addresses[addresses.length - 1];
+          } else if (response.data?.addresses && Array.isArray(response.data.addresses)) {
+            // Formato: { data: { addresses: [...] } }
+            addresses = response.data.addresses;
+            newAddress = addresses[addresses.length - 1];
+          } else if (response.name || response.address) {
+            // El backend devolvió directamente la dirección nueva
+            newAddress = response;
+            // Necesitamos obtener todas las direcciones para saber el índice
+            // Por ahora usamos índice 0 temporalmente
+            addresses = [newAddress];
+          } else {
+            console.warn('Formato de respuesta inesperado del backend:', response);
+            // Intentar obtener direcciones del usuario completo
+            if (response._id || response.id) {
+              // Es el usuario completo, buscar addresses
+              addresses = response.addresses || [];
+              newAddress = addresses[addresses.length - 1];
+            }
+          }
+
+          if (!newAddress) {
+            throw new Error('No se pudo obtener la dirección guardada del backend');
+          }
+
+          // Mapear y retornar
+          const addressIndex = addresses.length - 1;
+          const mappedAddress = this.mapBackendAddressToFrontend(newAddress, addressIndex);
+          
+          // Actualizar localStorage como caché - recargar todas las direcciones
+          setTimeout(() => {
+            this.getAddresses().subscribe({
+              next: (addrs) => {
+                localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(addrs));
+              },
+              error: (err) => {
+                console.error('Error al actualizar caché de direcciones:', err);
+              }
+            });
+          }, 100);
+          
+          return mappedAddress;
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error completo al agregar dirección:', error);
+          const appError = this.errorHandler.handleHttpError(error);
+          return throwError(() => appError);
+        })
+      );
+    } catch (e) {
+      console.error('Error al agregar dirección:', e);
+      return throwError(() => new Error('Error al agregar dirección'));
+    }
+  }
+
+  // Mantener compatibilidad con código existente
   saveAddress(address: Address): void {
-    const userInfoStr = localStorage.getItem('userInfo');
-    if (!userInfoStr) return;
-
-    try {
-      const userInfo = JSON.parse(userInfoStr);
-      const userId = userInfo.userId || userInfo.email;
-
-      this.getAddresses().subscribe(addresses => {
-        const updatedAddresses = [...addresses, address];
-        localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(updatedAddresses));
-      });
-    } catch (e) {
-      console.error('Error al guardar dirección:', e);
-    }
+    this.addAddress(address).subscribe({
+      next: () => {},
+      error: (error) => {
+        console.error('Error al guardar dirección:', error);
+      }
+    });
   }
 
-  updateAddress(address: Address): void {
+  updateAddress(address: Address, addressIndex: number): Observable<Address> {
     const userInfoStr = localStorage.getItem('userInfo');
-    if (!userInfoStr) return;
+    if (!userInfoStr) {
+      return throwError(() => new Error('Usuario no autenticado'));
+    }
 
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
 
-      this.getAddresses().subscribe(addresses => {
-        const index = addresses.findIndex(a => a.id === address.id);
-        if (index !== -1) {
-          addresses[index] = address;
-          localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(addresses));
-        }
-      });
+      // Mapear al formato del backend
+      const addressDto = this.mapFrontendAddressToBackend(address);
+
+      return this.http.patch<any>(`${this.apiUrl}/${userId}/addresses/${addressIndex}`, addressDto).pipe(
+        map(response => {
+          // El backend puede devolver diferentes formatos
+          let addresses: any[] = [];
+          let updatedAddress: any = null;
+
+          if (response.addresses && Array.isArray(response.addresses)) {
+            addresses = response.addresses;
+            updatedAddress = addresses[addressIndex];
+          } else if (response.data?.addresses && Array.isArray(response.data.addresses)) {
+            addresses = response.data.addresses;
+            updatedAddress = addresses[addressIndex];
+          } else if (response.name || response.address) {
+            // El backend devolvió directamente la dirección actualizada
+            updatedAddress = response;
+            addresses = [updatedAddress];
+          } else {
+            console.warn('Formato de respuesta inesperado al actualizar:', response);
+            if (response._id || response.id) {
+              addresses = response.addresses || [];
+              updatedAddress = addresses[addressIndex];
+            }
+          }
+
+          if (!updatedAddress) {
+            throw new Error('No se pudo obtener la dirección actualizada del backend');
+          }
+
+          // Mapear y retornar
+          const mappedAddress = this.mapBackendAddressToFrontend(updatedAddress, addressIndex);
+          
+          // Actualizar localStorage como caché - recargar todas las direcciones
+          setTimeout(() => {
+            this.getAddresses().subscribe({
+              next: (addrs) => {
+                localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(addrs));
+              },
+              error: (err) => {
+                console.error('Error al actualizar caché de direcciones:', err);
+              }
+            });
+          }, 100);
+          
+          return mappedAddress;
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error completo al actualizar dirección:', error);
+          const appError = this.errorHandler.handleHttpError(error);
+          return throwError(() => appError);
+        })
+      );
     } catch (e) {
       console.error('Error al actualizar dirección:', e);
+      return throwError(() => new Error('Error al actualizar dirección'));
+    }
+  }
+
+  removeAddress(addressIndex: number): Observable<void> {
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return throwError(() => new Error('Usuario no autenticado'));
+    }
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      return this.http.delete<void>(`${this.apiUrl}/${userId}/addresses/${addressIndex}`).pipe(
+        tap(() => {
+          // Actualizar localStorage como caché
+          this.getAddresses().subscribe(addrs => {
+            localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(addrs));
+          });
+        }),
+        catchError((error: HttpErrorResponse) => {
+          const appError = this.errorHandler.handleHttpError(error);
+          return throwError(() => appError);
+        })
+      );
+    } catch (e) {
+      console.error('Error al eliminar dirección:', e);
+      return throwError(() => new Error('Error al eliminar dirección'));
+    }
+  }
+
+  setPrimaryAddress(addressIndex: number): Observable<Address> {
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return throwError(() => new Error('Usuario no autenticado'));
+    }
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      return this.http.patch<any>(`${this.apiUrl}/${userId}/addresses/${addressIndex}/primary`, {}).pipe(
+        map(response => {
+          // El backend devuelve el usuario actualizado
+          const addresses = response.addresses || response.data?.addresses || [];
+          const primaryAddress = addresses[addressIndex];
+          
+          // Mapear y retornar
+          const mappedAddress = this.mapBackendAddressToFrontend(primaryAddress, addressIndex);
+          
+          // Actualizar localStorage como caché
+          this.getAddresses().subscribe(addrs => {
+            localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(addrs));
+          });
+          
+          return mappedAddress;
+        }),
+        catchError((error: HttpErrorResponse) => {
+          const appError = this.errorHandler.handleHttpError(error);
+          return throwError(() => appError);
+        })
+      );
+    } catch (e) {
+      console.error('Error al marcar dirección como principal:', e);
+      return throwError(() => new Error('Error al marcar dirección como principal'));
     }
   }
 

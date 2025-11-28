@@ -288,10 +288,12 @@ private loadUserProfile() {
       }
 
       // Asegurar que el teléfono esté presente (buscar en múltiples lugares)
-      if (!profile.phone || profile.phone === '' || profile.phone === 'No especificado') {
-        const phoneFromStorage = localStorage.getItem('userPhone');
-        if (phoneFromStorage) {
-          profile.phone = phoneFromStorage;
+      // Priorizar el teléfono del token sobre el del perfil
+      const phoneFromToken = localStorage.getItem('userPhone');
+      if (phoneFromToken) {
+        // Si el perfil no tiene teléfono o es diferente al del token, actualizarlo
+        if (!profile.phone || profile.phone === '' || profile.phone === 'No especificado' || profile.phone !== phoneFromToken) {
+          profile.phone = phoneFromToken;
           // Guardar el perfil actualizado con el teléfono
           const userId = userInfo.userId || userInfo.email;
           if (userId) {
@@ -797,8 +799,18 @@ private loadUserProfile() {
   }
 
   loadAddresses() {
-    this.userService.getAddresses().subscribe(addresses => {
-      this.addresses = addresses;
+    this.userService.getAddresses().subscribe({
+      next: (addresses) => {
+        console.log('Direcciones cargadas:', addresses);
+        this.addresses = addresses || [];
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error al cargar direcciones:', error);
+        this.addresses = [];
+        // No mostrar error al usuario si es solo un problema de carga
+        // El servicio ya maneja el fallback a localStorage
+      }
     });
   }
 
@@ -964,64 +976,138 @@ private loadUserProfile() {
     this.submitted = true;
     if (this.addressForm.valid) {
       const isDefault = this.addressForm.get('isDefault')?.value || false;
+      const formValue = this.addressForm.value;
 
       this.userService.getAddresses().subscribe(addresses => {
         if (this.editingAddress) {
+          // Encontrar el índice de la dirección que se está editando
+          const addressIndex = addresses.findIndex(addr => 
+            addr.id === this.editingAddress?.id || 
+            addr.title === this.editingAddress?.title
+          );
+
+          if (addressIndex === -1) {
+            this.notificationService.showError('Error: No se encontró la dirección a actualizar');
+            return;
+          }
+
+          // Preparar la dirección actualizada
           const updatedAddress: Address = {
             ...this.editingAddress,
-            ...this.addressForm.value,
-            isDefault: isDefault
+            title: formValue.title,
+            name: formValue.title, // El backend usa 'name'
+            address: formValue.address,
+            neighborhood: formValue.neighborhood,
+            city: formValue.city,
+            postalCode: formValue.postalCode,
+            postal_code: formValue.postalCode, // El backend usa 'postal_code'
+            isDefault: isDefault,
+            is_primary: isDefault // El backend usa 'is_primary'
           };
+
+          // Si se marca como principal, usar el método específico del backend
           if (isDefault) {
-            addresses.forEach(addr => {
-              if (addr.id !== updatedAddress.id && addr.isDefault) {
-                const nonDefaultAddr = { ...addr, isDefault: false };
-                this.userService.updateAddress(nonDefaultAddr);
+            this.userService.setPrimaryAddress(addressIndex).subscribe({
+              next: () => {
+                // Luego actualizar los demás campos si es necesario
+                this.userService.updateAddress(updatedAddress, addressIndex).subscribe({
+                  next: () => {
+                    this.loadAddresses();
+                    this.resetAddressForm();
+                    this.notificationService.showSuccess('Dirección actualizada correctamente');
+                  },
+                  error: (error) => {
+                    console.error('Error al actualizar dirección:', error);
+                    this.notificationService.showError('Error al actualizar la dirección');
+                  }
+                });
+              },
+              error: (error) => {
+                console.error('Error al marcar dirección como principal:', error);
+                // Intentar actualizar de todas formas
+                this.userService.updateAddress(updatedAddress, addressIndex).subscribe({
+                  next: () => {
+                    this.loadAddresses();
+                    this.resetAddressForm();
+                    this.notificationService.showSuccess('Dirección actualizada correctamente');
+                  },
+                  error: (err) => {
+                    this.notificationService.showError('Error al actualizar la dirección');
+                  }
+                });
+              }
+            });
+          } else {
+            // Solo actualizar sin cambiar el estado principal
+            this.userService.updateAddress(updatedAddress, addressIndex).subscribe({
+              next: () => {
+                this.loadAddresses();
+                this.resetAddressForm();
+                this.notificationService.showSuccess('Dirección actualizada correctamente');
+              },
+              error: (error) => {
+                console.error('Error al actualizar dirección:', error);
+                this.notificationService.showError('Error al actualizar la dirección');
               }
             });
           }
-          this.updateAddress(updatedAddress);
         } else {
+          // Crear nueva dirección
           const newAddress: Address = {
-            id: 'addr_' + Date.now(),
-            ...this.addressForm.value,
-            isDefault: isDefault || addresses.length === 0
+            title: formValue.title,
+            name: formValue.title, // El backend usa 'name'
+            address: formValue.address,
+            neighborhood: formValue.neighborhood,
+            city: formValue.city,
+            postalCode: formValue.postalCode,
+            postal_code: formValue.postalCode, // El backend usa 'postal_code'
+            isDefault: isDefault || addresses.length === 0,
+            is_primary: isDefault || addresses.length === 0 // El backend usa 'is_primary'
           };
-          if (isDefault) {
-            addresses.forEach(addr => {
-              if (addr.isDefault) {
-                const nonDefaultAddr = { ...addr, isDefault: false };
-                this.userService.updateAddress(nonDefaultAddr);
-              }
-            });
-          }
-          this.userService.saveAddress(newAddress);
+
+          this.userService.addAddress(newAddress).subscribe({
+            next: (savedAddress) => {
+              console.log('Dirección guardada exitosamente:', savedAddress);
+              // Recargar direcciones después de un pequeño delay para asegurar que el backend procesó
+              setTimeout(() => {
+                this.loadAddresses();
+              }, 200);
+              this.resetAddressForm();
+              this.notificationService.showSuccess('Dirección agregada correctamente');
+            },
+            error: (error) => {
+              console.error('Error completo al agregar dirección:', error);
+              const errorMessage = error?.message || error?.error?.message || 'Error al agregar la dirección';
+              this.notificationService.showError(errorMessage);
+            }
+          });
         }
-        this.loadAddresses();
-        this.addressForm.reset();
-        this.addressForm.patchValue({
-          city: 'Manizales',
-          postalCode: '170001',
-          isDefault: false
-        });
-        this.showAddressModal = false;
-        this.showEditAddressModal = false;
-        this.editingAddress = null;
-        this.submitted = false;
-        this.notificationService.showSuccess('Dirección guardada correctamente');
       });
     }
+  }
+
+  private resetAddressForm(): void {
+    this.addressForm.reset();
+    this.addressForm.patchValue({
+      city: 'Manizales',
+      postalCode: '170001',
+      isDefault: false
+    });
+    this.showAddressModal = false;
+    this.showEditAddressModal = false;
+    this.editingAddress = null;
+    this.submitted = false;
   }
 
   editAddress(address: Address) {
     this.editingAddress = address;
     this.addressForm.patchValue({
-      title: address.title,
+      title: address.title || address.name || '',
       address: address.address,
       neighborhood: address.neighborhood || '',
-      city: 'Manizales',
-      postalCode: '170001',
-      isDefault: address.isDefault || false
+      city: address.city || 'Manizales',
+      postalCode: address.postalCode || address.postal_code || '170001',
+      isDefault: address.isDefault || address.is_primary || false
     });
     this.showEditAddressModal = true;
   }
@@ -1040,19 +1126,28 @@ private loadUserProfile() {
   }
 
   setDefaultAddress(address: Address) {
-    this.userService.getAddresses().subscribe(addresses => {
-      const updatedAddresses = addresses.map(a => {
-        if (a.id === address.id) {
-          return { ...a, isDefault: true };
-        } else {
-          return { ...a, isDefault: false };
-        }
-      });
-      updatedAddresses.forEach(addr => {
-        this.userService.updateAddress(addr);
-      });
-      this.loadAddresses();
-      this.notificationService.showSuccess('Dirección principal actualizada');
+    // Encontrar el índice de la dirección
+    const addressIndex = this.addresses.findIndex(addr => 
+      addr.id === address.id || 
+      addr.title === address.title ||
+      (addr.name && address.name && addr.name === address.name)
+    );
+
+    if (addressIndex === -1) {
+      this.notificationService.showError('Error: No se encontró la dirección');
+      return;
+    }
+
+    this.userService.setPrimaryAddress(addressIndex).subscribe({
+      next: () => {
+        this.loadAddresses();
+        this.notificationService.showSuccess('Dirección principal actualizada');
+      },
+      error: (error) => {
+        console.error('Error al marcar dirección como principal:', error);
+        const errorMessage = error?.message || 'Error al actualizar la dirección principal';
+        this.notificationService.showError(errorMessage);
+      }
     });
   }
 
@@ -1063,31 +1158,32 @@ private loadUserProfile() {
     );
 
     if (confirmed) {
-      const userInfoStr = localStorage.getItem('userInfo');
-      if (!userInfoStr) {
-        this.notificationService.showError('Error: No se encontró información del usuario');
+      // Encontrar el índice de la dirección
+      const addressIndex = this.addresses.findIndex(addr => 
+        addr.id === address.id || 
+        addr.title === address.title ||
+        (addr.name && address.name && addr.name === address.name)
+      );
+
+      if (addressIndex === -1) {
+        this.notificationService.showError('Error: No se encontró la dirección a eliminar');
         return;
       }
 
-      try {
-        const userInfo = JSON.parse(userInfoStr);
-        const userId = userInfo.userId || userInfo.email;
-
-        this.userService.getAddresses().subscribe(addresses => {
-          const updatedAddresses = addresses.filter(a => a.id !== address.id);
-          localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(updatedAddresses));
+      this.userService.removeAddress(addressIndex).subscribe({
+        next: () => {
           this.loadAddresses();
           this.notificationService.showSuccess('Dirección eliminada correctamente');
-        });
-      } catch {
-        this.notificationService.showError('Error al eliminar la dirección');
-      }
+        },
+        error: (error) => {
+          console.error('Error al eliminar dirección:', error);
+          const errorMessage = error?.message || 'Error al eliminar la dirección';
+          this.notificationService.showError(errorMessage);
+        }
+      });
     }
   }
 
-  updateAddress(updatedAddress: Address) {
-    this.userService.updateAddress(updatedAddress);
-  }
 
   openProfileEdit() {
     if (this.userProfile) {
