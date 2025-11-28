@@ -1018,7 +1018,8 @@ private loadUserProfile() {
                   },
                   error: (error) => {
                     console.error('Error al actualizar dirección:', error);
-                    this.notificationService.showError('Error al actualizar la dirección');
+                    const errorMessage = this.getErrorMessage(error, 'Error al actualizar la dirección');
+                    this.notificationService.showError(errorMessage);
                   }
                 });
               },
@@ -1032,7 +1033,8 @@ private loadUserProfile() {
                     this.notificationService.showSuccess('Dirección actualizada correctamente');
                   },
                   error: (err) => {
-                    this.notificationService.showError('Error al actualizar la dirección');
+                    const errorMessage = this.getErrorMessage(err, 'Error al actualizar la dirección');
+                    this.notificationService.showError(errorMessage);
                   }
                 });
               }
@@ -1047,7 +1049,8 @@ private loadUserProfile() {
               },
               error: (error) => {
                 console.error('Error al actualizar dirección:', error);
-                this.notificationService.showError('Error al actualizar la dirección');
+                const errorMessage = this.getErrorMessage(error, 'Error al actualizar la dirección');
+                this.notificationService.showError(errorMessage);
               }
             });
           }
@@ -1077,13 +1080,38 @@ private loadUserProfile() {
             },
             error: (error) => {
               console.error('Error completo al agregar dirección:', error);
-              const errorMessage = error?.message || error?.error?.message || 'Error al agregar la dirección';
+              const errorMessage = this.getErrorMessage(error, 'Error al agregar la dirección');
               this.notificationService.showError(errorMessage);
             }
           });
         }
       });
     }
+  }
+
+  private getErrorMessage(error: any, defaultMessage: string): string {
+    if (!error) {
+      return defaultMessage;
+    }
+    
+    if (typeof error === 'string' && error !== 'undefined') {
+      return error;
+    }
+    
+    if (error.message && typeof error.message === 'string' && error.message !== 'undefined') {
+      return error.message;
+    }
+    
+    if (error.error) {
+      if (typeof error.error === 'string' && error.error !== 'undefined') {
+        return error.error;
+      }
+      if (error.error?.message && typeof error.error.message === 'string' && error.error.message !== 'undefined') {
+        return error.error.message;
+      }
+    }
+    
+    return defaultMessage;
   }
 
   private resetAddressForm(): void {
@@ -1145,7 +1173,7 @@ private loadUserProfile() {
       },
       error: (error) => {
         console.error('Error al marcar dirección como principal:', error);
-        const errorMessage = error?.message || 'Error al actualizar la dirección principal';
+        const errorMessage = this.getErrorMessage(error, 'Error al actualizar la dirección principal');
         this.notificationService.showError(errorMessage);
       }
     });

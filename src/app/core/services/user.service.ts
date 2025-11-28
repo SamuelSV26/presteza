@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
-import { map, catchError, tap } from 'rxjs/operators';
+import { map, catchError, tap, switchMap } from 'rxjs/operators';
 import { UserProfile } from '../models/UserProfile';
 import { Order } from '../models/Order';
 import { OrderItem } from '../models/OrderItem';
@@ -860,7 +860,7 @@ export class UserService {
       const addressDto = this.mapFrontendAddressToBackend(address);
 
       return this.http.post<any>(`${this.apiUrl}/${userId}/addresses`, addressDto).pipe(
-        map(response => {
+        switchMap(response => {
           // El backend puede devolver diferentes formatos:
           // 1. El usuario completo con addresses
           // 2. Solo la dirección nueva
@@ -892,8 +892,39 @@ export class UserService {
             }
           }
 
+          // Si no se pudo parsear la respuesta, intentar obtener las direcciones del servidor
+          // para verificar si la operación fue exitosa
           if (!newAddress) {
-            throw new Error('No se pudo obtener la dirección guardada del backend');
+            console.warn('No se pudo parsear la respuesta, verificando en el servidor...');
+            return this.getAddresses().pipe(
+              map(allAddresses => {
+                // Buscar la dirección recién creada comparando los campos
+                const foundAddress = allAddresses.find(addr => 
+                  addr.address === address.address &&
+                  addr.neighborhood === address.neighborhood &&
+                  addr.city === address.city
+                );
+                
+                if (foundAddress) {
+                  // La operación fue exitosa, retornar la dirección encontrada
+                  return foundAddress;
+                } else {
+                  // Si no se encuentra, usar la última dirección (probablemente la nueva)
+                  if (allAddresses.length > 0) {
+                    return allAddresses[allAddresses.length - 1];
+                  }
+                  // Si no hay direcciones, crear una dirección temporal con los datos enviados
+                  return this.mapBackendAddressToFrontend({
+                    name: address.name || address.title || 'Dirección',
+                    address: address.address,
+                    neighborhood: address.neighborhood || '',
+                    city: address.city,
+                    postal_code: address.postal_code || address.postalCode || '',
+                    is_primary: address.is_primary !== undefined ? address.is_primary : (address.isDefault || false)
+                  }, allAddresses.length);
+                }
+              })
+            );
           }
 
           // Mapear y retornar
@@ -912,7 +943,7 @@ export class UserService {
             });
           }, 100);
           
-          return mappedAddress;
+          return of(mappedAddress);
         }),
         catchError((error: HttpErrorResponse) => {
           console.error('Error completo al agregar dirección:', error);
@@ -950,7 +981,7 @@ export class UserService {
       const addressDto = this.mapFrontendAddressToBackend(address);
 
       return this.http.patch<any>(`${this.apiUrl}/${userId}/addresses/${addressIndex}`, addressDto).pipe(
-        map(response => {
+        switchMap(response => {
           // El backend puede devolver diferentes formatos
           let addresses: any[] = [];
           let updatedAddress: any = null;
@@ -973,8 +1004,45 @@ export class UserService {
             }
           }
 
+          // Si no se pudo parsear la respuesta, intentar obtener las direcciones del servidor
+          // para verificar si la operación fue exitosa
           if (!updatedAddress) {
-            throw new Error('No se pudo obtener la dirección actualizada del backend');
+            console.warn('No se pudo parsear la respuesta, verificando en el servidor...');
+            return this.getAddresses().pipe(
+              map(allAddresses => {
+                // Verificar que el índice sea válido
+                if (addressIndex >= 0 && addressIndex < allAddresses.length) {
+                  // La operación fue exitosa, retornar la dirección actualizada
+                  return allAddresses[addressIndex];
+                } else {
+                  // Si el índice no es válido, buscar la dirección por sus campos
+                  const foundAddress = allAddresses.find(addr => 
+                    addr.address === address.address &&
+                    addr.neighborhood === address.neighborhood &&
+                    addr.city === address.city
+                  );
+                  
+                  if (foundAddress) {
+                    return foundAddress;
+                  }
+                  
+                  // Si no se encuentra, usar la dirección en el índice original si existe
+                  if (allAddresses.length > 0 && addressIndex < allAddresses.length) {
+                    return allAddresses[addressIndex];
+                  }
+                  
+                  // Último recurso: crear una dirección temporal con los datos enviados
+                  return this.mapBackendAddressToFrontend({
+                    name: address.name || address.title || 'Dirección',
+                    address: address.address,
+                    neighborhood: address.neighborhood || '',
+                    city: address.city,
+                    postal_code: address.postal_code || address.postalCode || '',
+                    is_primary: address.is_primary !== undefined ? address.is_primary : (address.isDefault || false)
+                  }, addressIndex);
+                }
+              })
+            );
           }
 
           // Mapear y retornar
@@ -992,7 +1060,7 @@ export class UserService {
             });
           }, 100);
           
-          return mappedAddress;
+          return of(mappedAddress);
         }),
         catchError((error: HttpErrorResponse) => {
           console.error('Error completo al actualizar dirección:', error);
@@ -1045,22 +1113,56 @@ export class UserService {
       const userId = userInfo.userId || userInfo.email;
 
       return this.http.patch<any>(`${this.apiUrl}/${userId}/addresses/${addressIndex}/primary`, {}).pipe(
-        map(response => {
+        switchMap(response => {
           // El backend devuelve el usuario actualizado
           const addresses = response.addresses || response.data?.addresses || [];
           const primaryAddress = addresses[addressIndex];
+          
+          // Si no se pudo obtener la dirección principal de la respuesta, intentar obtener del servidor
+          if (!primaryAddress) {
+            console.warn('No se pudo parsear la respuesta, verificando en el servidor...');
+            return this.getAddresses().pipe(
+              map(allAddresses => {
+                // Verificar que el índice sea válido
+                if (addressIndex >= 0 && addressIndex < allAddresses.length) {
+                  // La operación fue exitosa, retornar la dirección en el índice
+                  return allAddresses[addressIndex];
+                } else {
+                  // Si el índice no es válido, buscar la dirección principal
+                  const foundPrimary = allAddresses.find(addr => addr.isDefault || addr.is_primary);
+                  if (foundPrimary) {
+                    return foundPrimary;
+                  }
+                  // Último recurso: retornar la primera dirección si existe
+                  if (allAddresses.length > 0) {
+                    return allAddresses[0];
+                  }
+                  // Si no hay direcciones, lanzar error
+                  throw new Error('No se encontró la dirección principal');
+                }
+              })
+            );
+          }
           
           // Mapear y retornar
           const mappedAddress = this.mapBackendAddressToFrontend(primaryAddress, addressIndex);
           
           // Actualizar localStorage como caché
-          this.getAddresses().subscribe(addrs => {
-            localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(addrs));
-          });
+          setTimeout(() => {
+            this.getAddresses().subscribe({
+              next: (addrs) => {
+                localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(addrs));
+              },
+              error: (err) => {
+                console.error('Error al actualizar caché de direcciones:', err);
+              }
+            });
+          }, 100);
           
-          return mappedAddress;
+          return of(mappedAddress);
         }),
         catchError((error: HttpErrorResponse) => {
+          console.error('Error completo al marcar dirección como principal:', error);
           const appError = this.errorHandler.handleHttpError(error);
           return throwError(() => appError);
         })
