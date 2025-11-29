@@ -412,8 +412,25 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.userService.toggleFavorite(this.product.id);
-    this.isFavorite$ = this.userService.isFavorite(this.product.id);
+    // Guardar el ID en una variable local para evitar problemas con null
+    const productId = this.product.id;
+
+    // Usar el nuevo método que devuelve Observable
+    this.userService.toggleFavorite(productId).subscribe({
+      next: () => {
+        // Actualizar el estado del favorito
+        if (this.product) {
+          this.isFavorite$ = this.userService.isFavorite(productId);
+        }
+      },
+      error: (error) => {
+        console.error('Error al alternar favorito:', error);
+        // Aún así actualizar el estado para reflejar el cambio visual
+        if (this.product) {
+          this.isFavorite$ = this.userService.isFavorite(productId);
+        }
+      }
+    });
   }
 
   loadAddsFromBackend(): void {

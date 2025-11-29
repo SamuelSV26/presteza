@@ -477,30 +477,11 @@ private loadUserProfile() {
   }
 
   private loadFavoriteDishes() {
-    this.userService.getFavoriteDishes().pipe(takeUntil(this.destroy$)).subscribe(favoriteIds => {
-      if (favoriteIds && favoriteIds.length > 0) {
-        // Filtrar IDs inválidos antes de hacer las peticiones
-        const validFavoriteIds = favoriteIds.filter(id => {
-          if (id === null || id === undefined) return false;
-          if (id === 0 || id === '0') return false;
-          if (typeof id === 'string' && id.trim() === '') return false;
-          return true;
-        });
-
-        if (validFavoriteIds.length === 0) {
-          this.favoriteDishes = [];
-          return;
-        }
-
-        const favoriteObservables = validFavoriteIds.map(id =>
-          this.menuService.getItemById(id).pipe(
-            catchError(() => of(null))
-          )
-        );
-
-        forkJoin(favoriteObservables).pipe(takeUntil(this.destroy$)).subscribe(items => {
-          this.favoriteDishes = items.filter(item => item !== null && item !== undefined) as MenuItem[];
-        });
+    // Ahora getFavoriteDishes() devuelve MenuItem[] directamente desde el backend
+    this.userService.getFavoriteDishes().pipe(takeUntil(this.destroy$)).subscribe(dishes => {
+      if (dishes && Array.isArray(dishes) && dishes.length > 0) {
+        // El backend ya devuelve los platos completos, solo asignar
+        this.favoriteDishes = dishes.filter(dish => dish !== null && dish !== undefined) as MenuItem[];
       } else {
         this.favoriteDishes = [];
       }

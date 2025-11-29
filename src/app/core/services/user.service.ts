@@ -7,6 +7,7 @@ import { Order } from '../models/Order';
 import { OrderItem } from '../models/OrderItem';
 import { Address } from '../models/Address';
 import { PaymentMethod } from '../models/PaymentMethod';
+import { MenuItem } from '../models/MenuItem';
 import { environment } from '../../../environments/environment';
 import { ErrorHandlerService } from './error-handler.service';
 export { Order, OrderItem, Address, PaymentMethod };
@@ -1275,7 +1276,7 @@ export class UserService {
     return 'user_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
   }
 
-  getFavoriteDishes(): Observable<(number | string)[]> {
+  getFavoriteDishes(): Observable<MenuItem[]> {
     // Obtener el userId del usuario actual desde localStorage
     const userInfoStr = localStorage.getItem('userInfo');
     if (!userInfoStr) {
@@ -1285,84 +1286,288 @@ export class UserService {
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      const email = userInfo.email;
 
-      // Buscar favoritos con userId
-      let storedFavorites = localStorage.getItem(`userFavoriteDishes_${userId}`);
+      if (!userId) {
+        return of([]);
+      }
+
+      // Llamar al endpoint del backend para obtener favoritos con detalles
+      const url = `${this.apiUrl}/${userId}/favorites`;
+      console.log(`📥 Obteniendo favoritos desde: ${url}`);
       
-      // Si no se encuentra, buscar con email
-      if (!storedFavorites && email && email !== userId) {
-        storedFavorites = localStorage.getItem(`userFavoriteDishes_${email}`);
-        // Si se encuentra con email, migrar a userId para consistencia
-        if (storedFavorites) {
-          localStorage.setItem(`userFavoriteDishes_${userId}`, storedFavorites);
-        }
-      }
+      return this.http.get<any>(url).pipe(
+        tap((response) => {
+          console.log('📦 Respuesta completa del backend:', response);
+        }),
+        map((response: any) => {
+          // El backend devuelve los platos completos
+          // Puede venir como: { favorites: [...] }, { dishes: [...] }, o directamente como array
+          const dishes = response.favorites || response.dishes || (Array.isArray(response) ? response : []) || [];
+          console.log('🍽️ Platos extraídos:', dishes);
+          if (!Array.isArray(dishes)) {
+            console.warn('⚠️ La respuesta no es un array:', dishes);
+            return [];
+          }
 
-      if (storedFavorites) {
-        return of(JSON.parse(storedFavorites));
-      }
+          // Mapear los platos del backend al formato MenuItem
+          const menuItems = dishes
+            .map((dish: any) => {
+              try {
+                return this.mapDishToMenuItem(dish);
+              } catch (error) {
+                console.error('Error al mapear plato favorito:', error, dish);
+                return null;
+              }
+            })
+            .filter((item: MenuItem | null) => item !== null) as MenuItem[];
+
+          return menuItems;
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error al obtener favoritos del backend:', error);
+          // Fallback: intentar obtener de localStorage (solo IDs)
+          const storedFavorites = localStorage.getItem(`userFavoriteDishes_${userId}`);
+          if (storedFavorites) {
+            try {
+              const favoriteIds = JSON.parse(storedFavorites);
+              // Si hay IDs guardados, devolver array vacío (no podemos obtener detalles sin backend)
+              return of([]);
+            } catch (e) {
+              return of([]);
+            }
+          }
+          return of([]);
+        })
+      );
     } catch (e) {
-      console.error('Error al obtener favoritos del usuario:', e);
+      console.error('Error al obtener favoritos:', e);
+      return of([]);
     }
-
-    return of([]);
   }
 
-  addFavoriteDish(dishId: number | string): void {
+  // Método auxiliar para mapear platos (similar al de MenuService)
+  private mapDishToMenuItem(dish: any): MenuItem {
+    if (!dish || typeof dish !== 'object') {
+      throw new Error('Dish data is invalid');
+    }
+    const dishId = dish.id || dish._id;
+    let finalId: number | string;
+    if (!dishId) {
+      finalId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    } else if (typeof dishId === 'string' && dishId.length === 24 && /^[0-9a-fA-F]{24}$/.test(dishId)) {
+      finalId = dishId;
+    } else if (typeof dishId === 'string' && !isNaN(parseInt(dishId, 10)) && dishId.length < 10) {
+      finalId = parseInt(dishId, 10);
+    } else if (typeof dishId === 'number') {
+      finalId = dishId;
+    } else {
+      finalId = String(dishId);
+    }
+    let categoryId = '';
+    if (dish.categoryId) {
+      categoryId = String(dish.categoryId);
+    } else if (dish.category?.id) {
+      categoryId = String(dish.category.id);
+    } else if (dish.categoria?.id) {
+      categoryId = String(dish.categoria.id);
+    } else if (dish.categoriaId) {
+      categoryId = String(dish.categoriaId);
+    }
+    
+    // Mapear opciones
+    let options: any[] = [];
+    if (Array.isArray(dish.options)) {
+      options = dish.options;
+    } else if (Array.isArray(dish.opciones)) {
+      options = dish.opciones;
+    }
+    const mappedOptions = options.map((opt: any, index: number) => ({
+      id: opt.id || opt._id || `opt_${index}`,
+      name: opt.name || opt.nombre || '',
+      price: typeof opt.price === 'number' ? opt.price : (typeof opt.precio === 'number' ? opt.precio : 0),
+      type: opt.type || opt.tipo || 'extra'
+    }));
+    
+    // Mapear supplies si existen
+    let supplies: any[] | undefined;
+    if (dish.supplies && Array.isArray(dish.supplies)) {
+      supplies = dish.supplies.map((s: any) => ({
+        supplyId: s.supplyId || s.supply_id || s._id || s.id,
+        quantityRequired: s.quantityRequired || s.quantity_required || s.quantity || 1
+      }));
+    }
+    
+    return {
+      id: finalId,
+      name: dish.name || dish.nombre || '',
+      description: dish.description || dish.descripcion || '',
+      price: typeof dish.price === 'number' ? dish.price : (typeof dish.precio === 'number' ? dish.precio : 0),
+      imageUrl: dish.image || dish.imageUrl || dish.imagen || '',
+      available: dish.available !== undefined ? Boolean(dish.available) : (dish.disponible !== undefined ? Boolean(dish.disponible) : true),
+      categoryId: categoryId,
+      options: mappedOptions,
+      supplies: supplies
+    };
+  }
+
+  addFavoriteDish(dishId: number | string): Observable<MenuItem[]> {
     const userInfoStr = localStorage.getItem('userInfo');
-    if (!userInfoStr) return;
+    if (!userInfoStr) {
+      console.error('❌ No se encontró userInfo en localStorage');
+      return throwError(() => new Error('Usuario no autenticado'));
+    }
 
     try {
       const userInfo = JSON.parse(userInfoStr);
-      const userId = userInfo.userId || userInfo.email;
+      console.log('📋 userInfo obtenido:', userInfo);
+      const userId = userInfo.userId || userInfo.email || userInfo.id;
 
-      this.getFavoriteDishes().subscribe(favorites => {
-        if (!favorites.includes(dishId)) {
-          const updatedFavorites = [...favorites, dishId];
-          localStorage.setItem(`userFavoriteDishes_${userId}`, JSON.stringify(updatedFavorites));
+      if (!userId) {
+        console.error('❌ No se pudo obtener userId de userInfo:', userInfo);
+        return throwError(() => new Error('ID de usuario no encontrado'));
+      }
+
+      const dishIdString = typeof dishId === 'string' ? dishId : dishId.toString();
+      const url = `${this.apiUrl}/${userId}/favorites/${dishIdString}`;
+
+      // Llamar al endpoint del backend para agregar favorito
+      console.log(`➕ Agregando favorito:`);
+      console.log(`   - userId: ${userId}`);
+      console.log(`   - dishId: ${dishIdString}`);
+      console.log(`   - URL: ${url}`);
+      console.log(`   - apiUrl base: ${this.apiUrl}`);
+      
+      return this.http.post<any>(url, {}).pipe(
+        tap((response) => {
+          console.log('Respuesta al agregar favorito:', response);
+        }),
+        switchMap(() => {
+          // Después de agregar, obtener la lista actualizada de favoritos
+          return this.getFavoriteDishes();
+        }),
+        tap((favorites) => {
+          console.log('Favoritos actualizados después de agregar:', favorites);
           // Disparar evento personalizado para notificar cambios
           window.dispatchEvent(new CustomEvent('favoritesChanged'));
-        }
-      });
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error al agregar favorito:', error);
+          console.error('URL:', `${this.apiUrl}/${userId}/favorites/${dishIdString}`);
+          console.error('Error completo:', error.error || error.message);
+          const appError = this.errorHandler.handleHttpError(error);
+          return throwError(() => appError);
+        })
+      );
     } catch (e) {
       console.error('Error al agregar favorito:', e);
+      return throwError(() => new Error('Error al agregar favorito'));
     }
   }
 
-  removeFavoriteDish(dishId: number | string): void {
+  removeFavoriteDish(dishId: number | string): Observable<MenuItem[]> {
     const userInfoStr = localStorage.getItem('userInfo');
-    if (!userInfoStr) return;
+    if (!userInfoStr) {
+      return throwError(() => new Error('Usuario no autenticado'));
+    }
 
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
 
-      this.getFavoriteDishes().subscribe(favorites => {
-        const updatedFavorites = favorites.filter(id => id !== dishId);
-        localStorage.setItem(`userFavoriteDishes_${userId}`, JSON.stringify(updatedFavorites));
-        // Disparar evento personalizado para notificar cambios
-        window.dispatchEvent(new CustomEvent('favoritesChanged'));
-      });
+      if (!userId) {
+        return throwError(() => new Error('ID de usuario no encontrado'));
+      }
+
+      const dishIdString = typeof dishId === 'string' ? dishId : dishId.toString();
+      const url = `${this.apiUrl}/${userId}/favorites/${dishIdString}`;
+
+      // Llamar al endpoint del backend para eliminar favorito
+      console.log(`➖ Eliminando favorito:`);
+      console.log(`   - userId: ${userId}`);
+      console.log(`   - dishId: ${dishIdString}`);
+      console.log(`   - URL: ${url}`);
+      
+      return this.http.delete<any>(url).pipe(
+        tap((response) => {
+          console.log('Respuesta al eliminar favorito:', response);
+        }),
+        switchMap(() => {
+          // Después de eliminar, obtener la lista actualizada de favoritos
+          return this.getFavoriteDishes();
+        }),
+        tap((favorites) => {
+          console.log('Favoritos actualizados después de eliminar:', favorites);
+          // Disparar evento personalizado para notificar cambios
+          window.dispatchEvent(new CustomEvent('favoritesChanged'));
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error al eliminar favorito:', error);
+          console.error('URL:', `${this.apiUrl}/${userId}/favorites/${dishIdString}`);
+          console.error('Error completo:', error.error || error.message);
+          const appError = this.errorHandler.handleHttpError(error);
+          return throwError(() => appError);
+        })
+      );
     } catch (e) {
       console.error('Error al eliminar favorito:', e);
+      return throwError(() => new Error('Error al eliminar favorito'));
     }
   }
 
   isFavorite(dishId: number | string): Observable<boolean> {
-    return this.getFavoriteDishes().pipe(
-      map((favorites: (number | string)[]) => favorites.includes(dishId))
-    );
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return of(false);
+    }
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      if (!userId) {
+        return of(false);
+      }
+
+      const dishIdString = typeof dishId === 'string' ? dishId : dishId.toString();
+
+      // Llamar al endpoint del backend para verificar si es favorito
+      return this.http.get<{ isFavorite: boolean }>(`${this.apiUrl}/${userId}/favorites/${dishIdString}/check`).pipe(
+        map((response: any) => {
+          // El backend puede devolver { isFavorite: true/false } o directamente true/false
+          if (typeof response === 'boolean') {
+            return response;
+          }
+          return response.isFavorite === true || response.favorite === true;
+        }),
+        catchError((error: HttpErrorResponse) => {
+          // Si falla, intentar verificar localmente como fallback
+          console.warn('Error al verificar favorito en backend, usando fallback:', error);
+          return this.getFavoriteDishes().pipe(
+            map((favorites: MenuItem[]) => favorites.some(fav => String(fav.id) === dishIdString))
+          );
+        })
+      );
+    } catch (e) {
+      console.error('Error al verificar favorito:', e);
+      return of(false);
+    }
   }
 
-  toggleFavorite(dishId: number | string): void {
-    this.getFavoriteDishes().subscribe(favorites => {
-      if (favorites.includes(dishId)) {
-        this.removeFavoriteDish(dishId);
-      } else {
-        this.addFavoriteDish(dishId);
-      }
-    });
+  toggleFavorite(dishId: number | string): Observable<MenuItem[]> {
+    // Primero verificar si es favorito
+    return this.isFavorite(dishId).pipe(
+      switchMap((isFav: boolean) => {
+        if (isFav) {
+          return this.removeFavoriteDish(dishId);
+        } else {
+          return this.addFavoriteDish(dishId);
+        }
+      }),
+      catchError((error) => {
+        console.error('Error al alternar favorito:', error);
+        return throwError(() => error);
+      })
+    );
   }
   reloadUserProfile(): void {
     this.loadUserProfile();
