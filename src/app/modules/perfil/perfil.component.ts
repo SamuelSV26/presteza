@@ -174,7 +174,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
       this.loadAddresses();
       this.loadPaymentMethods();
     });
-    
+
     // Suscribirse a cambios en el perfil del usuario
     this.userService.userProfile$.pipe(takeUntil(this.destroy$)).subscribe(profile => {
       if (profile) {
@@ -223,7 +223,7 @@ private loadUserProfile() {
       registrationDate = parsed; // Usar la fecha guardada si es válida
     }
   }
-  
+
   // NO crear una nueva fecha aquí - esperar a que venga del backend o del perfil cargado
 
   // Intentar obtener el perfil del backend
@@ -250,7 +250,7 @@ private loadUserProfile() {
         }
         return of(storedProfile);
       }
-      
+
       // Si no existe perfil, crear uno local con fecha actual (solo para usuarios nuevos)
       const phoneFromStorage = localStorage.getItem('userPhone') || '';
       const newUserProfile: UserProfile = {
@@ -308,7 +308,7 @@ private loadUserProfile() {
         email: profile.email,
         phone: profile.phone || ''
       });
-      
+
       // Forzar detección de cambios para asegurar que la vista se actualice
       this.cdr.detectChanges();
 
@@ -613,7 +613,7 @@ private loadUserProfile() {
         }
       }
     } catch {}
-    
+
     // Mapear items del backend si no se encontró detailedOrder
     let orderItems: any[] = [];
     if (detailedOrder?.items && detailedOrder.items.length > 0) {
@@ -652,7 +652,7 @@ private loadUserProfile() {
         }));
       }
     }
-    
+
     const statusMap: Record<string, Order['status']> = {
       'pendiente': 'pending',
       'en_proceso': 'preparing',
@@ -680,7 +680,7 @@ private loadUserProfile() {
       const items = detailedOrder?.items || orderItems;
       subtotal = items.reduce((sum: number, item: any) => {
         const itemTotal = (item.price || 0) * (item.quantity || 1);
-        const optionsTotal = (item.selectedOptions || []).reduce((optSum: number, opt: any) => 
+        const optionsTotal = (item.selectedOptions || []).reduce((optSum: number, opt: any) =>
           optSum + ((opt.price || 0) * (item.quantity || 1)), 0);
         return sum + itemTotal + optionsTotal;
       }, 0);
@@ -705,8 +705,8 @@ private loadUserProfile() {
     }
 
     // Asegurar que siempre haya items
-    const finalItems = (detailedOrder?.items && detailedOrder.items.length > 0) 
-      ? detailedOrder.items 
+    const finalItems = (detailedOrder?.items && detailedOrder.items.length > 0)
+      ? detailedOrder.items
       : (orderItems.length > 0 ? orderItems : []);
 
     return {
@@ -928,14 +928,14 @@ private loadUserProfile() {
             email: updatedProfile.email,
             phone: updatedProfile.phone
           });
-          
+
           // Forzar detección de cambios
           this.cdr.detectChanges();
-          
+
           this.notificationService.showSuccess('Perfil actualizado correctamente');
           this.submitted = false;
           this.showProfileModal = false;
-          
+
           // Recargar el perfil para asegurar que todo esté sincronizado
           setTimeout(() => {
             this.loadUserProfile();
@@ -962,8 +962,8 @@ private loadUserProfile() {
       this.userService.getAddresses().subscribe(addresses => {
         if (this.editingAddress) {
           // Encontrar el índice de la dirección que se está editando
-          const addressIndex = addresses.findIndex(addr => 
-            addr.id === this.editingAddress?.id || 
+          const addressIndex = addresses.findIndex(addr =>
+            addr.id === this.editingAddress?.id ||
             addr.title === this.editingAddress?.title
           );
 
@@ -1074,15 +1074,15 @@ private loadUserProfile() {
     if (!error) {
       return defaultMessage;
     }
-    
+
     if (typeof error === 'string' && error !== 'undefined') {
       return error;
     }
-    
+
     if (error.message && typeof error.message === 'string' && error.message !== 'undefined') {
       return error.message;
     }
-    
+
     if (error.error) {
       if (typeof error.error === 'string' && error.error !== 'undefined') {
         return error.error;
@@ -1091,7 +1091,7 @@ private loadUserProfile() {
         return error.error.message;
       }
     }
-    
+
     return defaultMessage;
   }
 
@@ -1136,8 +1136,8 @@ private loadUserProfile() {
 
   setDefaultAddress(address: Address) {
     // Encontrar el índice de la dirección
-    const addressIndex = this.addresses.findIndex(addr => 
-      addr.id === address.id || 
+    const addressIndex = this.addresses.findIndex(addr =>
+      addr.id === address.id ||
       addr.title === address.title ||
       (addr.name && address.name && addr.name === address.name)
     );
@@ -1168,8 +1168,8 @@ private loadUserProfile() {
 
     if (confirmed) {
       // Encontrar el índice de la dirección
-      const addressIndex = this.addresses.findIndex(addr => 
-        addr.id === address.id || 
+      const addressIndex = this.addresses.findIndex(addr =>
+        addr.id === address.id ||
         addr.title === address.title ||
         (addr.name && address.name && addr.name === address.name)
       );

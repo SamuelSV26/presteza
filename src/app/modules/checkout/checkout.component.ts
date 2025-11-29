@@ -122,7 +122,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     });
     const userInfo = this.authService.getUserInfo();
     if (userInfo) {
-      const userPhone = localStorage.getItem('userPhone') || '';
+      const acountInfo = localStorage.getItem(`userProfile_${userInfo.userId}`);
+      const userPhone = acountInfo ? JSON.parse(acountInfo).phone : '';
       this.deliveryForm.patchValue({
         phone: userPhone
       });

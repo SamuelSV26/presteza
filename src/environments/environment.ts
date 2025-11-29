@@ -1,4 +1,4 @@
 export const environment = {
   production: false,
-  apiUrl: 'https://presteza.site',
+  apiUrl: 'http://localhost:4000',
 };
