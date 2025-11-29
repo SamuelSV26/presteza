@@ -1,14 +1,14 @@
 export interface Address {
-  id?: string; // ID opcional para compatibilidad con frontend
-  title?: string; // Compatibilidad con frontend
-  name?: string; // Nombre de la dirección (backend)
+  id?: string;
+  title?: string;
+  name?: string;
   address: string;
-  neighborhood?: string; // Barrio
+  neighborhood?: string;
   city: string;
-  postalCode?: string; // Compatibilidad con frontend
-  postal_code?: string; // Código postal (backend)
-  isDefault?: boolean; // Compatibilidad con frontend
-  is_primary?: boolean; // Marcar como principal (backend)
+  postalCode?: string;
+  postal_code?: string;
+  isDefault?: boolean;
+  is_primary?: boolean;
 }
 
 // DTOs para el backend
