@@ -4,12 +4,13 @@ import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { CreateSupplyDto, UpdateSupplyDto, SupplyResponse, SuppliesListResponse, Supply } from '../models/Supply';
 import { ErrorHandlerService } from './error-handler.service';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SupplyService {
-  private apiUrl = 'http://localhost:4000/supplies';
+  private apiUrl = `${environment.apiUrl}/supplies`;
 
   constructor(
     private http: HttpClient,

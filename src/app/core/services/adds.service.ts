@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ErrorHandlerService } from './error-handler.service';
+import { environment } from '../../../environments/environment';
 
 export interface Add {
   _id?: string;
@@ -20,7 +21,7 @@ export interface Add {
   providedIn: 'root'
 })
 export class AddsService {
-  private apiUrl = 'http://localhost:4000/adds';
+  private apiUrl = `${environment.apiUrl}/adds`;
   private addsCache: Add[] | null = null;
 
   constructor(

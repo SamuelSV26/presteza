@@ -6,12 +6,13 @@ import { MenuCategory } from '../models/MenuCategory';
 import { MenuItem, ProductSupply } from '../models/MenuItem';
 import { SupplyService } from './supply.service';
 import { Supply } from '../models/Supply';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class MenuService {
-  private apiUrl = 'http://localhost:4000';
+  private apiUrl = environment.apiUrl;
   private suppliesCache: Supply[] = [];
   private suppliesCacheTime: number = 0;
   private cacheTimeout = 30000;

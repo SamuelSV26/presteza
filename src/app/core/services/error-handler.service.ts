@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { NotificationService } from './notification.service';
+import { environment } from '../../../environments/environment';
 export interface AppError {
   message: string;
   code?: string;
@@ -97,7 +98,7 @@ export class ErrorHandlerService {
       errorMessage = `Error: ${error.error.message}`;
     } else {
       if (error.status === 0) {
-        errorMessage = 'No se pudo conectar con el servidor. Por favor, verifica que el servidor backend esté corriendo en http://localhost:4000';
+        errorMessage = `No se pudo conectar con el servidor. Por favor, verifica que el servidor backend esté corriendo en ${environment.apiUrl}`;
         this.notificationService.showError(errorMessage);
       } else {
         switch (error.status) {

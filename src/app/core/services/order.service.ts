@@ -7,12 +7,13 @@ import { UpdateOrderDto } from '../models/UpdateOrderDto';
 import { OrderResponse, OrdersResponse, OrderFromBackend } from '../models/OrderResponse';
 import { Order } from '../models/Order';
 import { ErrorHandlerService } from './error-handler.service';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class OrderService {
-  private apiUrl = 'http://localhost:4000/orders';
+  private apiUrl = `${environment.apiUrl}/orders`;
 
   constructor(
     private http: HttpClient,
