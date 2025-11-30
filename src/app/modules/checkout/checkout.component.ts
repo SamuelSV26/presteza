@@ -610,18 +610,68 @@ export class CheckoutComponent implements OnInit, OnDestroy {
             });
           }
 
+          // Validar que todos los campos requeridos estén presentes
+          if (!dishId || !item.productName || !item.basePrice) {
+            console.error('Producto con datos incompletos:', { dishId, name: item.productName, price: item.basePrice });
+            return;
+          }
+
+          // Asegurar que los valores numéricos sean válidos
+          const quantity = Number(item.quantity) || 1;
+          const unitPrice = Number(item.basePrice);
+          
+          if (isNaN(quantity) || quantity <= 0 || isNaN(unitPrice) || unitPrice <= 0) {
+            console.error('Producto con valores numéricos inválidos:', { quantity, unitPrice });
+            return;
+          }
+
+          // Validar que los adds sean objetos válidos
+          const validAdds = adds.filter(add => 
+            add && 
+            typeof add === 'object' && 
+            add.addId && 
+            add.name && 
+            typeof add.price === 'number' && 
+            typeof add.quantity === 'number'
+          );
+
           // Agregar el producto con toda su información
-          productItems.push({
-            dishId: dishId,
-            name: item.productName,
-            quantity: item.quantity || 1,
-            unit_price: item.basePrice,
-            description: item.productDescription || '',
-            adds: adds.length > 0 ? adds : undefined
-          });
+          const productItem: ProductOrderItem = {
+            dishId: String(dishId),
+            name: String(item.productName),
+            quantity: quantity,
+            unit_price: unitPrice,
+            description: String(item.productDescription || ''),
+            adds: validAdds.length > 0 ? validAdds : undefined
+          };
+
+          // Validar que el objeto sea válido antes de agregarlo
+          if (productItem.dishId && productItem.name && productItem.quantity > 0 && productItem.unit_price > 0) {
+            productItems.push(productItem);
+          } else {
+            console.error('Producto inválido omitido:', productItem);
+          }
         });
 
-        return this.continueWithProductItems(productItems, items, userInfo, userId);
+        // Validar que el array de productos no esté vacío y que todos sean objetos válidos
+        const validProductItems = productItems.filter(item => 
+          item && 
+          typeof item === 'object' && 
+          item.dishId && 
+          item.name && 
+          typeof item.quantity === 'number' && 
+          typeof item.unit_price === 'number'
+        );
+
+        if (validProductItems.length === 0) {
+          this.isLoading = false;
+          this.notificationService.showError('No se pudieron procesar los productos del pedido. Por favor, intenta nuevamente.', 'Error en Productos');
+          return new Observable(observer => {
+            observer.complete();
+          });
+        }
+
+        return this.continueWithProductItems(validProductItems, items, userInfo, userId);
       })
     ).subscribe({
       next: () => {
@@ -705,14 +755,153 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     // Asegurar que payment_method no sea undefined
     const finalPaymentMethod = paymentMethodBackend || this.paymentMethod || 'cash';
 
-    const createOrderDto: CreateOrderDto = {
-      usuarioId: userId,
-      total: Number(this.total.toFixed(2)), // Asegurar que sea un número válido
-      payment_method: finalPaymentMethod,
-      products: productItems,
+    // Validar y limpiar el array de productos antes de crear el DTO
+    const validatedProducts: ProductOrderItem[] = productItems
+      .filter(item => {
+        // Filtrar solo objetos válidos
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          console.error('Producto inválido (no es objeto):', item, typeof item);
+          return false;
+        }
+        
+        // Validar campos requeridos
+        if (!item.dishId || typeof item.dishId !== 'string' || item.dishId.trim() === '') {
+          console.error('Producto con dishId inválido:', item);
+          return false;
+        }
+        
+        if (!item.name || typeof item.name !== 'string' || item.name.trim() === '') {
+          console.error('Producto con name inválido:', item);
+          return false;
+        }
+        
+        if (typeof item.quantity !== 'number' || item.quantity <= 0 || isNaN(item.quantity)) {
+          console.error('Producto con quantity inválido:', item);
+          return false;
+        }
+        
+        if (typeof item.unit_price !== 'number' || item.unit_price <= 0 || isNaN(item.unit_price)) {
+          console.error('Producto con unit_price inválido:', item);
+          return false;
+        }
+        
+        // Validar adds si existen
+        if (item.adds !== undefined && item.adds !== null) {
+          if (!Array.isArray(item.adds)) {
+            console.error('Producto con adds que no es array:', item);
+            return false;
+          }
+        }
+        
+        return true;
+      })
+      .map(item => {
+        // Crear objeto plano sin propiedades undefined
+        const validAdds = item.adds && Array.isArray(item.adds) && item.adds.length > 0
+          ? item.adds
+              .filter(add => {
+                if (!add || typeof add !== 'object' || Array.isArray(add)) return false;
+                if (!add.addId || typeof add.addId !== 'string') return false;
+                if (!add.name || typeof add.name !== 'string') return false;
+                if (typeof add.price !== 'number' || isNaN(add.price)) return false;
+                if (typeof add.quantity !== 'number' || isNaN(add.quantity)) return false;
+                return true;
+              })
+              .map(add => ({
+                addId: String(add.addId).trim(),
+                name: String(add.name).trim(),
+                price: Number(add.price),
+                quantity: Number(add.quantity)
+              }))
+          : undefined;
+
+        // Crear objeto producto sin propiedades undefined
+        const product: any = {
+          dishId: String(item.dishId).trim(),
+          name: String(item.name).trim(),
+          quantity: Number(item.quantity),
+          unit_price: Number(item.unit_price),
+          description: item.description ? String(item.description).trim() : ''
+        };
+
+        // Solo agregar adds si existe y tiene elementos
+        if (validAdds && validAdds.length > 0) {
+          product.adds = validAdds;
+        }
+
+        // Validar que el objeto sea realmente un objeto plano
+        if (typeof product !== 'object' || Array.isArray(product)) {
+          console.error('Error: producto no es un objeto válido:', product);
+          return null;
+        }
+
+        return product;
+      })
+      .filter((item): item is ProductOrderItem => item !== null && typeof item === 'object' && !Array.isArray(item));
+
+    if (validatedProducts.length === 0) {
+      this.isLoading = false;
+      this.notificationService.showError('No se pudieron validar los productos del pedido. Por favor, intenta nuevamente.', 'Error en Productos');
+      return new Observable(observer => {
+        observer.complete();
+      });
+    }
+
+    // Validar que todos los productos sean objetos válidos
+    const finalProducts = validatedProducts.filter((product, index) => {
+      if (!product || typeof product !== 'object' || Array.isArray(product)) {
+        console.error(`Producto en índice ${index} no es un objeto válido:`, product);
+        return false;
+      }
+      
+      // Verificar que tenga las propiedades requeridas
+      if (!product.dishId || !product.name || typeof product.quantity !== 'number' || typeof product.unit_price !== 'number') {
+        console.error(`Producto en índice ${index} tiene propiedades inválidas:`, product);
+        return false;
+      }
+      
+      // Validar adds si existen
+      if (product.adds !== undefined) {
+        if (!Array.isArray(product.adds)) {
+          console.error(`Producto en índice ${index} tiene adds que no es array:`, product);
+          return false;
+        }
+        // Validar cada add
+        for (const add of product.adds) {
+          if (!add || typeof add !== 'object' || Array.isArray(add)) {
+            console.error(`Add inválido en producto ${index}:`, add);
+            return false;
+          }
+        }
+      }
+      
+      return true;
+    });
+
+    if (finalProducts.length === 0) {
+      this.isLoading = false;
+      this.notificationService.showError('No se pudieron validar los productos del pedido. Por favor, intenta nuevamente.', 'Error en Productos');
+      return new Observable(observer => {
+        observer.complete();
+      });
+    }
+
+    // Crear DTO sin propiedades undefined
+    const createOrderDto: any = {
+      usuarioId: String(userId).trim(),
+      total: Number(this.total.toFixed(2)),
+      payment_method: String(finalPaymentMethod).trim(),
+      products: finalProducts,
       status: 'pendiente',
-      user_name: userInfo.name || userInfo.email || 'Usuario'
+      user_name: String(userInfo.name || userInfo.email || 'Usuario').trim()
     };
+
+    // Eliminar cualquier propiedad undefined del DTO
+    Object.keys(createOrderDto).forEach(key => {
+      if (createOrderDto[key] === undefined) {
+        delete createOrderDto[key];
+      }
+    });
 
     // Validación final antes de enviar
     if (!createOrderDto.usuarioId || createOrderDto.usuarioId.trim() === '') {
@@ -740,6 +929,225 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       });
     }
 
+    // Función helper para limpiar objetos de propiedades undefined
+    const cleanObject = (obj: any): any => {
+      if (obj === null || obj === undefined) {
+        return obj;
+      }
+      
+      if (Array.isArray(obj)) {
+        return obj.map(item => cleanObject(item)).filter(item => item !== undefined);
+      }
+      
+      if (typeof obj === 'object') {
+        const cleaned: any = {};
+        for (const key in obj) {
+          if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
+            cleaned[key] = cleanObject(obj[key]);
+          }
+        }
+        return cleaned;
+      }
+      
+      return obj;
+    };
+
+    // Limpiar el DTO de propiedades undefined
+    const cleanedDto = cleanObject(createOrderDto);
+
+    // Validar cada producto individualmente y convertirlos a objetos planos
+    // Crear objetos que coincidan exactamente con el schema de Mongoose (OrderProduct)
+    const plainProducts = cleanedDto.products.map((product: any, index: number) => {
+      if (!product || typeof product !== 'object' || Array.isArray(product)) {
+        console.error(`ERROR: Producto en índice ${index} no es un objeto válido:`, product, typeof product);
+        return null;
+      }
+
+      // Validar campos requeridos antes de crear el objeto
+      const dishId = String(product.dishId || '').trim();
+      const name = String(product.name || '').trim();
+      const quantity = Number(product.quantity || 1);
+      const unitPrice = Number(product.unit_price || 0);
+      const description = String(product.description || '').trim();
+
+      if (!dishId || !name || quantity <= 0 || unitPrice <= 0) {
+        console.error(`ERROR: Producto en índice ${index} tiene campos inválidos:`, { dishId, name, quantity, unitPrice });
+        return null;
+      }
+
+      // Crear objeto producto siguiendo exactamente el schema OrderProduct
+      const orderProduct: any = {
+        dishId: dishId,
+        name: name,
+        quantity: quantity,
+        unit_price: unitPrice,
+        description: description
+      };
+
+      // Procesar adds si existen - deben seguir el schema OrderAdd
+      if (product.adds && Array.isArray(product.adds) && product.adds.length > 0) {
+        const validAdds = product.adds
+          .filter((add: any) => {
+            if (!add || typeof add !== 'object' || Array.isArray(add)) return false;
+            const addId = String(add.addId || '').trim();
+            const addName = String(add.name || '').trim();
+            const addPrice = Number(add.price || 0);
+            const addQuantity = Number(add.quantity || 1);
+            return addId && addName && addPrice > 0 && addQuantity > 0;
+          })
+          .map((add: any) => {
+            // Crear objeto add siguiendo exactamente el schema OrderAdd
+            return {
+              addId: String(add.addId || '').trim(),
+              name: String(add.name || '').trim(),
+              price: Number(add.price || 0),
+              quantity: Number(add.quantity || 1)
+            };
+          });
+
+        // Solo agregar adds si hay al menos uno válido
+        if (validAdds.length > 0) {
+          orderProduct.adds = validAdds;
+        }
+      }
+
+      // Retornar objeto plano - no usar JSON.parse/stringify aquí para evitar problemas
+      // El objeto ya es plano porque lo creamos con object literal
+      return orderProduct;
+    }).filter((product: any) => product !== null && typeof product === 'object' && !Array.isArray(product));
+
+    if (plainProducts.length === 0) {
+      this.isLoading = false;
+      this.notificationService.showError('No se pudieron validar los productos del pedido. Por favor, intenta nuevamente.', 'Error en Productos');
+      return new Observable(observer => {
+        observer.complete();
+      });
+    }
+
+    // Función helper para crear objetos completamente planos sin prototipos
+    // Esto es necesario para que class-transformer de NestJS pueda transformar correctamente
+    const createPlainObject = (obj: any): any => {
+      if (obj === null || obj === undefined) {
+        return obj;
+      }
+      if (Array.isArray(obj)) {
+        return obj.map(item => createPlainObject(item));
+      }
+      if (typeof obj === 'object') {
+        const plain: any = {};
+        for (const key in obj) {
+          if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
+            plain[key] = createPlainObject(obj[key]);
+          }
+        }
+        return plain;
+      }
+      return obj;
+    };
+
+    // Crear el DTO final con estructura exacta que espera el backend
+    // Usar createPlainObject para asegurar objetos sin prototipos
+    const finalDto: any = createPlainObject({
+      usuarioId: String(cleanedDto.usuarioId || userId).trim(),
+      total: Number(cleanedDto.total || this.total.toFixed(2)),
+      payment_method: String(cleanedDto.payment_method || finalPaymentMethod).trim(),
+      products: plainProducts.map((p: any) => {
+        // Crear un objeto completamente nuevo para cada producto
+        const productObj: any = {
+          dishId: String(p.dishId).trim(),
+          name: String(p.name).trim(),
+          quantity: Number(p.quantity),
+          unit_price: Number(p.unit_price),
+          description: String(p.description || '').trim()
+        };
+        
+        // Agregar adds si existen y son válidos
+        if (p.adds && Array.isArray(p.adds) && p.adds.length > 0) {
+          const validAdds = p.adds
+            .filter((add: any) => add && typeof add === 'object' && !Array.isArray(add))
+            .map((add: any) => ({
+              addId: String(add.addId || '').trim(),
+              name: String(add.name || '').trim(),
+              price: Number(add.price || 0),
+              quantity: Number(add.quantity || 1)
+            }))
+            .filter((add: any) => add.addId && add.name && !isNaN(add.price) && add.price > 0 && !isNaN(add.quantity) && add.quantity > 0);
+          
+          if (validAdds.length > 0) {
+            productObj.adds = validAdds;
+          }
+        }
+        
+        return productObj;
+      }),
+      status: String(cleanedDto.status || 'pendiente').trim(),
+      user_name: String(cleanedDto.user_name || userInfo.name || userInfo.email || 'Usuario').trim()
+    });
+
+    // Validación final crítica: asegurar que products sea un array de objetos válidos
+    if (!Array.isArray(finalDto.products)) {
+      console.error('ERROR CRÍTICO: products no es un array:', finalDto.products, typeof finalDto.products);
+      this.isLoading = false;
+      this.notificationService.showError('Error en la estructura de productos. Por favor, intenta nuevamente.', 'Error en Productos');
+      return new Observable(observer => {
+        observer.complete();
+      });
+    }
+
+    // Validar cada producto individualmente
+    for (let i = 0; i < finalDto.products.length; i++) {
+      const product = finalDto.products[i];
+      
+      // Verificar que sea un objeto válido
+      if (!product || typeof product !== 'object' || Array.isArray(product)) {
+        console.error(`ERROR CRÍTICO: Producto ${i} no es un objeto válido:`, product, typeof product, Array.isArray(product));
+        this.isLoading = false;
+        this.notificationService.showError(`Error en el producto ${i + 1}. Por favor, intenta nuevamente.`, 'Error en Productos');
+        return new Observable(observer => {
+          observer.complete();
+        });
+      }
+      
+      // Verificar propiedades requeridas
+      if (!product.dishId || typeof product.dishId !== 'string' ||
+          !product.name || typeof product.name !== 'string' ||
+          typeof product.quantity !== 'number' || isNaN(product.quantity) ||
+          typeof product.unit_price !== 'number' || isNaN(product.unit_price) ||
+          typeof product.description !== 'string') {
+        console.error(`ERROR CRÍTICO: Producto ${i} tiene propiedades inválidas:`, product);
+        this.isLoading = false;
+        this.notificationService.showError(`Error en el producto ${i + 1}. Por favor, intenta nuevamente.`, 'Error en Productos');
+        return new Observable(observer => {
+          observer.complete();
+        });
+      }
+      
+      // Validar adds si existen
+      if (product.adds !== undefined) {
+        if (!Array.isArray(product.adds)) {
+          console.error(`ERROR CRÍTICO: Producto ${i} tiene adds que no es array:`, product.adds);
+          this.isLoading = false;
+          this.notificationService.showError(`Error en los adicionales del producto ${i + 1}. Por favor, intenta nuevamente.`, 'Error en Productos');
+          return new Observable(observer => {
+            observer.complete();
+          });
+        }
+        
+        // Validar cada add
+        for (let j = 0; j < product.adds.length; j++) {
+          const add = product.adds[j];
+          if (!add || typeof add !== 'object' || Array.isArray(add)) {
+            console.error(`ERROR CRÍTICO: Add ${j} del producto ${i} no es un objeto válido:`, add);
+            this.isLoading = false;
+            this.notificationService.showError(`Error en los adicionales del producto ${i + 1}. Por favor, intenta nuevamente.`, 'Error en Productos');
+            return new Observable(observer => {
+              observer.complete();
+            });
+          }
+        }
+      }
+    }
+
     // Log para debugging - mostrar todos los datos
     console.log('=== DATOS DEL PEDIDO ===');
     console.log('Items del carrito:', items);
@@ -755,11 +1163,52 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     console.log('Total:', this.total, 'Tipo:', typeof this.total);
     console.log('Payment Method:', paymentMethodBackend);
     console.log('UsuarioId:', userId, 'Tipo:', typeof userId);
-    console.log('CreateOrderDto completo:', createOrderDto);
-    console.log('CreateOrderDto (JSON):', JSON.stringify(createOrderDto, null, 2));
-    console.log('Products array expandido:', JSON.stringify(createOrderDto.products, null, 2));
+    console.log('CreateOrderDto completo:', finalDto);
+    console.log('CreateOrderDto (JSON):', JSON.stringify(finalDto, null, 2));
+    console.log('Products array expandido:', JSON.stringify(finalDto.products, null, 2));
+    console.log('Products array tipo:', Array.isArray(finalDto.products));
+    console.log('Products array length:', finalDto.products.length);
+    finalDto.products.forEach((p: any, i: number) => {
+      console.log(`Producto ${i}:`, p, 'tipo:', typeof p, 'es objeto:', typeof p === 'object' && !Array.isArray(p));
+      console.log(`Producto ${i} keys:`, Object.keys(p));
+      console.log(`Producto ${i} constructor:`, p.constructor?.name);
+      console.log(`Producto ${i} es instancia de Object:`, p instanceof Object);
+      console.log(`Producto ${i} Object.getPrototypeOf:`, Object.getPrototypeOf(p));
+      console.log(`Producto ${i} JSON.stringify:`, JSON.stringify(p));
+    });
 
-    return this.orderService.createOrder(createOrderDto).pipe(
+    // Serialización final para asegurar que el objeto sea completamente plano
+    // Esto es necesario para que class-transformer de NestJS pueda transformar correctamente
+    const serializedDto = JSON.parse(JSON.stringify(finalDto)) as CreateOrderDto;
+    
+    // Validación final después de serialización
+    if (!Array.isArray(serializedDto.products)) {
+      console.error('ERROR DESPUÉS DE SERIALIZACIÓN: products no es un array');
+      this.isLoading = false;
+      this.notificationService.showError('Error en la estructura de productos. Por favor, intenta nuevamente.', 'Error en Productos');
+      return new Observable(observer => {
+        observer.complete();
+      });
+    }
+    
+    // Verificar que cada producto sea un objeto después de serialización
+    for (let i = 0; i < serializedDto.products.length; i++) {
+      const product = serializedDto.products[i];
+      if (!product || typeof product !== 'object' || Array.isArray(product)) {
+        console.error(`ERROR DESPUÉS DE SERIALIZACIÓN: Producto ${i} no es un objeto válido:`, product);
+        this.isLoading = false;
+        this.notificationService.showError(`Error en el producto ${i + 1}. Por favor, intenta nuevamente.`, 'Error en Productos');
+        return new Observable(observer => {
+          observer.complete();
+        });
+      }
+    }
+    
+    console.log('DTO después de serialización:', serializedDto);
+    console.log('Products después de serialización:', serializedDto.products);
+    console.log('JSON final que se enviará:', JSON.stringify(serializedDto, null, 2));
+
+    return this.orderService.createOrder(serializedDto).pipe(
       takeUntil(this.destroy$),
       map(response => {
         console.log('Pedido creado exitosamente:', response);
@@ -803,8 +1252,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         console.error('Error error (JSON):', JSON.stringify(error.error, null, 2));
         console.error('Error message:', error.message);
         console.error('Error url:', error.url);
-        console.error('Datos enviados:', createOrderDto);
-        console.error('Datos enviados (JSON):', JSON.stringify(createOrderDto, null, 2));
+        console.error('Datos enviados:', finalDto);
+        console.error('Datos enviados (JSON):', JSON.stringify(finalDto, null, 2));
 
         // Mensaje de error más específico
         let errorMessage = 'Hubo un error al procesar tu pedido. Por favor, intenta nuevamente.';
@@ -865,7 +1314,22 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         return;
       }
       const dishId = String(item.productId);
-      if (dishId === 'undefined' || dishId === 'null' || dishId === '') {
+      if (dishId === 'undefined' || dishId === 'null' || dishId === '' || !dishId.trim()) {
+        return;
+      }
+
+      // Validar campos requeridos
+      if (!item.productName || !item.basePrice) {
+        console.error('Item con datos incompletos:', item);
+        return;
+      }
+
+      // Asegurar que los valores numéricos sean válidos
+      const quantity = Number(item.quantity) || 1;
+      const unitPrice = Number(item.basePrice);
+      
+      if (isNaN(quantity) || quantity <= 0 || isNaN(unitPrice) || unitPrice <= 0) {
+        console.error('Item con valores numéricos inválidos:', { quantity, unitPrice });
         return;
       }
 
@@ -874,26 +1338,48 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         item.selectedOptions.forEach(option => {
           const isAddonOrExtra = option.type === 'addon' || option.type === 'extra' ||
             (!option.type && option.price > 0);
-          if (isAddonOrExtra && option.price > 0) {
-            adds.push({
-              addId: option.id,
-              name: option.name,
-              price: option.price,
-              quantity: 1
-            });
+          if (isAddonOrExtra && option.price > 0 && option.id && option.name) {
+            // Validar que el add tenga todos los campos requeridos
+            const addId = String(option.id).trim();
+            const addName = String(option.name).trim();
+            const addPrice = Number(option.price);
+            
+            if (addId && addName && !isNaN(addPrice) && addPrice > 0) {
+              adds.push({
+                addId: addId,
+                name: addName,
+                price: addPrice,
+                quantity: 1
+              });
+            }
           }
         });
       }
 
-      productItems.push({
-        dishId: dishId,
-        name: item.productName,
-        quantity: item.quantity || 1,
-        unit_price: item.basePrice,
-        description: item.productDescription || '',
+      // Crear el producto con validación
+      const productItem: ProductOrderItem = {
+        dishId: dishId.trim(),
+        name: String(item.productName).trim(),
+        quantity: quantity,
+        unit_price: unitPrice,
+        description: item.productDescription ? String(item.productDescription).trim() : '',
         adds: adds.length > 0 ? adds : undefined
-      });
+      };
+
+      // Validar que el objeto sea válido antes de agregarlo
+      if (productItem.dishId && productItem.name && productItem.quantity > 0 && productItem.unit_price > 0) {
+        productItems.push(productItem);
+      } else {
+        console.error('Producto inválido omitido:', productItem);
+      }
     });
+
+    // Validar que haya productos válidos
+    if (productItems.length === 0) {
+      this.isLoading = false;
+      this.notificationService.showError('No se pudieron procesar los productos del pedido. Por favor, intenta nuevamente.', 'Error en Productos');
+      return;
+    }
 
     this.continueWithProductItems(productItems, items, userInfo, userId).subscribe();
   }
