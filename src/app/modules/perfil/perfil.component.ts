@@ -101,13 +101,13 @@ export class PerfilComponent implements OnInit, OnDestroy {
     }, { validator: this.passwordMatchValidator });
 
     this.paymentMethodForm = this.fb.group({
-      type: ['card', [Validators.required]],
+      type: ['credit', [Validators.required]], // 'credit' o 'debit'
       cardNumber: ['', []],
       cardHolder: ['', []],
       expiryMonth: ['', []],
       expiryYear: ['', []],
       cvv: ['', []],
-      brand: ['Visa', [Validators.required]],
+      brand: ['visa', [Validators.required]],
       isDefault: [false]
     });
 
@@ -117,26 +117,12 @@ export class PerfilComponent implements OnInit, OnDestroy {
       numberOfPeople: [2, [Validators.required, Validators.min(1), Validators.max(20)]],
       specialRequests: ['']
     });
-    this.paymentMethodForm.get('type')?.valueChanges.subscribe(type => {
-      if (type === 'card') {
-        this.paymentMethodForm.get('cardNumber')?.setValidators([Validators.required, Validators.pattern(/^[0-9\s]{13,19}$/)]);
-        this.paymentMethodForm.get('cardHolder')?.setValidators([Validators.required]);
-        this.paymentMethodForm.get('expiryMonth')?.setValidators([Validators.required, Validators.pattern(/^(0[1-9]|1[0-2])$/)]);
-        this.paymentMethodForm.get('expiryYear')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{2}$/)]);
-        this.paymentMethodForm.get('cvv')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{3,4}$/)]);
-      } else {
-        this.paymentMethodForm.get('cardNumber')?.clearValidators();
-        this.paymentMethodForm.get('cardHolder')?.clearValidators();
-        this.paymentMethodForm.get('expiryMonth')?.clearValidators();
-        this.paymentMethodForm.get('expiryYear')?.clearValidators();
-        this.paymentMethodForm.get('cvv')?.clearValidators();
-      }
-      this.paymentMethodForm.get('cardNumber')?.updateValueAndValidity();
-      this.paymentMethodForm.get('cardHolder')?.updateValueAndValidity();
-      this.paymentMethodForm.get('expiryMonth')?.updateValueAndValidity();
-      this.paymentMethodForm.get('expiryYear')?.updateValueAndValidity();
-      this.paymentMethodForm.get('cvv')?.updateValueAndValidity();
-    });
+    // Los campos de tarjeta siempre son requeridos cuando se agrega una tarjeta
+    this.paymentMethodForm.get('cardNumber')?.setValidators([Validators.required, Validators.pattern(/^[0-9\s]{13,19}$/)]);
+    this.paymentMethodForm.get('cardHolder')?.setValidators([Validators.required]);
+    this.paymentMethodForm.get('expiryMonth')?.setValidators([Validators.required, Validators.pattern(/^(0[1-9]|1[0-2])$/)]);
+    this.paymentMethodForm.get('expiryYear')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{2}$/)]);
+    this.paymentMethodForm.get('cvv')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{3,4}$/)]);
   }
 
   minDate: string = '';
@@ -172,6 +158,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
       this.loadUserProfile();
       this.loadFavoriteDishes();
       this.loadAddresses();
+      this.loadPaymentMethods();
+    });
+    
+    // Escuchar cambios en métodos de pago
+    window.addEventListener('paymentMethodsChanged', () => {
       this.loadPaymentMethods();
     });
 
@@ -796,8 +787,13 @@ private loadUserProfile() {
   }
 
   loadPaymentMethods() {
-    this.userService.getPaymentMethods().subscribe(methods => {
-      this.paymentMethods = methods;
+    this.userService.getPaymentMethods().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (methods) => {
+        this.paymentMethods = methods;
+      },
+      error: (error) => {
+        console.error('Error al cargar métodos de pago:', error);
+      }
     });
   }
 
@@ -806,7 +802,8 @@ private loadUserProfile() {
     this.editingPaymentMethod = null;
     this.paymentMethodForm.reset();
     this.paymentMethodForm.patchValue({
-      type: 'card',
+      type: 'credit',
+      brand: 'visa',
       isDefault: this.paymentMethods.length === 0
     });
   }
@@ -821,63 +818,65 @@ private loadUserProfile() {
   onPaymentMethodSubmit() {
     this.submitted = true;
     const formValue = this.paymentMethodForm.value;
-    if (formValue.type === 'card') {
-      if (!this.paymentMethodForm.get('cardNumber')?.valid ||
-          !this.paymentMethodForm.get('cardHolder')?.valid ||
-          !this.paymentMethodForm.get('expiryMonth')?.valid ||
-          !this.paymentMethodForm.get('expiryYear')?.valid ||
-          !this.paymentMethodForm.get('cvv')?.valid) {
-        this.notificationService.showError('Por favor, completa todos los campos de la tarjeta correctamente');
-        return;
-      }
+
+    // Validar campos de tarjeta
+    if (!this.paymentMethodForm.get('cardNumber')?.valid ||
+        !this.paymentMethodForm.get('cardHolder')?.valid ||
+        !this.paymentMethodForm.get('expiryMonth')?.valid ||
+        !this.paymentMethodForm.get('expiryYear')?.valid ||
+        !this.paymentMethodForm.get('cvv')?.valid) {
+      this.notificationService.showError('Por favor, completa todos los campos de la tarjeta correctamente');
+      return;
     }
 
-    if (this.paymentMethodForm.valid || formValue.type === 'cash') {
-      const isDefault = formValue.isDefault || this.paymentMethods.length === 0;
+    if (this.paymentMethodForm.valid) {
+      const isPrimary = formValue.isDefault || this.paymentMethods.length === 0;
 
       if (this.editingPaymentMethod) {
-        const updatedMethod: PaymentMethod = {
-          ...this.editingPaymentMethod,
-          type: formValue.type,
-          last4: formValue.cardNumber ? formValue.cardNumber.replace(/\s/g, '').slice(-4) : undefined,
-          brand: formValue.brand || 'Visa',
-          isDefault: isDefault
-        };
-
-        if (isDefault) {
-          this.paymentMethods.forEach(m => {
-            if (m.id !== updatedMethod.id && m.isDefault) {
-              const nonDefaultMethod = { ...m, isDefault: false };
-              this.userService.updatePaymentMethod(nonDefaultMethod);
+        // Actualizar tarjeta existente
+        const cardIndex = this.paymentMethods.findIndex(m => m.id === this.editingPaymentMethod?.id);
+        if (cardIndex !== -1) {
+          this.userService.updatePaymentCard(cardIndex, {
+            cardholder_name: formValue.cardHolder,
+            type: formValue.type as 'debit' | 'credit',
+            brand: formValue.brand,
+            expiryMonth: formValue.expiryMonth,
+            expiryYear: formValue.expiryYear,
+            is_primary: isPrimary
+          }).pipe(takeUntil(this.destroy$)).subscribe({
+            next: () => {
+              this.notificationService.showSuccess('Tarjeta actualizada correctamente');
+              this.loadPaymentMethods();
+              this.closePaymentMethodModal();
+            },
+            error: (error) => {
+              console.error('Error al actualizar tarjeta:', error);
+              this.notificationService.showError('Error al actualizar la tarjeta. Por favor, intenta nuevamente.');
             }
           });
         }
-
-        this.userService.updatePaymentMethod(updatedMethod);
-        this.notificationService.showSuccess('Método de pago actualizado correctamente');
       } else {
-        const newMethod: PaymentMethod = {
-          id: 'pm_' + Date.now(),
-          type: formValue.type,
-          last4: formValue.cardNumber ? formValue.cardNumber.replace(/\s/g, '').slice(-4) : undefined,
-          brand: formValue.brand || 'Visa',
-          isDefault: isDefault
-        };
-        if (isDefault) {
-          this.paymentMethods.forEach(m => {
-            if (m.isDefault) {
-              const nonDefaultMethod = { ...m, isDefault: false };
-              this.userService.updatePaymentMethod(nonDefaultMethod);
-            }
-          });
-        }
-
-        this.userService.savePaymentMethod(newMethod);
-        this.notificationService.showSuccess('Método de pago agregado correctamente');
+        // Agregar nueva tarjeta
+        this.userService.addPaymentCard({
+          cardholder_name: formValue.cardHolder,
+          cardNumber: formValue.cardNumber,
+          type: formValue.type as 'debit' | 'credit',
+          brand: formValue.brand,
+          expiryMonth: formValue.expiryMonth,
+          expiryYear: formValue.expiryYear,
+          is_primary: isPrimary
+        }).pipe(takeUntil(this.destroy$)).subscribe({
+          next: () => {
+            this.notificationService.showSuccess('Tarjeta agregada correctamente');
+            this.loadPaymentMethods();
+            this.closePaymentMethodModal();
+          },
+          error: (error) => {
+            console.error('Error al agregar tarjeta:', error);
+            this.notificationService.showError('Error al agregar la tarjeta. Por favor, intenta nuevamente.');
+          }
+        });
       }
-
-      this.loadPaymentMethods();
-      this.closePaymentMethodModal();
     } else {
       this.notificationService.showError('Por favor, completa todos los campos correctamente');
     }
@@ -886,27 +885,126 @@ private loadUserProfile() {
   editPaymentMethod(method: PaymentMethod) {
     this.editingPaymentMethod = method;
     this.showPaymentMethodModal = true;
+    
+    // Parsear fecha de expiración si existe
+    let expiryMonth = '';
+    let expiryYear = '';
+    if (method.expiry_date) {
+      const parts = method.expiry_date.split('/');
+      if (parts.length === 2) {
+        expiryMonth = parts[0];
+        expiryYear = parts[1];
+      }
+    }
+    
     this.paymentMethodForm.patchValue({
-      type: method.type,
-      cardNumber: method.last4 ? '**** **** **** ' + method.last4 : '',
-      brand: method.brand || 'Visa',
-      isDefault: method.isDefault
+      type: method.type === 'cash' ? 'credit' : method.type, // Si es cash, mostrar como credit por defecto
+      cardNumber: method.last_four_digits ? '**** **** **** ' + method.last_four_digits : '',
+      cardHolder: method.cardholder_name || '',
+      expiryMonth: expiryMonth,
+      expiryYear: expiryYear,
+      brand: method.brand || 'visa',
+      isDefault: method.is_primary || method.isDefault || false
     });
   }
 
-  deletePaymentMethod(method: PaymentMethod) {
+  deletePaymentMethod(method: PaymentMethod, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    
+    console.log('🗑️ deletePaymentMethod llamado para:', method);
+    
+    if (!method.id) {
+      console.error('❌ El método no tiene ID');
+      this.notificationService.showError('Error: La tarjeta no tiene un ID válido.');
+      return;
+    }
+
+    // Construir mensaje de confirmación con información de la tarjeta
+    const cardInfo = method.type === 'cash' 
+      ? 'este método de pago' 
+      : `${method.brand} •••• ${method.last_four_digits}`;
+    
+    const isPrimary = method.is_primary || method.isDefault;
+    const hasOtherCards = this.paymentMethods.length > 1;
+    
+    let warningMessage = '';
+    if (isPrimary && hasOtherCards) {
+      warningMessage = `¿Estás seguro de que deseas eliminar tu tarjeta principal (${cardInfo})? Si tienes otras tarjetas, se marcará automáticamente una como principal.`;
+    } else if (isPrimary && !hasOtherCards) {
+      warningMessage = `¿Estás seguro de que deseas eliminar tu única tarjeta (${cardInfo})? No tendrás métodos de pago guardados después de esta acción.`;
+    } else {
+      warningMessage = `¿Estás seguro de que deseas eliminar la tarjeta ${cardInfo}? Esta acción no se puede deshacer.`;
+    }
+
+    console.log('📋 Mostrando diálogo de confirmación personalizado...');
+    
+    // Usar el diálogo de confirmación personalizado
     this.notificationService.confirm(
-      'Eliminar Método de Pago',
-      `¿Estás seguro de que deseas eliminar este método de pago?`,
+      'Eliminar Tarjeta de Pago',
+      warningMessage,
       'Eliminar',
       'Cancelar'
     ).then(confirmed => {
-      if (confirmed) {
-        this.userService.deletePaymentMethod(method.id);
-        this.loadPaymentMethods();
-        this.notificationService.showSuccess('Método de pago eliminado correctamente');
+      console.log('✅ Respuesta del diálogo de confirmación:', confirmed);
+      
+      if (!confirmed) {
+        console.log('❌ Usuario canceló la eliminación');
+        return;
       }
+      
+      const cardIndex = this.paymentMethods.findIndex(m => m.id === method.id);
+      console.log('🔍 Índice de tarjeta encontrado:', cardIndex);
+      
+      if (cardIndex === -1) {
+        console.warn('⚠️ No se encontró el índice de la tarjeta a eliminar');
+        this.notificationService.showError('No se pudo encontrar la tarjeta para eliminar. Por favor, recarga la página.');
+        return;
+      }
+      
+      console.log(`🗑️ Eliminando tarjeta en índice ${cardIndex}:`, method);
+      this.userService.removePaymentCard(cardIndex).pipe(takeUntil(this.destroy$)).subscribe({
+        next: (updatedCards) => {
+          console.log('✅ Tarjeta eliminada exitosamente. Tarjetas actualizadas:', updatedCards);
+          this.notificationService.showSuccess('Tarjeta eliminada correctamente');
+          this.loadPaymentMethods();
+        },
+        error: (error) => {
+          console.error('❌ Error al eliminar tarjeta:', error);
+          let errorMessage = 'Error al eliminar la tarjeta. Por favor, intenta nuevamente.';
+          if (error.status === 404) {
+            errorMessage = 'La tarjeta no fue encontrada. Puede que ya haya sido eliminada.';
+          } else if (error.status === 403) {
+            errorMessage = 'No tienes permiso para eliminar esta tarjeta.';
+          } else if (error.status === 401) {
+            errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+          }
+          this.notificationService.showError(errorMessage);
+        }
+      });
+    }).catch(error => {
+      console.error('❌ Error en el diálogo de confirmación:', error);
     });
+  }
+
+  setPrimaryPaymentMethod(method: PaymentMethod) {
+    if (!method.id) return;
+    
+    const cardIndex = this.paymentMethods.findIndex(m => m.id === method.id);
+    if (cardIndex !== -1) {
+      this.userService.setPrimaryPaymentCard(cardIndex).pipe(takeUntil(this.destroy$)).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Tarjeta principal actualizada');
+          this.loadPaymentMethods();
+        },
+        error: (error) => {
+          console.error('Error al establecer tarjeta principal:', error);
+          this.notificationService.showError('Error al establecer la tarjeta principal.');
+        }
+      });
+    }
   }
 
   formatCardNumber(event: Event) {

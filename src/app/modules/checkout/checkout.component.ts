@@ -133,25 +133,62 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   }
 
   loadSavedPaymentMethods(): void {
-    this.userService.getPaymentMethods().pipe(takeUntil(this.destroy$)).subscribe(methods => {
-      this.savedPaymentMethods = methods;
-      const defaultMethod = methods.find(m => m.isDefault);
-      if (defaultMethod && defaultMethod.type === 'card') {
-        this.selectedSavedMethod = defaultMethod.id;
-        this.useSavedCard = true;
-        this.paymentMethod = 'card';
-        this.loadSavedCardData(defaultMethod);
-      } else if (defaultMethod && defaultMethod.type === 'cash') {
+    console.log('🔄 Cargando tarjetas guardadas...');
+    this.userService.getPaymentMethods().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (methods) => {
+        console.log('📋 Métodos obtenidos:', methods);
+        // Filtrar solo tarjetas (no efectivo)
+        this.savedPaymentMethods = methods.filter(m => m.type === 'credit' || m.type === 'debit');
+        console.log(`💳 Tarjetas filtradas: ${this.savedPaymentMethods.length}`);
+        
+        // Ordenar: tarjeta principal primero
+        this.savedPaymentMethods.sort((a, b) => {
+          const aIsPrimary = a.is_primary || a.isDefault || false;
+          const bIsPrimary = b.is_primary || b.isDefault || false;
+          if (aIsPrimary && !bIsPrimary) return -1;
+          if (!aIsPrimary && bIsPrimary) return 1;
+          return 0;
+        });
+        
+        const defaultMethod = this.savedPaymentMethods.find(m => m.is_primary || m.isDefault);
+        if (defaultMethod && defaultMethod.id) {
+          console.log('⭐ Usando tarjeta principal:', defaultMethod);
+          this.selectedSavedMethod = defaultMethod.id;
+          this.useSavedCard = true;
+          this.paymentMethod = 'card';
+          this.loadSavedCardData(defaultMethod);
+        } else if (this.savedPaymentMethods.length > 0 && this.savedPaymentMethods[0].id) {
+          // Si no hay principal, usar la primera
+          console.log('📌 Usando primera tarjeta disponible:', this.savedPaymentMethods[0]);
+          this.selectedSavedMethod = this.savedPaymentMethods[0].id;
+          this.useSavedCard = true;
+          this.paymentMethod = 'card';
+          this.loadSavedCardData(this.savedPaymentMethods[0]);
+        } else {
+          console.log('💰 No hay tarjetas, usando efectivo por defecto');
+          this.paymentMethod = 'cash';
+          this.useSavedCard = false;
+          this.selectedSavedMethod = null;
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error al cargar métodos de pago:', error);
         this.paymentMethod = 'cash';
+        this.useSavedCard = false;
+        this.selectedSavedMethod = null;
       }
     });
   }
 
   loadSavedCardData(method: SavedPaymentMethod): void {
-    if (method.type === 'card' && method.last4) {
+    // Los datos de la tarjeta ya están cargados desde el backend
+    // Solo marcamos que estamos usando una tarjeta guardada
+    this.useSavedCard = true;
+    this.selectedSavedMethod = method.id || null;
+    if ((method.type === 'credit' || method.type === 'debit') && method.last_four_digits) {
       this.paymentForm.patchValue({
-        cardNumber: `**** **** **** ${method.last4}`,
-        cardHolder: 'Titular guardado'
+        cardNumber: `**** **** **** ${method.last_four_digits}`,
+        cardHolder: method.cardholder_name || 'Titular guardado'
       });
       this.paymentForm.get('cardNumber')?.clearValidators();
       this.paymentForm.get('cardHolder')?.clearValidators();
@@ -161,11 +198,12 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     }
   }
 
-  onSavedMethodSelect(methodId: string): void {
+  onSavedMethodSelect(methodId: string | undefined): void {
+    if (!methodId) return;
     const method = this.savedPaymentMethods.find(m => m.id === methodId);
     if (method) {
       this.selectedSavedMethod = methodId;
-      if (method.type === 'card') {
+      if (method.type === 'credit' || method.type === 'debit') {
         this.paymentMethod = 'card';
         this.useSavedCard = true;
         this.loadSavedCardData(method);
@@ -190,8 +228,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   getSelectedSavedCardInfo(): string {
     if (!this.selectedSavedMethod) return '';
     const method = this.savedPaymentMethods.find(m => m.id === this.selectedSavedMethod);
-    if (method && method.type === 'card') {
-      return `${method.brand} •••• ${method.last4}`;
+    if (method && (method.type === 'credit' || method.type === 'debit') && method.last_four_digits) {
+      const brand = method.brand ? method.brand.charAt(0).toUpperCase() + method.brand.slice(1) : 'Tarjeta';
+      const type = method.type === 'credit' ? 'Crédito' : 'Débito';
+      return `${brand} ${type} •••• ${method.last_four_digits}`;
     }
     return '';
   }

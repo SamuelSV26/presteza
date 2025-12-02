@@ -1175,7 +1175,6 @@ export class UserService {
   }
 
   getPaymentMethods(): Observable<PaymentMethod[]> {
-    // Obtener el userId del usuario actual
     const userInfoStr = localStorage.getItem('userInfo');
     if (!userInfoStr) {
       return of([]);
@@ -1184,92 +1183,333 @@ export class UserService {
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
-      const email = userInfo.email;
 
-      // Buscar métodos de pago con userId
-      let storedMethods = localStorage.getItem(`userPaymentMethods_${userId}`);
+      if (!userId) {
+        return of([]);
+      }
+
+      // Llamar al endpoint específico del backend para obtener tarjetas de pago
+      const url = `${this.apiUrl}/${userId}/payment-cards`;
+      console.log(`📥 Obteniendo tarjetas de pago desde: ${url}`);
       
-      // Si no se encuentra, buscar con email
-      if (!storedMethods && email && email !== userId) {
-        storedMethods = localStorage.getItem(`userPaymentMethods_${email}`);
-        // Si se encuentra con email, migrar a userId para consistencia
-        if (storedMethods) {
-          localStorage.setItem(`userPaymentMethods_${userId}`, storedMethods);
-        }
-      }
+      return this.http.get<any>(url).pipe(
+        tap((response) => {
+          console.log('📦 Respuesta completa del backend (tarjetas):', response);
+        }),
+        map((response: any) => {
+          // El backend devuelve { message, paymentCards, count }
+          const paymentCards = response.paymentCards || response.payment_cards || [];
+          if (!Array.isArray(paymentCards)) {
+            console.warn('⚠️ La respuesta no contiene un array de tarjetas:', response);
+            return [];
+          }
 
-      if (storedMethods) {
-        return of(JSON.parse(storedMethods));
-      }
+          console.log(`✅ Se encontraron ${paymentCards.length} tarjetas`);
+
+          // Mapear las tarjetas del backend al formato PaymentMethod
+          const mappedCards = paymentCards.map((card: any, index: number) => {
+            const mapped: PaymentMethod = {
+              id: `card_${index}`, // ID temporal basado en índice
+              name: card.name || `${card.brand} ${card.type}`,
+              cardholder_name: card.cardholder_name || card.cardholderName || '',
+              last_four_digits: card.last_four_digits || card.lastFourDigits || '',
+              last4: card.last_four_digits || card.lastFourDigits || '', // Alias para compatibilidad
+              type: card.type === 'debit' || card.type === 'credit' ? card.type : 'credit',
+              brand: card.brand || 'visa',
+              expiry_date: card.expiry_date || card.expiryDate || '',
+              is_primary: card.is_primary || card.isPrimary || false,
+              isDefault: card.is_primary || card.isPrimary || false // Alias para compatibilidad
+            };
+            console.log(`💳 Tarjeta ${index} mapeada:`, mapped);
+            return mapped;
+          });
+          
+          return mappedCards;
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error al obtener tarjetas de pago del backend:', error);
+          console.error('URL:', `${this.apiUrl}/${userId}/payment-cards`);
+          // Fallback: intentar obtener de localStorage
+          const storedMethods = localStorage.getItem(`userPaymentMethods_${userId}`);
+          if (storedMethods) {
+            try {
+              return of(JSON.parse(storedMethods));
+            } catch (e) {
+              return of([]);
+            }
+          }
+          return of([]);
+        })
+      );
     } catch (e) {
       console.error('Error al obtener métodos de pago:', e);
+      return of([]);
     }
-
-    return of([]);
   }
 
-  savePaymentMethod(method: PaymentMethod): void {
+  addPaymentCard(cardData: {
+    name?: string;
+    cardholder_name: string;
+    cardNumber: string;
+    type: 'debit' | 'credit';
+    brand: string;
+    expiryMonth: string;
+    expiryYear: string;
+    is_primary?: boolean;
+  }): Observable<PaymentMethod[]> {
     const userInfoStr = localStorage.getItem('userInfo');
-    if (!userInfoStr) return;
+    if (!userInfoStr) {
+      return throwError(() => new Error('Usuario no autenticado'));
+    }
 
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
 
-      this.getPaymentMethods().subscribe(methods => {
-        // Si se marca como principal, quitar el estado de los demás
-        if (method.isDefault) {
-          methods = methods.map(m => ({ ...m, isDefault: false }));
-        }
+      if (!userId) {
+        return throwError(() => new Error('ID de usuario no encontrado'));
+      }
 
-        const updatedMethods = [...methods, method];
-        localStorage.setItem(`userPaymentMethods_${userId}`, JSON.stringify(updatedMethods));
-      });
+      // Extraer últimos 4 dígitos del número de tarjeta
+      const cardNumber = cardData.cardNumber.replace(/\s/g, '');
+      const lastFourDigits = cardNumber.slice(-4);
+
+      // Formatear fecha de expiración como MM/YY
+      const expiryDate = `${cardData.expiryMonth}/${cardData.expiryYear}`;
+
+      // Preparar datos para el backend
+      const cardDto = {
+        name: cardData.name || `${cardData.brand} ${cardData.type}`,
+        cardholder_name: cardData.cardholder_name,
+        last_four_digits: lastFourDigits,
+        type: cardData.type,
+        brand: cardData.brand.toLowerCase(),
+        expiry_date: expiryDate,
+        is_primary: cardData.is_primary || false
+      };
+
+      console.log('Agregando tarjeta de pago:', cardDto);
+
+      // Llamar al endpoint del backend
+      return this.http.post<any>(`${this.apiUrl}/${userId}/payment-cards`, cardDto).pipe(
+        switchMap(() => {
+          // Después de agregar, obtener la lista actualizada
+          return this.getPaymentMethods();
+        }),
+        tap((cards) => {
+          console.log('Tarjetas actualizadas:', cards);
+          // Disparar evento para notificar cambios
+          window.dispatchEvent(new CustomEvent('paymentMethodsChanged'));
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error al agregar tarjeta:', error);
+          const appError = this.errorHandler.handleHttpError(error);
+          return throwError(() => appError);
+        })
+      );
     } catch (e) {
-      console.error('Error al guardar método de pago:', e);
+      console.error('Error al agregar tarjeta:', e);
+      return throwError(() => new Error('Error al agregar tarjeta'));
     }
   }
 
-  updatePaymentMethod(method: PaymentMethod): void {
+  // Método de compatibilidad con código existente
+  savePaymentMethod(method: PaymentMethod): Observable<PaymentMethod[]> {
+    // Si es efectivo, no se puede guardar como tarjeta
+    if (method.type === 'cash') {
+      return of([]);
+    }
+
+    // Convertir PaymentMethod al formato esperado por addPaymentCard
+    if (!method.cardNumber || !method.expiryMonth || !method.expiryYear) {
+      return throwError(() => new Error('Datos de tarjeta incompletos'));
+    }
+
+    return this.addPaymentCard({
+      name: method.name,
+      cardholder_name: method.cardholder_name,
+      cardNumber: method.cardNumber,
+      type: method.type as 'debit' | 'credit',
+      brand: method.brand,
+      expiryMonth: method.expiryMonth,
+      expiryYear: method.expiryYear,
+      is_primary: method.is_primary || method.isDefault
+    });
+  }
+
+  updatePaymentCard(cardIndex: number, cardData: {
+    name?: string;
+    cardholder_name?: string;
+    type?: 'debit' | 'credit';
+    brand?: string;
+    expiryMonth?: string;
+    expiryYear?: string;
+    is_primary?: boolean;
+  }): Observable<PaymentMethod[]> {
     const userInfoStr = localStorage.getItem('userInfo');
-    if (!userInfoStr) return;
+    if (!userInfoStr) {
+      return throwError(() => new Error('Usuario no autenticado'));
+    }
 
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
 
-      this.getPaymentMethods().subscribe(methods => {
-        // Si se marca como principal, quitar el estado de los demás
-        if (method.isDefault) {
-          methods = methods.map(m => m.id !== method.id ? { ...m, isDefault: false } : m);
-        }
+      if (!userId) {
+        return throwError(() => new Error('ID de usuario no encontrado'));
+      }
 
+      // Preparar datos para actualizar (solo enviar campos que se actualizan)
+      const updateDto: any = {};
+      if (cardData.name !== undefined) updateDto.name = cardData.name;
+      if (cardData.cardholder_name !== undefined) updateDto.cardholder_name = cardData.cardholder_name;
+      if (cardData.type !== undefined) updateDto.type = cardData.type;
+      if (cardData.brand !== undefined) updateDto.brand = cardData.brand.toLowerCase();
+      if (cardData.expiryMonth && cardData.expiryYear) {
+        updateDto.expiry_date = `${cardData.expiryMonth}/${cardData.expiryYear}`;
+      }
+      if (cardData.is_primary !== undefined) updateDto.is_primary = cardData.is_primary;
+
+      console.log(`Actualizando tarjeta en índice ${cardIndex}:`, updateDto);
+
+      // Llamar al endpoint del backend
+      return this.http.patch<any>(`${this.apiUrl}/${userId}/payment-cards/${cardIndex}`, updateDto).pipe(
+        switchMap(() => {
+          // Después de actualizar, obtener la lista actualizada
+          return this.getPaymentMethods();
+        }),
+        tap((cards) => {
+          console.log('Tarjetas actualizadas:', cards);
+          window.dispatchEvent(new CustomEvent('paymentMethodsChanged'));
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error al actualizar tarjeta:', error);
+          const appError = this.errorHandler.handleHttpError(error);
+          return throwError(() => appError);
+        })
+      );
+    } catch (e) {
+      console.error('Error al actualizar tarjeta:', e);
+      return throwError(() => new Error('Error al actualizar tarjeta'));
+    }
+  }
+
+  // Método de compatibilidad
+  updatePaymentMethod(method: PaymentMethod): Observable<PaymentMethod[]> {
+    // Obtener el índice de la tarjeta
+    return this.getPaymentMethods().pipe(
+      switchMap((methods) => {
         const index = methods.findIndex(m => m.id === method.id);
-        if (index !== -1) {
-          methods[index] = method;
-          localStorage.setItem(`userPaymentMethods_${userId}`, JSON.stringify(methods));
+        if (index === -1) {
+          return throwError(() => new Error('Tarjeta no encontrada'));
         }
-      });
-    } catch (e) {
-      console.error('Error al actualizar método de pago:', e);
-    }
+
+        return this.updatePaymentCard(index, {
+          name: method.name,
+          cardholder_name: method.cardholder_name,
+          type: method.type as 'debit' | 'credit',
+          brand: method.brand,
+          expiryMonth: method.expiryMonth,
+          expiryYear: method.expiryYear,
+          is_primary: method.is_primary || method.isDefault
+        });
+      })
+    );
   }
 
-  deletePaymentMethod(methodId: string): void {
+  removePaymentCard(cardIndex: number): Observable<PaymentMethod[]> {
     const userInfoStr = localStorage.getItem('userInfo');
-    if (!userInfoStr) return;
+    if (!userInfoStr) {
+      return throwError(() => new Error('Usuario no autenticado'));
+    }
 
     try {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
 
-      this.getPaymentMethods().subscribe(methods => {
-        const updatedMethods = methods.filter(m => m.id !== methodId);
-        localStorage.setItem(`userPaymentMethods_${userId}`, JSON.stringify(updatedMethods));
-      });
+      if (!userId) {
+        return throwError(() => new Error('ID de usuario no encontrado'));
+      }
+
+      console.log(`🗑️ Eliminando tarjeta en índice ${cardIndex}`);
+      const url = `${this.apiUrl}/${userId}/payment-cards/${cardIndex}`;
+      console.log(`   URL: ${url}`);
+
+      // Llamar al endpoint del backend
+      return this.http.delete<any>(url).pipe(
+        tap((response) => {
+          console.log('📦 Respuesta del backend al eliminar:', response);
+        }),
+        switchMap(() => {
+          // Después de eliminar, obtener la lista actualizada
+          return this.getPaymentMethods();
+        }),
+        tap((cards) => {
+          console.log('Tarjetas actualizadas:', cards);
+          window.dispatchEvent(new CustomEvent('paymentMethodsChanged'));
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error al eliminar tarjeta:', error);
+          const appError = this.errorHandler.handleHttpError(error);
+          return throwError(() => appError);
+        })
+      );
     } catch (e) {
-      console.error('Error al eliminar método de pago:', e);
+      console.error('Error al eliminar tarjeta:', e);
+      return throwError(() => new Error('Error al eliminar tarjeta'));
     }
+  }
+
+  setPrimaryPaymentCard(cardIndex: number): Observable<PaymentMethod[]> {
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) {
+      return throwError(() => new Error('Usuario no autenticado'));
+    }
+
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      const userId = userInfo.userId || userInfo.email;
+
+      if (!userId) {
+        return throwError(() => new Error('ID de usuario no encontrado'));
+      }
+
+      console.log(`Estableciendo tarjeta principal en índice ${cardIndex}`);
+
+      // Llamar al endpoint del backend
+      return this.http.patch<any>(`${this.apiUrl}/${userId}/payment-cards/${cardIndex}/primary`, {}).pipe(
+        switchMap(() => {
+          // Después de establecer como principal, obtener la lista actualizada
+          return this.getPaymentMethods();
+        }),
+        tap((cards) => {
+          console.log('Tarjetas actualizadas:', cards);
+          window.dispatchEvent(new CustomEvent('paymentMethodsChanged'));
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error al establecer tarjeta principal:', error);
+          const appError = this.errorHandler.handleHttpError(error);
+          return throwError(() => appError);
+        })
+      );
+    } catch (e) {
+      console.error('Error al establecer tarjeta principal:', e);
+      return throwError(() => new Error('Error al establecer tarjeta principal'));
+    }
+  }
+
+  // Método de compatibilidad
+  deletePaymentMethod(methodId: string): Observable<PaymentMethod[]> {
+    // Obtener el índice de la tarjeta
+    return this.getPaymentMethods().pipe(
+      switchMap((methods) => {
+        const index = methods.findIndex(m => m.id === methodId);
+        if (index === -1) {
+          return throwError(() => new Error('Tarjeta no encontrada'));
+        }
+        return this.removePaymentCard(index);
+      })
+    );
   }
 
   private generateId(): string {
