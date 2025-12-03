@@ -4,7 +4,7 @@ import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { CreateReservationDto } from '../models/CreateReservationDto';
 import { UpdateReservationDto } from '../models/UpdateReservationDto';
-import { ReservationResponse, ReservationsResponse, ReservationFromBackend, Reservation } from '../models/ReservationResponse';
+import { ReservationFromBackend, Reservation } from '../models/ReservationResponse';
 import { ErrorHandlerService } from './error-handler.service';
 import { environment } from '../../../environments/environment';
 
@@ -82,9 +82,6 @@ export class ReservationsService {
     );
   }
 
-  /**
-   * Convierte una reserva del backend al formato del frontend
-   */
   mapBackendReservationToFrontend(backendReservation: ReservationFromBackend): Reservation {
     const reservationId = backendReservation._id || backendReservation.id || '';
     return {

@@ -29,8 +29,8 @@
 <div *ngIf="confirmDialog" class="confirm-dialog-overlay" (click)="onConfirm(false)">
   <div class="confirm-dialog" (click)="$event.stopPropagation()">
     <div class="confirm-dialog-header">
-      <div class="confirm-dialog-icon">
-        <i class="bi bi-question-circle-fill"></i>
+      <div class="confirm-dialog-icon" [class.delete-icon]="isDeleteDialog()">
+        <i class="bi" [ngClass]="getConfirmDialogIcon()"></i>
       </div>
       <h3 class="confirm-dialog-title">{{ confirmDialog.title }}</h3>
     </div>

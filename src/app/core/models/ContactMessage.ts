@@ -1,6 +1,4 @@
-/**
- * DTO para crear un mensaje de contacto
- */
+
 export interface CreateContactMessageDto {
   name: string;
   email: string;
@@ -9,9 +7,29 @@ export interface CreateContactMessageDto {
   message: string;
 }
 
-/**
- * Interfaz de mensaje de contacto desde el backend
- */
+// DTO para enviar al backend (mapea los campos del frontend a los del backend)
+export interface CreateCommentDto {
+  user_name: string;
+  user_email: string;
+  user_phone: string;
+  user_title: string;
+  user_comment: string;
+}
+
+// Respuesta del backend (schema Comment)
+export interface CommentFromBackend {
+  _id?: string;
+  id?: string;
+  user_name: string;
+  user_email: string;
+  user_phone: string;
+  user_title: string;
+  user_comment: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Mantener compatibilidad con el código existente
 export interface ContactMessageFromBackend {
   _id?: string;
   id?: string;
@@ -25,9 +43,6 @@ export interface ContactMessageFromBackend {
   updatedAt?: string;
 }
 
-/**
- * Interfaz de mensaje de contacto para el frontend
- */
 export interface ContactMessage {
   id: string;
   name: string;

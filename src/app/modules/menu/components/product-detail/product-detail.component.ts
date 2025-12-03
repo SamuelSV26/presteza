@@ -9,7 +9,8 @@ import { Observable, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { MenuItem, ProductOption } from '../../../../core/models/MenuItem';
 import { MenuService } from '../../../../core/services/menu.service';
-import { ExtrasAvailabilityService } from '../../../../core/services/extras-availability.service';
+import { AddsService, Add } from '../../../../core/services/adds.service';
+import { Meta, Title } from '@angular/platform-browser';
 
 interface SelectedOption {
   option: ProductOption;
@@ -40,13 +41,11 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
   removals: ProductOption[] = [];
   isFavorite$: Observable<boolean> = new Observable();
   isLoggedIn = false;
-  private extrasUpdatedHandler = () => {
-    // Forzar actualización de las opciones cuando se actualizan los extras
-    // Usar setTimeout para asegurar que localStorage se haya actualizado
+  private addsUpdatedHandler = () => {
+    // Actualizar cuando se modifiquen los adicionales en el backend
     setTimeout(() => {
-      if (this.product) {
-        this.organizeOptions();
-        this.calculateTotal();
+      if (this.product && this.categoryId) {
+        this.loadAddsFromBackend();
       }
     }, 100);
   };
@@ -59,8 +58,13 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private notificationService: NotificationService,
     private cartService: CartService,
-    private extrasAvailabilityService: ExtrasAvailabilityService
-  ) { }
+    private addsService: AddsService,
+    private title: Title,
+    private meta: Meta
+  ) {
+    this.title.setTitle('Detalle del Producto - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Detalles del producto en PRESTEZA. Personaliza tu pedido con opciones y adicionales.' });
+  }
 
   ngOnInit(): void {
     this.isLoggedIn = this.authService.isAuthenticated();
@@ -68,7 +72,7 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
       this.isLoggedIn = this.authService.isAuthenticated();
     });
 
-    window.addEventListener('extrasUpdated', this.extrasUpdatedHandler);
+    window.addEventListener('addsUpdated', this.addsUpdatedHandler);
     const productId = this.route.snapshot.paramMap.get('id');
     const categoryIdFromQuery = this.route.snapshot.queryParamMap.get('categoryId');
     if (categoryIdFromQuery) {
@@ -91,6 +95,10 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
               this.categoryId = item.categoryId;
             }
             this.organizeOptions();
+            // Cargar adicionales desde el backend después de organizar opciones
+            if (this.categoryId) {
+              this.loadAddsFromBackend();
+            }
             this.loading = false;
             this.initFavorites();
           } else {
@@ -213,53 +221,8 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
       'plátano': 2000
     };
 
-    const addableIngredients = ['queso', 'tocino', 'huevo', 'aguacate', 'papa', 'carne', 'pollo',
-      'cebolla', 'tomate', 'lechuga', 'salsa', 'mayonesa', 'mostaza',
-      'pepinillos', 'pescado', 'mariscos', 'frijoles', 'arroz', 'plátano'];
-    foundIngredients.forEach(ingredient => {
-      if (addableIngredients.includes(ingredient)) {
-        const addonId = `addon-${ingredient}`;
-        
-        // Verificar primero si está disponible usando el método del servicio
-        if (!this.extrasAvailabilityService.isExtraAvailable(addonId)) {
-          // Si no está disponible, no agregarlo
-          return;
-        }
-        
-        // Obtener el extra directamente del servicio
-        const storedExtra = this.extrasAvailabilityService.getExtraById(addonId);
-        
-        // Solo mostrar si existe y está disponible (doble verificación)
-        if (storedExtra && storedExtra.available === true) {
-          const addonOption: ProductOption = {
-            id: addonId,
-            name: storedExtra.name,
-            price: storedExtra.price,
-            type: 'addon'
-          };
-          if (!this.addons.find(a => a.id === addonOption.id)) {
-            this.addons.push(addonOption);
-            this.selectedOptions.set(addonOption.id, false);
-          }
-        }
-      }
-    });
-    
-    const allExtras = this.extrasAvailabilityService.getAllExtras();
-    allExtras.forEach(extra => {
-      if (extra.available && !extra.id.startsWith('addon-')) {
-        const addonOption: ProductOption = {
-          id: extra.id,
-          name: extra.name,
-          price: extra.price,
-          type: 'addon'
-        };
-        if (!this.addons.find(a => a.id === addonOption.id)) {
-          this.addons.push(addonOption);
-          this.selectedOptions.set(addonOption.id, false);
-        }
-      }
-    });
+    // NO generar adicionales localmente - SOLO usar el backend
+    // Los adicionales se cargarán desde el backend en loadAddsFromBackend()
     if (this.product?.options && Array.isArray(this.product.options)) {
       this.product.options.forEach(option => {
         if (!option || !option.id || !option.name) {
@@ -361,28 +324,48 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
       return;
     }
     if (!this.product) return;
-    const selectedOptionsList: Array<{ id: string; name: string; price: number }> = [];
+    const selectedOptionsList: Array<{ id: string; name: string; price: number; type?: 'addon' | 'size' | 'extra' | 'removal' }> = [];
     this.selectedOptions.forEach((checked, optionId) => {
       if (checked) {
         let option: ProductOption | undefined;
-        option = this.product?.options?.find(opt => String(opt.id) === String(optionId));
-        if (!option) {
-          option = this.removals.find(opt => String(opt.id) === String(optionId));
-        }
-        if (!option) {
+        let optionType: 'addon' | 'size' | 'extra' | 'removal' | undefined;
+
+        // Buscar en removals primero
+        option = this.removals.find(opt => String(opt.id) === String(optionId));
+        if (option) {
+          optionType = 'removal';
+        } else {
+          // Buscar en addons
           option = this.addons.find(opt => String(opt.id) === String(optionId));
+          if (option) {
+            optionType = 'addon';
+          } else {
+            // Buscar en extras
+            option = this.extras.find(opt => String(opt.id) === String(optionId));
+            if (option) {
+              optionType = 'extra';
+            } else {
+              // Buscar en sizes
+              option = this.sizes.find(opt => String(opt.id) === String(optionId));
+              if (option) {
+                optionType = 'size';
+              } else {
+                // Buscar en las opciones del producto
+                option = this.product?.options?.find(opt => String(opt.id) === String(optionId));
+                if (option) {
+                  optionType = option.type || 'extra';
+                }
+              }
+            }
+          }
         }
-        if (!option) {
-          option = this.extras.find(opt => String(opt.id) === String(optionId));
-        }
-        if (!option) {
-          option = this.sizes.find(opt => String(opt.id) === String(optionId));
-        }
+
         if (option) {
           selectedOptionsList.push({
             id: String(option.id),
             name: option.name,
-            price: option.price || 0
+            price: option.price || 0,
+            type: optionType
           });
         }
       }
@@ -429,14 +412,96 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.userService.toggleFavorite(this.product.id);
-    this.isFavorite$ = this.userService.isFavorite(this.product.id);
+    // Guardar el ID en una variable local para evitar problemas con null
+    const productId = this.product.id;
+
+    // Usar el nuevo método que devuelve Observable
+    this.userService.toggleFavorite(productId).subscribe({
+      next: () => {
+        // Actualizar el estado del favorito
+        if (this.product) {
+          this.isFavorite$ = this.userService.isFavorite(productId);
+        }
+      },
+      error: (error) => {
+        console.error('Error al alternar favorito:', error);
+        // Aún así actualizar el estado para reflejar el cambio visual
+        if (this.product) {
+          this.isFavorite$ = this.userService.isFavorite(productId);
+        }
+      }
+    });
+  }
+
+  loadAddsFromBackend(): void {
+    if (!this.categoryId || !this.product) {
+      return;
+    }
+
+    const productIdStr = String(this.product.id);
+
+    this.addsService.findAvailable().subscribe({
+      next: (allAdds: Add[]) => {
+        const backendAddons: ProductOption[] = [];
+        const addedIds = new Set<string>();
+
+        allAdds.forEach(add => {
+          if (!add.available) {
+            return;
+          }
+
+          let shouldInclude = false;
+
+          if (add.dishIds && add.dishIds.length > 0) {
+            shouldInclude = add.dishIds.includes(productIdStr);
+          } else {
+            shouldInclude = !!(add.categoryIds && this.categoryId && add.categoryIds.includes(this.categoryId));
+          }
+
+          if (!shouldInclude) {
+            return;
+          }
+
+          const addId = add._id || add.id;
+          if (!addId) {
+            console.warn(`Adicional "${add.name}" no tiene ID válido`);
+            return;
+          }
+
+          // Evitar duplicados
+          if (addedIds.has(addId)) {
+            return;
+          }
+          addedIds.add(addId);
+
+          const addonOption: ProductOption = {
+            id: addId,
+            name: add.name,
+            price: add.price,
+            type: 'addon'
+          };
+
+          backendAddons.push(addonOption);
+          this.selectedOptions.set(addonOption.id, false);
+        });
+
+        // Reemplazar los adicionales con los del backend
+        this.addons = backendAddons;
+
+        // Recalcular el total después de cargar los adicionales
+        this.calculateTotal();
+      },
+      error: (error) => {
+        console.error('Error al cargar adicionales desde el backend:', error);
+        // Si hay error, mantener los adicionales vacíos
+        this.addons = [];
+      }
+    });
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    window.removeEventListener('extrasUpdated', this.extrasUpdatedHandler);
+    window.removeEventListener('addsUpdated', this.addsUpdatedHandler);
   }
 }
-

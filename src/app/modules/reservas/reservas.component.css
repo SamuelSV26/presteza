@@ -6,7 +6,6 @@
   overflow: hidden;
 }
 
-/* Hero Section */
 .hero-section {
   position: relative;
   height: 65vh;
@@ -101,7 +100,6 @@
   }
 }
 
-/* Tables Section */
 .tables-section {
   background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
   border-radius: 30px;
@@ -134,7 +132,6 @@
   opacity: 0.9;
 }
 
-/* Legend */
 .legend {
   display: flex;
   justify-content: center;
@@ -193,7 +190,6 @@
   background: linear-gradient(135deg, #e85d75 0%, #dc3545 50%, #c82333 100%);
 }
 
-/* Tables Layout */
 .tables-layout {
   margin-top: 2rem;
 }
@@ -241,7 +237,6 @@
   z-index: 0;
 }
 
-/* Paredes */
 .wall {
   position: absolute;
   background: linear-gradient(135deg, #a0826d 0%, #8b7355 50%, #6b5d47 100%);
@@ -284,7 +279,6 @@
   border-right: 2px solid #5a4d3f;
 }
 
-/* Ventanas */
 .window {
   position: absolute;
   background: linear-gradient(135deg, 
@@ -364,7 +358,6 @@
   height: 8px;
 }
 
-/* Cocina */
 .kitchen-area {
   position: absolute;
   top: 12px;
@@ -441,7 +434,6 @@
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* Puerta de Entrada */
 .entrance-door {
   position: absolute;
   bottom: 12px;
@@ -519,7 +511,6 @@
   border-bottom-left-radius: 0;
 }
 
-/* Barra Comunal */
 .bar-container {
   position: absolute;
   left: 12px;
@@ -645,7 +636,6 @@
     inset 0 1px 2px rgba(255, 255, 255, 0.4);
 }
 
-/* Table Container */
 .table-container {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -689,7 +679,6 @@
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* Chairs */
 .chairs-container {
   position: absolute;
   width: 120px;
@@ -738,7 +727,6 @@
   opacity: 0.6;
 }
 
-/* Table Top */
 .table-top {
   position: absolute;
   top: 50%;
@@ -752,7 +740,6 @@
   z-index: 2;
 }
 
-/* Round Tables */
 .table-round-small {
   width: 50px;
   height: 50px;
@@ -777,7 +764,6 @@
     inset 0 -2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Rectangular Tables */
 .table-rectangle {
   width: 80px;
   height: 50px;
@@ -831,7 +817,6 @@
     inset 0 -2px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* Table States */
 .table-container.available .table-top {
   filter: drop-shadow(0 2px 4px rgba(40, 167, 69, 0.3));
 }
@@ -888,7 +873,6 @@
   }
 }
 
-/* Table Labels */
 .table-number {
   font-size: 0.7rem;
   font-weight: 800;
@@ -924,7 +908,6 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
-/* Badge de mesa ocupada */
 .table-occupied-badge {
   position: absolute;
   top: -8px;
@@ -979,7 +962,6 @@
   color: #ffffff;
 }
 
-/* Custom Table Container */
 .custom-table-wrapper {
   position: absolute;
   top: 160px;
@@ -1050,7 +1032,6 @@
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* Custom Capacity Selector */
 .custom-capacity-selector {
   margin-top: 2rem;
   padding: 2rem;
@@ -1208,7 +1189,6 @@
   font-size: 1.1rem;
 }
 
-/* Form Card */
 .form-card {
   background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
   border-radius: 30px;
@@ -1274,7 +1254,6 @@
   margin-top: 0.5rem;
 }
 
-/* Form Styles */
 .reservation-form {
   width: 100%;
 }
@@ -1334,7 +1313,6 @@ textarea.form-control {
   min-height: 100px;
 }
 
-/* Submit Button */
 .form-actions {
   text-align: center;
   margin-top: 2rem;
@@ -1374,7 +1352,6 @@ textarea.form-control {
   cursor: not-allowed;
 }
 
-/* Alert Success */
 .alert-success {
   background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
   color: #ffffff;
@@ -1385,7 +1362,6 @@ textarea.form-control {
   box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
 }
 
-/* Responsive */
 @media (max-width: 992px) {
   .hero-title {
     font-size: 3.5rem;

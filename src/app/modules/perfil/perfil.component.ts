@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
@@ -20,6 +21,7 @@ import { OrderFromBackend } from '../../core/models/OrderResponse';
 import { ReservationsService } from '../../core/services/reservations.service';
 import { Reservation, ReservationFromBackend } from '../../core/models/ReservationResponse';
 import { UpdateReservationDto } from '../../core/models/UpdateReservationDto';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-perfil',
@@ -30,6 +32,7 @@ import { UpdateReservationDto } from '../../core/models/UpdateReservationDto';
 })
 export class PerfilComponent implements OnInit, OnDestroy {
   activeTab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings' | 'reservations' = 'profile';
+  sidebarOpen = false;
   userProfile: UserProfile | null = null;
   orders: Order[] = [];
   addresses: Address[] = [];
@@ -59,6 +62,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private progressIntervals: Map<string, any> = new Map();
+  private ordersRefreshInterval: any = null;
 
   constructor(
     private userService: UserService,
@@ -70,8 +74,12 @@ export class PerfilComponent implements OnInit, OnDestroy {
     private cartService: CartService,
     private cdr: ChangeDetectorRef,
     private orderService: OrderService,
-    private reservationsService: ReservationsService
+    private reservationsService: ReservationsService,
+    private title: Title,
+    private meta: Meta
   ) {
+    this.title.setTitle('Perfil - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Gestiona tu perfil, pedidos, direcciones y métodos de pago.' });
     this.profileForm = this.fb.group({
       fullName: ['', [Validators.required, Validators.minLength(3)]],
       email: ['', [Validators.required, Validators.email]],
@@ -94,13 +102,13 @@ export class PerfilComponent implements OnInit, OnDestroy {
     }, { validator: this.passwordMatchValidator });
 
     this.paymentMethodForm = this.fb.group({
-      type: ['card', [Validators.required]],
+      type: ['credit', [Validators.required]], // 'credit' o 'debit'
       cardNumber: ['', []],
       cardHolder: ['', []],
       expiryMonth: ['', []],
       expiryYear: ['', []],
       cvv: ['', []],
-      brand: ['Visa', [Validators.required]],
+      brand: ['visa', [Validators.required]],
       isDefault: [false]
     });
 
@@ -110,32 +118,17 @@ export class PerfilComponent implements OnInit, OnDestroy {
       numberOfPeople: [2, [Validators.required, Validators.min(1), Validators.max(20)]],
       specialRequests: ['']
     });
-    this.paymentMethodForm.get('type')?.valueChanges.subscribe(type => {
-      if (type === 'card') {
-        this.paymentMethodForm.get('cardNumber')?.setValidators([Validators.required, Validators.pattern(/^[0-9\s]{13,19}$/)]);
-        this.paymentMethodForm.get('cardHolder')?.setValidators([Validators.required]);
-        this.paymentMethodForm.get('expiryMonth')?.setValidators([Validators.required, Validators.pattern(/^(0[1-9]|1[0-2])$/)]);
-        this.paymentMethodForm.get('expiryYear')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{2}$/)]);
-        this.paymentMethodForm.get('cvv')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{3,4}$/)]);
-      } else {
-        this.paymentMethodForm.get('cardNumber')?.clearValidators();
-        this.paymentMethodForm.get('cardHolder')?.clearValidators();
-        this.paymentMethodForm.get('expiryMonth')?.clearValidators();
-        this.paymentMethodForm.get('expiryYear')?.clearValidators();
-        this.paymentMethodForm.get('cvv')?.clearValidators();
-      }
-      this.paymentMethodForm.get('cardNumber')?.updateValueAndValidity();
-      this.paymentMethodForm.get('cardHolder')?.updateValueAndValidity();
-      this.paymentMethodForm.get('expiryMonth')?.updateValueAndValidity();
-      this.paymentMethodForm.get('expiryYear')?.updateValueAndValidity();
-      this.paymentMethodForm.get('cvv')?.updateValueAndValidity();
-    });
+    // Los campos de tarjeta siempre son requeridos cuando se agrega una tarjeta
+    this.paymentMethodForm.get('cardNumber')?.setValidators([Validators.required, Validators.pattern(/^[0-9\s]{13,19}$/)]);
+    this.paymentMethodForm.get('cardHolder')?.setValidators([Validators.required]);
+    this.paymentMethodForm.get('expiryMonth')?.setValidators([Validators.required, Validators.pattern(/^(0[1-9]|1[0-2])$/)]);
+    this.paymentMethodForm.get('expiryYear')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{2}$/)]);
+    this.paymentMethodForm.get('cvv')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{3,4}$/)]);
   }
 
   minDate: string = '';
 
   ngOnInit() {
-    // Verificar si el usuario es admin y redirigir
     if (this.authService.isAdmin()) {
       this.router.navigate(['/admin']);
       return;
@@ -143,18 +136,13 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
     const today = new Date().toISOString().split('T')[0];
     this.minDate = today;
-    
+
     this.loadUserProfile();
     this.loadOrders();
     this.loadReservations();
-    setInterval(() => {
-      if (this.activeTab === 'orders') {
-        this.loadOrders();
-      }
-      if (this.activeTab === 'reservations') {
-        this.loadReservations();
-      }
-    }, 10000);
+    
+    // Actualizar pedidos periódicamente solo si hay pedidos activos
+    this.startOrdersRefresh();
     this.authService.userInfo$.pipe(takeUntil(this.destroy$)).subscribe(userInfo => {
       if (userInfo) {
         this.loadUserProfile();
@@ -167,6 +155,19 @@ export class PerfilComponent implements OnInit, OnDestroy {
       this.loadFavoriteDishes();
       this.loadAddresses();
       this.loadPaymentMethods();
+    });
+    
+    // Escuchar cambios en métodos de pago
+    window.addEventListener('paymentMethodsChanged', () => {
+      this.loadPaymentMethods();
+    });
+
+    // Suscribirse a cambios en el perfil del usuario
+    this.userService.userProfile$.pipe(takeUntil(this.destroy$)).subscribe(profile => {
+      if (profile) {
+        this.userProfile = profile;
+        this.cdr.detectChanges();
+      }
     });
     window.addEventListener('productsUpdated', () => {
       this.loadRecommendedDishes();
@@ -181,6 +182,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.progressIntervals.forEach(interval => clearInterval(interval));
     this.progressIntervals.clear();
+    
+    if (this.ordersRefreshInterval) {
+      clearInterval(this.ordersRefreshInterval);
+      this.ordersRefreshInterval = null;
+    }
 
     this.destroy$.next();
     this.destroy$.complete();
@@ -197,62 +203,112 @@ private loadUserProfile() {
   if (!userInfo) return;
 
   const userId = userInfo.userId || userInfo.email;
-  const storageKey = `userRegistrationDate_${userId}`;
 
-  // Obtener o crear fecha de registro
-  let registrationDate: Date;
-  const savedDate = localStorage.getItem(storageKey);
+  // Obtener la fecha de registro: NO crear una nueva fecha, solo usar la existente
+  let registrationDate: Date | null = null;
+  const profile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
+  const savedDate = profile?.memberSince;
 
   if (savedDate) {
     const parsed = new Date(savedDate);
-    registrationDate = isNaN(parsed.getTime()) ? new Date() : parsed;
-  } else {
-    registrationDate = new Date();
-    localStorage.setItem(storageKey, registrationDate.toISOString());
+    if (!isNaN(parsed.getTime())) {
+      registrationDate = parsed; // Usar la fecha guardada si es válida
+    }
   }
 
-  // Intentar cargar perfil desde backend
-  this.userService.getUserProfile().subscribe(profile => {
+  // NO crear una nueva fecha aquí - esperar a que venga del backend o del perfil cargado
 
-    // Si coincide con el usuario -> usar ese perfil
-    if (profile && (profile.email === userInfo.email || profile.id === userInfo.userId)) {
+  // Intentar obtener el perfil del backend
+  this.userService.getUserProfile().pipe(
+    takeUntil(this.destroy$),
+    catchError(() => {
+      // Si falla, usar el perfil del localStorage
+      const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
+      if (storedProfile && (storedProfile.email === userInfo.email || storedProfile.id === userId)) {
+        // Preservar la fecha de registro existente
+        if (storedProfile.memberSince) {
+          const savedDate = new Date(storedProfile.memberSince);
+          if (!isNaN(savedDate.getTime())) {
+            storedProfile.memberSince = savedDate;
+          } else if (registrationDate) {
+            storedProfile.memberSince = registrationDate;
+          } else {
+            storedProfile.memberSince = new Date(); // Solo si no hay ninguna fecha
+          }
+        } else if (registrationDate) {
+          storedProfile.memberSince = registrationDate;
+        } else {
+          storedProfile.memberSince = new Date(); // Solo si no hay ninguna fecha
+        }
+        return of(storedProfile);
+      }
 
-      // Insertar fecha guardada
-      profile.memberSince = registrationDate;
+      // Si no existe perfil, crear uno local con fecha actual (solo para usuarios nuevos)
+      const phoneFromStorage = localStorage.getItem('userPhone') || '';
+      const newUserProfile: UserProfile = {
+        id: userId,
+        fullName: userInfo.name || 'Usuario',
+        email: userInfo.email || '',
+        phone: phoneFromStorage,
+        memberSince: registrationDate || new Date(), // Usar fecha guardada o fecha actual
+        preferences: {
+          notifications: true,
+          emailNotifications: true,
+          smsNotifications: false,
+          favoriteCategories: []
+        }
+      };
+      // Guardar el perfil con el teléfono si existe
+      if (phoneFromStorage) {
+        localStorage.setItem(`userProfile_${userId}`, JSON.stringify(newUserProfile));
+      }
+      return of(newUserProfile);
+    })
+  ).subscribe(profile => {
+    if (profile) {
+      // PRESERVAR SIEMPRE la fecha de registro original del backend o guardada
+      // Prioridad: 1) Fecha del perfil (del backend), 2) Fecha guardada, 3) Fecha actual (solo si es nuevo)
+      if (profile.memberSince && !isNaN(new Date(profile.memberSince).getTime())) {
+        // El perfil ya tiene una fecha válida (del backend), preservarla
+        profile.memberSince = new Date(profile.memberSince);
+      } else if (registrationDate && !isNaN(registrationDate.getTime())) {
+        // Usar la fecha guardada en localStorage
+        profile.memberSince = registrationDate;
+      } else {
+        // Solo usar fecha actual si es un usuario completamente nuevo sin fecha previa
+        profile.memberSince = new Date();
+      }
+
+      // Asegurar que el teléfono esté presente (buscar en múltiples lugares)
+      // Priorizar el teléfono del token sobre el del perfil
+      const phoneFromToken = localStorage.getItem('userPhone');
+      if (phoneFromToken) {
+        // Si el perfil no tiene teléfono o es diferente al del token, actualizarlo
+        if (!profile.phone || profile.phone === '' || profile.phone === 'No especificado' || profile.phone !== phoneFromToken) {
+          profile.phone = phoneFromToken;
+          // Guardar el perfil actualizado con el teléfono
+          const userId = userInfo.userId || userInfo.email;
+          if (userId) {
+            localStorage.setItem(`userProfile_${userId}`, JSON.stringify(profile));
+          }
+        }
+      }
 
       this.userProfile = profile;
       this.profileForm.patchValue({
         fullName: profile.fullName,
         email: profile.email,
-        phone: profile.phone
+        phone: profile.phone || ''
       });
 
-      return;
-    }
+      // Forzar detección de cambios para asegurar que la vista se actualice
+      this.cdr.detectChanges();
 
-    // Si no existe perfil en backend, crear uno local
-    const newUserProfile: UserProfile = {
-      id: userId,
-      fullName: userInfo.name || 'Usuario',
-      email: userInfo.email || '',
-      phone: localStorage.getItem('userPhone') || '',
-      memberSince: registrationDate,
-      preferences: {
-        notifications: true,
-        emailNotifications: true,
-        smsNotifications: false,
-        favoriteCategories: []
+      // Si es un perfil nuevo, inicializarlo en el servicio
+      if (!profile.id || profile.id === userId) {
+        this.userService.initializeUserProfile(profile);
       }
-    };
-
-    this.userProfile = newUserProfile;
-    this.profileForm.patchValue({
-      fullName: newUserProfile.fullName,
-      email: newUserProfile.email,
-      phone: newUserProfile.phone
-    });
-
-    this.userService.initializeUserProfile(newUserProfile);
+    }
   });
 
   // Cargar datos secundarios
@@ -260,7 +316,6 @@ private loadUserProfile() {
   this.loadAddresses();
   this.loadPaymentMethods();
 }
-
 
   private loadRecommendedDishes() {
     this.userService.getOrders().pipe(takeUntil(this.destroy$)).subscribe(orders => {
@@ -283,7 +338,7 @@ private loadUserProfile() {
           });
         }
       });
-      
+
       // Filtrar IDs inválidos antes de crear los observables
       const validProductIds = Array.from(purchasedProductIds).filter(id => {
         if (id === null || id === undefined) return false;
@@ -291,7 +346,7 @@ private loadUserProfile() {
         if (typeof id === 'string' && id.trim() === '') return false;
         return true;
       });
-      
+
       const productObservables = validProductIds.map(productId =>
         this.menuService.getItemById(productId).pipe(
           catchError(() => of(null))
@@ -414,30 +469,11 @@ private loadUserProfile() {
   }
 
   private loadFavoriteDishes() {
-    this.userService.getFavoriteDishes().pipe(takeUntil(this.destroy$)).subscribe(favoriteIds => {
-      if (favoriteIds && favoriteIds.length > 0) {
-        // Filtrar IDs inválidos antes de hacer las peticiones
-        const validFavoriteIds = favoriteIds.filter(id => {
-          if (id === null || id === undefined) return false;
-          if (id === 0 || id === '0') return false;
-          if (typeof id === 'string' && id.trim() === '') return false;
-          return true;
-        });
-        
-        if (validFavoriteIds.length === 0) {
-          this.favoriteDishes = [];
-          return;
-        }
-        
-        const favoriteObservables = validFavoriteIds.map(id =>
-          this.menuService.getItemById(id).pipe(
-            catchError(() => of(null))
-          )
-        );
-
-        forkJoin(favoriteObservables).pipe(takeUntil(this.destroy$)).subscribe(items => {
-          this.favoriteDishes = items.filter(item => item !== null && item !== undefined) as MenuItem[];
-        });
+    // Ahora getFavoriteDishes() devuelve MenuItem[] directamente desde el backend
+    this.userService.getFavoriteDishes().pipe(takeUntil(this.destroy$)).subscribe(dishes => {
+      if (dishes && Array.isArray(dishes) && dishes.length > 0) {
+        // El backend ya devuelve los platos completos, solo asignar
+        this.favoriteDishes = dishes.filter(dish => dish !== null && dish !== undefined) as MenuItem[];
       } else {
         this.favoriteDishes = [];
       }
@@ -457,10 +493,27 @@ private loadUserProfile() {
     return null;
   }
 
+  toggleSidebar(): void {
+    this.sidebarOpen = !this.sidebarOpen;
+  }
+
+  closeSidebar(): void {
+    this.sidebarOpen = false;
+  }
+
   setActiveTab(tab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings' | 'reservations') {
     this.activeTab = tab;
+    // Cerrar sidebar en móvil/tablet después de seleccionar una opción
+    if (window.innerWidth <= 992) {
+      this.sidebarOpen = false;
+    }
     if (tab === 'reservations') {
       this.loadReservations();
+    } else if (tab === 'orders') {
+      // Actualizar pedidos inmediatamente cuando el usuario cambia a la pestaña
+      this.loadOrders();
+      // Reiniciar el intervalo de actualización
+      this.startOrdersRefresh();
     }
   }
 
@@ -537,6 +590,156 @@ private loadUserProfile() {
       }
     });
     this.loadRecommendedDishes();
+    // Reiniciar el intervalo de actualización cuando se cargan nuevos pedidos
+    this.startOrdersRefresh();
+  }
+
+  /**
+   * Inicia un intervalo para actualizar automáticamente los pedidos activos
+   * Solo actualiza pedidos que no están entregados o cancelados
+   */
+  private startOrdersRefresh(): void {
+    // Limpiar intervalo anterior si existe
+    if (this.ordersRefreshInterval) {
+      clearInterval(this.ordersRefreshInterval);
+    }
+
+    // Actualizar cada 15 segundos solo si hay pedidos activos y estamos en la pestaña de pedidos
+    this.ordersRefreshInterval = setInterval(() => {
+      if (this.activeTab === 'orders') {
+        const hasActiveOrders = this.orders.some(order => 
+          order.status !== 'cancelled' && order.status !== 'delivered'
+        );
+        
+        if (hasActiveOrders) {
+          this.refreshActiveOrders();
+        }
+      }
+    }, 15000); // Actualizar cada 15 segundos
+  }
+
+  /**
+   * Actualiza solo los pedidos activos desde el backend
+   * Compara los estados y actualiza solo los que han cambiado
+   */
+  private refreshActiveOrders(): void {
+    const userInfo = this.authService.getUserInfo();
+    if (!userInfo || !userInfo.userId) {
+      return;
+    }
+
+    // Obtener solo los IDs de pedidos activos
+    const activeOrderIds = this.orders
+      .filter(order => order.status !== 'cancelled' && order.status !== 'delivered')
+      .map(order => order.id);
+
+    if (activeOrderIds.length === 0) {
+      return;
+    }
+
+    // Obtener pedidos actualizados del backend
+    this.orderService.findByUser(userInfo.userId).pipe(
+      takeUntil(this.destroy$),
+      catchError(() => of(null))
+    ).subscribe(response => {
+      if (!response) return;
+
+      let backendOrders: OrderFromBackend[] = [];
+      if (response && 'orders' in response) {
+        backendOrders = response.orders;
+      } else if (Array.isArray(response)) {
+        backendOrders = response;
+      }
+
+      // Crear un mapa de pedidos del backend por ID
+      const backendOrdersMap = new Map<string, OrderFromBackend>();
+      backendOrders.forEach(backendOrder => {
+        const orderId = backendOrder._id || backendOrder.id || '';
+        backendOrdersMap.set(orderId, backendOrder);
+      });
+
+      // Actualizar solo los pedidos activos que han cambiado
+      let hasChanges = false;
+      this.orders.forEach((order, index) => {
+        if (activeOrderIds.includes(order.id)) {
+          const backendOrder = backendOrdersMap.get(order.id);
+          if (backendOrder) {
+            const newStatus = this.mapBackendStatusToFrontend(backendOrder.status);
+            
+            // Si el estado cambió, actualizar el pedido
+            if (order.status !== newStatus) {
+              console.log(`🔄 Estado del pedido ${order.id} cambió de ${order.status} a ${newStatus}`);
+              
+              // Mapear el pedido completo desde el backend
+              const updatedOrder = this.mapBackendOrderToFrontend(backendOrder);
+              
+              // Preservar información local que no viene del backend
+              updatedOrder.trackingCode = order.trackingCode || updatedOrder.trackingCode;
+              updatedOrder.estimatedPrepTime = order.estimatedPrepTime || updatedOrder.estimatedPrepTime;
+              updatedOrder.estimatedDeliveryTime = order.estimatedDeliveryTime || updatedOrder.estimatedDeliveryTime;
+              
+              // Marcar que el estado fue cambiado por el admin (para completar la barra de progreso)
+              updatedOrder.statusChangedByAdmin = true;
+              updatedOrder.lastStatusChangeTime = new Date();
+              
+              // Actualizar el pedido en el array
+              this.orders[index] = updatedOrder;
+              hasChanges = true;
+
+              // Mostrar notificación si el estado cambió a uno importante
+              if (newStatus === 'ready') {
+                this.notificationService.showSuccess('¡Tu pedido está listo!', 'Pedido Listo');
+              } else if (newStatus === 'delivered') {
+                this.notificationService.showSuccess('¡Tu pedido ha sido entregado!', 'Pedido Entregado');
+              } else if (newStatus === 'preparing') {
+                this.notificationService.showInfo('Tu pedido está en preparación', 'En Preparación');
+              }
+
+              // Reiniciar el progreso automático si es necesario
+              // Nota: No reiniciamos el progreso automático cuando el estado fue cambiado por admin
+              // porque queremos que la barra se complete al 100%
+              // Solo reiniciamos si el pedido sigue activo y no fue cambiado por admin
+              if (newStatus !== 'cancelled' && newStatus !== 'delivered' && !updatedOrder.statusChangedByAdmin) {
+                this.startAutoProgress(updatedOrder);
+              }
+            }
+          }
+        }
+      });
+
+      // Si hubo cambios, reordenar y actualizar la vista
+      if (hasChanges) {
+        this.orders.sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          if (dateB !== dateA) {
+            return dateB - dateA;
+          }
+          return String(b.id).localeCompare(String(a.id));
+        });
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /**
+   * Mapea el estado del backend al estado del frontend
+   */
+  private mapBackendStatusToFrontend(backendStatus: string): Order['status'] {
+    const statusMap: Record<string, Order['status']> = {
+      'pendiente': 'pending',
+      'Preparando': 'preparing',
+      'preparando': 'preparing', // Por si viene en minúsculas
+      'en_proceso': 'preparing', // Compatibilidad con formato anterior
+      'listo': 'ready',
+      'Listo': 'ready', // Por si viene con mayúscula
+      'completado': 'ready', // Compatibilidad con formato anterior
+      'entregado': 'delivered',
+      'Entregado': 'delivered', // Por si viene con mayúscula
+      'cancelado': 'cancelled',
+      'Cancelado': 'cancelled' // Por si viene con mayúscula
+    };
+    return statusMap[backendStatus] || 'pending';
   }
 
   private mapBackendOrderToFrontend(backendOrder: OrderFromBackend): Order {
@@ -557,7 +760,46 @@ private loadUserProfile() {
         }
       }
     } catch {}
-    const orderItems = detailedOrder?.items || [];
+
+    // Mapear items del backend si no se encontró detailedOrder
+    let orderItems: any[] = [];
+    if (detailedOrder?.items && detailedOrder.items.length > 0) {
+      orderItems = detailedOrder.items;
+    } else if (backendOrder.products && Array.isArray(backendOrder.products) && backendOrder.products.length > 0) {
+      // Si el backend tiene products, mapearlos a items
+      const firstProduct = backendOrder.products[0];
+      if (typeof firstProduct === 'object' && 'name' in firstProduct) {
+        // Es un array de ProductOrderItem
+        orderItems = (backendOrder.products as any[]).map((product: any) => {
+          const selectedOptions = product.adds ? product.adds.map((add: any) => ({
+            id: add.addId || '',
+            name: add.name || '',
+            price: add.price || 0,
+            type: 'addon' as const
+          })) : [];
+
+          return {
+            id: product.dishId || product.id || '',
+            name: product.name || `Producto #${product.dishId || product.id}`,
+            quantity: product.quantity || 1,
+            price: product.unit_price || product.price || 0,
+            selectedOptions: selectedOptions,
+            unavailable: product.unavailable || false,
+            unavailableReason: product.unavailableReason || product.unavailable_reason || ''
+          };
+        });
+      } else if (typeof firstProduct === 'string') {
+        // Es un array de IDs (legacy) - crear items básicos
+        orderItems = (backendOrder.products as string[]).map((productId: string, index: number) => ({
+          id: productId,
+          name: `Producto #${productId.substring(0, 8)}`,
+          quantity: 1,
+          price: 0,
+          selectedOptions: []
+        }));
+      }
+    }
+
     const statusMap: Record<string, Order['status']> = {
       'pendiente': 'pending',
       'en_proceso': 'preparing',
@@ -579,24 +821,60 @@ private loadUserProfile() {
       orderDate = detailedOrder?.date ? new Date(detailedOrder.date) : new Date();
     }
 
+    // Calcular subtotal si no existe
+    let subtotal = detailedOrder?.subtotal;
+    if (subtotal === undefined || subtotal === null) {
+      const items = detailedOrder?.items || orderItems;
+      subtotal = items.reduce((sum: number, item: any) => {
+        const itemTotal = (item.price || 0) * (item.quantity || 1);
+        const optionsTotal = (item.selectedOptions || []).reduce((optSum: number, opt: any) =>
+          optSum + ((opt.price || 0) * (item.quantity || 1)), 0);
+        return sum + itemTotal + optionsTotal;
+      }, 0);
+    }
+
+    // Calcular additionalFees si no existe
+    let additionalFees = detailedOrder?.additionalFees;
+    if (additionalFees === undefined || additionalFees === null) {
+      additionalFees = 0;
+    }
+
+    // Determinar orderType si no existe
+    let orderType = detailedOrder?.orderType;
+    if (!orderType) {
+      orderType = detailedOrder?.deliveryAddress ? 'delivery' : 'pickup';
+    }
+
+    // Generar trackingCode si no existe
+    let trackingCode = detailedOrder?.trackingCode;
+    if (!trackingCode) {
+      trackingCode = orderId.substring(0, 8).toUpperCase();
+    }
+
+    // Asegurar que siempre haya items
+    const finalItems = (detailedOrder?.items && detailedOrder.items.length > 0)
+      ? detailedOrder.items
+      : (orderItems.length > 0 ? orderItems : []);
+
     return {
       id: orderId,
       date: orderDate,
-      items: detailedOrder?.items || orderItems,
+      items: finalItems,
       total: backendOrder.total,
       status: mappedStatus,
-      paymentMethod: backendOrder.payment_method,
-      trackingCode: detailedOrder?.trackingCode || orderId.substring(0, 8).toUpperCase(),
+      paymentMethod: backendOrder.payment_method || detailedOrder?.paymentMethod || 'cash',
+      trackingCode: trackingCode,
       deliveryAddress: detailedOrder?.deliveryAddress,
       deliveryNeighborhood: detailedOrder?.deliveryNeighborhood,
       deliveryPhone: detailedOrder?.deliveryPhone,
-      orderType: detailedOrder?.orderType,
-      subtotal: detailedOrder?.subtotal,
-      additionalFees: detailedOrder?.additionalFees,
+      orderType: orderType,
+      subtotal: subtotal,
+      additionalFees: additionalFees,
       estimatedDeliveryTime: detailedOrder?.estimatedDeliveryTime,
       estimatedPrepTime: detailedOrder?.estimatedPrepTime,
       statusHistory: detailedOrder?.statusHistory,
-      canCancel: detailedOrder?.canCancel
+      canCancel: detailedOrder?.canCancel,
+      deliveryInstructions: detailedOrder?.deliveryInstructions
     };
   }
 
@@ -630,33 +908,77 @@ private loadUserProfile() {
       return 0;
     }
 
+    const statusOrder = ['pending', 'preparing', 'ready', 'delivered'];
+    const currentStatusIndex = statusOrder.indexOf(order.status);
+    if (currentStatusIndex === -1) return 0;
+
+    // Si el estado fue cambiado por el admin, completar la barra al 100% del estado actual
+    if (order.statusChangedByAdmin && order.lastStatusChangeTime) {
+      const now = new Date();
+      const statusChangeTime = new Date(order.lastStatusChangeTime);
+      const timeSinceStatusChange = (now.getTime() - statusChangeTime.getTime()) / 1000;
+      
+      // Si pasaron más de 5 segundos desde el cambio de estado, completar al 100%
+      if (timeSinceStatusChange > 5) {
+        // Calcular el progreso base del estado actual (100% del estado)
+        const baseProgress = (currentStatusIndex + 1) * 25; // 25% por estado
+        return Math.min(baseProgress, 100);
+      } else {
+        // Animación suave durante los primeros 5 segundos
+        const animationProgress = (timeSinceStatusChange / 5) * 25; // Animación de 0% a 25% adicional
+        const baseProgress = (currentStatusIndex + 1) * 25;
+        return Math.min(baseProgress + animationProgress, 100);
+      }
+    }
+
+    // Progreso automático: solo llega al 50% entre estados
     const now = new Date();
     const orderDate = new Date(order.date);
     const timeElapsed = now.getTime() - orderDate.getTime();
     const secondsElapsed = timeElapsed / 1000;
     const secondsPerState = 120;
-    const statusOrder = ['pending', 'preparing', 'ready', 'delivered'];
-    const currentStatusIndex = statusOrder.indexOf(order.status);
-    if (currentStatusIndex === -1) return 0;
     const totalSeconds = secondsPerState * 3;
+    
+    // Calcular progreso basado en tiempo
     let totalProgress = (secondsElapsed / totalSeconds) * 100;
-    const maxProgressForState = (currentStatusIndex + 1) * 33.33;
+    
+    // Limitar el progreso al 50% entre estados (no completa el estado actual)
+    // Cada estado tiene 25% de progreso total, pero solo llegamos al 50% del siguiente
+    const stateProgress = 25; // 25% por estado
+    const maxProgressForState = (currentStatusIndex * stateProgress) + (stateProgress * 0.5); // 50% del siguiente estado
     totalProgress = Math.min(totalProgress, maxProgressForState);
-    const minProgressForState = currentStatusIndex * 33.33;
+    
+    // Mínimo: inicio del estado actual
+    const minProgressForState = currentStatusIndex * stateProgress;
     totalProgress = Math.max(totalProgress, minProgressForState);
 
     return Math.min(Math.max(totalProgress, 0), 100);
   }
 
   loadAddresses() {
-    this.userService.getAddresses().subscribe(addresses => {
-      this.addresses = addresses;
+    this.userService.getAddresses().subscribe({
+      next: (addresses) => {
+        console.log('Direcciones cargadas:', addresses);
+        this.addresses = addresses || [];
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error al cargar direcciones:', error);
+        this.addresses = [];
+        // No mostrar error al usuario si es solo un problema de carga
+        // El servicio ya maneja el fallback a localStorage
+      }
     });
   }
 
   loadPaymentMethods() {
-    this.userService.getPaymentMethods().subscribe(methods => {
-      this.paymentMethods = methods;
+    this.userService.getPaymentMethods().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (methods) => {
+        this.paymentMethods = methods;
+      },
+      error: (error) => {
+        console.error('Error al cargar métodos de pago:', error);
+      }
     });
   }
 
@@ -665,7 +987,8 @@ private loadUserProfile() {
     this.editingPaymentMethod = null;
     this.paymentMethodForm.reset();
     this.paymentMethodForm.patchValue({
-      type: 'card',
+      type: 'credit',
+      brand: 'visa',
       isDefault: this.paymentMethods.length === 0
     });
   }
@@ -680,63 +1003,65 @@ private loadUserProfile() {
   onPaymentMethodSubmit() {
     this.submitted = true;
     const formValue = this.paymentMethodForm.value;
-    if (formValue.type === 'card') {
-      if (!this.paymentMethodForm.get('cardNumber')?.valid ||
-          !this.paymentMethodForm.get('cardHolder')?.valid ||
-          !this.paymentMethodForm.get('expiryMonth')?.valid ||
-          !this.paymentMethodForm.get('expiryYear')?.valid ||
-          !this.paymentMethodForm.get('cvv')?.valid) {
-        this.notificationService.showError('Por favor, completa todos los campos de la tarjeta correctamente');
-        return;
-      }
+
+    // Validar campos de tarjeta
+    if (!this.paymentMethodForm.get('cardNumber')?.valid ||
+        !this.paymentMethodForm.get('cardHolder')?.valid ||
+        !this.paymentMethodForm.get('expiryMonth')?.valid ||
+        !this.paymentMethodForm.get('expiryYear')?.valid ||
+        !this.paymentMethodForm.get('cvv')?.valid) {
+      this.notificationService.showError('Por favor, completa todos los campos de la tarjeta correctamente');
+      return;
     }
 
-    if (this.paymentMethodForm.valid || formValue.type === 'cash') {
-      const isDefault = formValue.isDefault || this.paymentMethods.length === 0;
+    if (this.paymentMethodForm.valid) {
+      const isPrimary = formValue.isDefault || this.paymentMethods.length === 0;
 
       if (this.editingPaymentMethod) {
-        const updatedMethod: PaymentMethod = {
-          ...this.editingPaymentMethod,
-          type: formValue.type,
-          last4: formValue.cardNumber ? formValue.cardNumber.replace(/\s/g, '').slice(-4) : undefined,
-          brand: formValue.brand || 'Visa',
-          isDefault: isDefault
-        };
-
-        if (isDefault) {
-          this.paymentMethods.forEach(m => {
-            if (m.id !== updatedMethod.id && m.isDefault) {
-              const nonDefaultMethod = { ...m, isDefault: false };
-              this.userService.updatePaymentMethod(nonDefaultMethod);
+        // Actualizar tarjeta existente
+        const cardIndex = this.paymentMethods.findIndex(m => m.id === this.editingPaymentMethod?.id);
+        if (cardIndex !== -1) {
+          this.userService.updatePaymentCard(cardIndex, {
+            cardholder_name: formValue.cardHolder,
+            type: formValue.type as 'debit' | 'credit',
+            brand: formValue.brand,
+            expiryMonth: formValue.expiryMonth,
+            expiryYear: formValue.expiryYear,
+            is_primary: isPrimary
+          }).pipe(takeUntil(this.destroy$)).subscribe({
+            next: () => {
+              this.notificationService.showSuccess('Tarjeta actualizada correctamente');
+              this.loadPaymentMethods();
+              this.closePaymentMethodModal();
+            },
+            error: (error) => {
+              console.error('Error al actualizar tarjeta:', error);
+              this.notificationService.showError('Error al actualizar la tarjeta. Por favor, intenta nuevamente.');
             }
           });
         }
-
-        this.userService.updatePaymentMethod(updatedMethod);
-        this.notificationService.showSuccess('Método de pago actualizado correctamente');
       } else {
-        const newMethod: PaymentMethod = {
-          id: 'pm_' + Date.now(),
-          type: formValue.type,
-          last4: formValue.cardNumber ? formValue.cardNumber.replace(/\s/g, '').slice(-4) : undefined,
-          brand: formValue.brand || 'Visa',
-          isDefault: isDefault
-        };
-        if (isDefault) {
-          this.paymentMethods.forEach(m => {
-            if (m.isDefault) {
-              const nonDefaultMethod = { ...m, isDefault: false };
-              this.userService.updatePaymentMethod(nonDefaultMethod);
-            }
-          });
-        }
-
-        this.userService.savePaymentMethod(newMethod);
-        this.notificationService.showSuccess('Método de pago agregado correctamente');
+        // Agregar nueva tarjeta
+        this.userService.addPaymentCard({
+          cardholder_name: formValue.cardHolder,
+          cardNumber: formValue.cardNumber,
+          type: formValue.type as 'debit' | 'credit',
+          brand: formValue.brand,
+          expiryMonth: formValue.expiryMonth,
+          expiryYear: formValue.expiryYear,
+          is_primary: isPrimary
+        }).pipe(takeUntil(this.destroy$)).subscribe({
+          next: () => {
+            this.notificationService.showSuccess('Tarjeta agregada correctamente');
+            this.loadPaymentMethods();
+            this.closePaymentMethodModal();
+          },
+          error: (error) => {
+            console.error('Error al agregar tarjeta:', error);
+            this.notificationService.showError('Error al agregar la tarjeta. Por favor, intenta nuevamente.');
+          }
+        });
       }
-
-      this.loadPaymentMethods();
-      this.closePaymentMethodModal();
     } else {
       this.notificationService.showError('Por favor, completa todos los campos correctamente');
     }
@@ -745,27 +1070,126 @@ private loadUserProfile() {
   editPaymentMethod(method: PaymentMethod) {
     this.editingPaymentMethod = method;
     this.showPaymentMethodModal = true;
+    
+    // Parsear fecha de expiración si existe
+    let expiryMonth = '';
+    let expiryYear = '';
+    if (method.expiry_date) {
+      const parts = method.expiry_date.split('/');
+      if (parts.length === 2) {
+        expiryMonth = parts[0];
+        expiryYear = parts[1];
+      }
+    }
+    
     this.paymentMethodForm.patchValue({
-      type: method.type,
-      cardNumber: method.last4 ? '**** **** **** ' + method.last4 : '',
-      brand: method.brand || 'Visa',
-      isDefault: method.isDefault
+      type: method.type === 'cash' ? 'credit' : method.type, // Si es cash, mostrar como credit por defecto
+      cardNumber: method.last_four_digits ? '**** **** **** ' + method.last_four_digits : '',
+      cardHolder: method.cardholder_name || '',
+      expiryMonth: expiryMonth,
+      expiryYear: expiryYear,
+      brand: method.brand || 'visa',
+      isDefault: method.is_primary || method.isDefault || false
     });
   }
 
-  deletePaymentMethod(method: PaymentMethod) {
+  deletePaymentMethod(method: PaymentMethod, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    
+    console.log('🗑️ deletePaymentMethod llamado para:', method);
+    
+    if (!method.id) {
+      console.error('❌ El método no tiene ID');
+      this.notificationService.showError('Error: La tarjeta no tiene un ID válido.');
+      return;
+    }
+
+    // Construir mensaje de confirmación con información de la tarjeta
+    const cardInfo = method.type === 'cash' 
+      ? 'este método de pago' 
+      : `${method.brand} •••• ${method.last_four_digits}`;
+    
+    const isPrimary = method.is_primary || method.isDefault;
+    const hasOtherCards = this.paymentMethods.length > 1;
+    
+    let warningMessage = '';
+    if (isPrimary && hasOtherCards) {
+      warningMessage = `¿Estás seguro de que deseas eliminar tu tarjeta principal (${cardInfo})? Si tienes otras tarjetas, se marcará automáticamente una como principal.`;
+    } else if (isPrimary && !hasOtherCards) {
+      warningMessage = `¿Estás seguro de que deseas eliminar tu única tarjeta (${cardInfo})? No tendrás métodos de pago guardados después de esta acción.`;
+    } else {
+      warningMessage = `¿Estás seguro de que deseas eliminar la tarjeta ${cardInfo}? Esta acción no se puede deshacer.`;
+    }
+
+    console.log('📋 Mostrando diálogo de confirmación personalizado...');
+    
+    // Usar el diálogo de confirmación personalizado
     this.notificationService.confirm(
-      'Eliminar Método de Pago',
-      `¿Estás seguro de que deseas eliminar este método de pago?`,
+      'Eliminar Tarjeta de Pago',
+      warningMessage,
       'Eliminar',
       'Cancelar'
     ).then(confirmed => {
-      if (confirmed) {
-        this.userService.deletePaymentMethod(method.id);
-        this.loadPaymentMethods();
-        this.notificationService.showSuccess('Método de pago eliminado correctamente');
+      console.log('✅ Respuesta del diálogo de confirmación:', confirmed);
+      
+      if (!confirmed) {
+        console.log('❌ Usuario canceló la eliminación');
+        return;
       }
+      
+      const cardIndex = this.paymentMethods.findIndex(m => m.id === method.id);
+      console.log('🔍 Índice de tarjeta encontrado:', cardIndex);
+      
+      if (cardIndex === -1) {
+        console.warn('⚠️ No se encontró el índice de la tarjeta a eliminar');
+        this.notificationService.showError('No se pudo encontrar la tarjeta para eliminar. Por favor, recarga la página.');
+        return;
+      }
+      
+      console.log(`🗑️ Eliminando tarjeta en índice ${cardIndex}:`, method);
+      this.userService.removePaymentCard(cardIndex).pipe(takeUntil(this.destroy$)).subscribe({
+        next: (updatedCards) => {
+          console.log('✅ Tarjeta eliminada exitosamente. Tarjetas actualizadas:', updatedCards);
+          this.notificationService.showSuccess('Tarjeta eliminada correctamente');
+          this.loadPaymentMethods();
+        },
+        error: (error) => {
+          console.error('❌ Error al eliminar tarjeta:', error);
+          let errorMessage = 'Error al eliminar la tarjeta. Por favor, intenta nuevamente.';
+          if (error.status === 404) {
+            errorMessage = 'La tarjeta no fue encontrada. Puede que ya haya sido eliminada.';
+          } else if (error.status === 403) {
+            errorMessage = 'No tienes permiso para eliminar esta tarjeta.';
+          } else if (error.status === 401) {
+            errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+          }
+          this.notificationService.showError(errorMessage);
+        }
+      });
+    }).catch(error => {
+      console.error('❌ Error en el diálogo de confirmación:', error);
     });
+  }
+
+  setPrimaryPaymentMethod(method: PaymentMethod) {
+    if (!method.id) return;
+    
+    const cardIndex = this.paymentMethods.findIndex(m => m.id === method.id);
+    if (cardIndex !== -1) {
+      this.userService.setPrimaryPaymentCard(cardIndex).pipe(takeUntil(this.destroy$)).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Tarjeta principal actualizada');
+          this.loadPaymentMethods();
+        },
+        error: (error) => {
+          console.error('Error al establecer tarjeta principal:', error);
+          this.notificationService.showError('Error al establecer la tarjeta principal.');
+        }
+      });
+    }
   }
 
   formatCardNumber(event: Event) {
@@ -778,21 +1202,35 @@ private loadUserProfile() {
   onProfileSubmit() {
     this.submitted = true;
     if (this.profileForm.valid) {
-      this.userService.updateUserProfile(this.profileForm.value);
-      this.userService.getUserProfile().subscribe(updatedProfile => {
-        if (updatedProfile) {
+      this.userService.updateUserProfile(this.profileForm.value).subscribe({
+        next: (updatedProfile: UserProfile) => {
+          // Actualizar el perfil local inmediatamente
           this.userProfile = updatedProfile;
           this.profileForm.patchValue({
             fullName: updatedProfile.fullName,
             email: updatedProfile.email,
             phone: updatedProfile.phone
           });
+
+          // Forzar detección de cambios
+          this.cdr.detectChanges();
+
+          this.notificationService.showSuccess('Perfil actualizado correctamente');
+          this.submitted = false;
+          this.showProfileModal = false;
+
+          // Recargar el perfil para asegurar que todo esté sincronizado
+          setTimeout(() => {
+            this.loadUserProfile();
+          }, 100);
+        },
+        error: (error: HttpErrorResponse) => {
+          console.error('Error al actualizar perfil:', error);
+          const errorMessage = error?.message || error?.error?.message || 'Error al actualizar el perfil';
+          this.notificationService.showError(errorMessage);
+          this.submitted = false;
         }
       });
-
-      this.notificationService.showSuccess('Perfil actualizado correctamente');
-      this.submitted = false;
-      this.showProfileModal = false;
     } else {
       this.notificationService.showError('Por favor, completa todos los campos correctamente');
     }
@@ -802,64 +1240,166 @@ private loadUserProfile() {
     this.submitted = true;
     if (this.addressForm.valid) {
       const isDefault = this.addressForm.get('isDefault')?.value || false;
+      const formValue = this.addressForm.value;
 
       this.userService.getAddresses().subscribe(addresses => {
         if (this.editingAddress) {
+          // Encontrar el índice de la dirección que se está editando
+          const addressIndex = addresses.findIndex(addr =>
+            addr.id === this.editingAddress?.id ||
+            addr.title === this.editingAddress?.title
+          );
+
+          if (addressIndex === -1) {
+            this.notificationService.showError('Error: No se encontró la dirección a actualizar');
+            return;
+          }
+
+          // Preparar la dirección actualizada
           const updatedAddress: Address = {
             ...this.editingAddress,
-            ...this.addressForm.value,
-            isDefault: isDefault
+            title: formValue.title,
+            name: formValue.title, // El backend usa 'name'
+            address: formValue.address,
+            neighborhood: formValue.neighborhood,
+            city: formValue.city,
+            postalCode: formValue.postalCode,
+            postal_code: formValue.postalCode, // El backend usa 'postal_code'
+            isDefault: isDefault,
+            is_primary: isDefault // El backend usa 'is_primary'
           };
+
+          // Si se marca como principal, usar el método específico del backend
           if (isDefault) {
-            addresses.forEach(addr => {
-              if (addr.id !== updatedAddress.id && addr.isDefault) {
-                const nonDefaultAddr = { ...addr, isDefault: false };
-                this.userService.updateAddress(nonDefaultAddr);
+            this.userService.setPrimaryAddress(addressIndex).subscribe({
+              next: () => {
+                // Luego actualizar los demás campos si es necesario
+                this.userService.updateAddress(updatedAddress, addressIndex).subscribe({
+                  next: () => {
+                    this.loadAddresses();
+                    this.resetAddressForm();
+                    this.notificationService.showSuccess('Dirección actualizada correctamente');
+                  },
+                  error: (error) => {
+                    console.error('Error al actualizar dirección:', error);
+                    const errorMessage = this.getErrorMessage(error, 'Error al actualizar la dirección');
+                    this.notificationService.showError(errorMessage);
+                  }
+                });
+              },
+              error: (error) => {
+                console.error('Error al marcar dirección como principal:', error);
+                // Intentar actualizar de todas formas
+                this.userService.updateAddress(updatedAddress, addressIndex).subscribe({
+                  next: () => {
+                    this.loadAddresses();
+                    this.resetAddressForm();
+                    this.notificationService.showSuccess('Dirección actualizada correctamente');
+                  },
+                  error: (err) => {
+                    const errorMessage = this.getErrorMessage(err, 'Error al actualizar la dirección');
+                    this.notificationService.showError(errorMessage);
+                  }
+                });
+              }
+            });
+          } else {
+            // Solo actualizar sin cambiar el estado principal
+            this.userService.updateAddress(updatedAddress, addressIndex).subscribe({
+              next: () => {
+                this.loadAddresses();
+                this.resetAddressForm();
+                this.notificationService.showSuccess('Dirección actualizada correctamente');
+              },
+              error: (error) => {
+                console.error('Error al actualizar dirección:', error);
+                const errorMessage = this.getErrorMessage(error, 'Error al actualizar la dirección');
+                this.notificationService.showError(errorMessage);
               }
             });
           }
-          this.updateAddress(updatedAddress);
         } else {
+          // Crear nueva dirección
           const newAddress: Address = {
-            id: 'addr_' + Date.now(),
-            ...this.addressForm.value,
-            isDefault: isDefault || addresses.length === 0
+            title: formValue.title,
+            name: formValue.title, // El backend usa 'name'
+            address: formValue.address,
+            neighborhood: formValue.neighborhood,
+            city: formValue.city,
+            postalCode: formValue.postalCode,
+            postal_code: formValue.postalCode, // El backend usa 'postal_code'
+            isDefault: isDefault || addresses.length === 0,
+            is_primary: isDefault || addresses.length === 0 // El backend usa 'is_primary'
           };
-          if (isDefault) {
-            addresses.forEach(addr => {
-              if (addr.isDefault) {
-                const nonDefaultAddr = { ...addr, isDefault: false };
-                this.userService.updateAddress(nonDefaultAddr);
-              }
-            });
-          }
-          this.userService.saveAddress(newAddress);
+
+          this.userService.addAddress(newAddress).subscribe({
+            next: (savedAddress) => {
+              console.log('Dirección guardada exitosamente:', savedAddress);
+              // Recargar direcciones después de un pequeño delay para asegurar que el backend procesó
+              setTimeout(() => {
+                this.loadAddresses();
+              }, 200);
+              this.resetAddressForm();
+              this.notificationService.showSuccess('Dirección agregada correctamente');
+            },
+            error: (error) => {
+              console.error('Error completo al agregar dirección:', error);
+              const errorMessage = this.getErrorMessage(error, 'Error al agregar la dirección');
+              this.notificationService.showError(errorMessage);
+            }
+          });
         }
-        this.loadAddresses();
-        this.addressForm.reset();
-        this.addressForm.patchValue({
-          city: 'Manizales',
-          postalCode: '170001',
-          isDefault: false
-        });
-        this.showAddressModal = false;
-        this.showEditAddressModal = false;
-        this.editingAddress = null;
-        this.submitted = false;
-        this.notificationService.showSuccess('Dirección guardada correctamente');
       });
     }
+  }
+
+  private getErrorMessage(error: any, defaultMessage: string): string {
+    if (!error) {
+      return defaultMessage;
+    }
+
+    if (typeof error === 'string' && error !== 'undefined') {
+      return error;
+    }
+
+    if (error.message && typeof error.message === 'string' && error.message !== 'undefined') {
+      return error.message;
+    }
+
+    if (error.error) {
+      if (typeof error.error === 'string' && error.error !== 'undefined') {
+        return error.error;
+      }
+      if (error.error?.message && typeof error.error.message === 'string' && error.error.message !== 'undefined') {
+        return error.error.message;
+      }
+    }
+
+    return defaultMessage;
+  }
+
+  private resetAddressForm(): void {
+    this.addressForm.reset();
+    this.addressForm.patchValue({
+      city: 'Manizales',
+      postalCode: '170001',
+      isDefault: false
+    });
+    this.showAddressModal = false;
+    this.showEditAddressModal = false;
+    this.editingAddress = null;
+    this.submitted = false;
   }
 
   editAddress(address: Address) {
     this.editingAddress = address;
     this.addressForm.patchValue({
-      title: address.title,
+      title: address.title || address.name || '',
       address: address.address,
       neighborhood: address.neighborhood || '',
-      city: 'Manizales',
-      postalCode: '170001',
-      isDefault: address.isDefault || false
+      city: address.city || 'Manizales',
+      postalCode: address.postalCode || address.postal_code || '170001',
+      isDefault: address.isDefault || address.is_primary || false
     });
     this.showEditAddressModal = true;
   }
@@ -878,19 +1418,28 @@ private loadUserProfile() {
   }
 
   setDefaultAddress(address: Address) {
-    this.userService.getAddresses().subscribe(addresses => {
-      const updatedAddresses = addresses.map(a => {
-        if (a.id === address.id) {
-          return { ...a, isDefault: true };
-        } else {
-          return { ...a, isDefault: false };
-        }
-      });
-      updatedAddresses.forEach(addr => {
-        this.userService.updateAddress(addr);
-      });
-      this.loadAddresses();
-      this.notificationService.showSuccess('Dirección principal actualizada');
+    // Encontrar el índice de la dirección
+    const addressIndex = this.addresses.findIndex(addr =>
+      addr.id === address.id ||
+      addr.title === address.title ||
+      (addr.name && address.name && addr.name === address.name)
+    );
+
+    if (addressIndex === -1) {
+      this.notificationService.showError('Error: No se encontró la dirección');
+      return;
+    }
+
+    this.userService.setPrimaryAddress(addressIndex).subscribe({
+      next: () => {
+        this.loadAddresses();
+        this.notificationService.showSuccess('Dirección principal actualizada');
+      },
+      error: (error) => {
+        console.error('Error al marcar dirección como principal:', error);
+        const errorMessage = this.getErrorMessage(error, 'Error al actualizar la dirección principal');
+        this.notificationService.showError(errorMessage);
+      }
     });
   }
 
@@ -901,31 +1450,32 @@ private loadUserProfile() {
     );
 
     if (confirmed) {
-      const userInfoStr = localStorage.getItem('userInfo');
-      if (!userInfoStr) {
-        this.notificationService.showError('Error: No se encontró información del usuario');
+      // Encontrar el índice de la dirección
+      const addressIndex = this.addresses.findIndex(addr =>
+        addr.id === address.id ||
+        addr.title === address.title ||
+        (addr.name && address.name && addr.name === address.name)
+      );
+
+      if (addressIndex === -1) {
+        this.notificationService.showError('Error: No se encontró la dirección a eliminar');
         return;
       }
 
-      try {
-        const userInfo = JSON.parse(userInfoStr);
-        const userId = userInfo.userId || userInfo.email;
-
-        this.userService.getAddresses().subscribe(addresses => {
-          const updatedAddresses = addresses.filter(a => a.id !== address.id);
-          localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(updatedAddresses));
+      this.userService.removeAddress(addressIndex).subscribe({
+        next: () => {
           this.loadAddresses();
           this.notificationService.showSuccess('Dirección eliminada correctamente');
-        });
-      } catch {
-        this.notificationService.showError('Error al eliminar la dirección');
-      }
+        },
+        error: (error) => {
+          console.error('Error al eliminar dirección:', error);
+          const errorMessage = error?.message || 'Error al eliminar la dirección';
+          this.notificationService.showError(errorMessage);
+        }
+      });
     }
   }
 
-  updateAddress(updatedAddress: Address) {
-    this.userService.updateAddress(updatedAddress);
-  }
 
   openProfileEdit() {
     if (this.userProfile) {
@@ -1036,74 +1586,192 @@ private loadUserProfile() {
     });
   }
 
-  reorder(order: Order): void {
-    let itemsAdded = 0;
-    const totalItems = order.items.reduce((sum, it) => sum + it.quantity, 0);
-    order.items.forEach(item => {
-      // Validar que el ID sea válido antes de hacer la petición
-      if (!item.id || item.id === null || item.id === undefined) {
-        console.warn('Item con ID inválido en reorder:', item);
-        return;
-      }
-      // Convertir a string para validar
-      const idStr = String(item.id);
-      if (idStr === '0' || idStr === '' || idStr === 'null' || idStr === 'undefined') {
-        console.warn('Item con ID inválido en reorder:', item);
-        return;
-      }
-      this.menuService.getItemById(item.id).subscribe(product => {
-        if (product) {
-          const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
-            id: opt.id || `opt_${item.id}_${index}`,
-            name: opt.name,
-            price: opt.price
-          }));
+  confirmReception(order: Order): void {
+    if (order.status !== 'ready') {
+      this.notificationService.showError('Solo puedes confirmar la recepción de pedidos que están listos');
+      return;
+    }
 
-          for (let i = 0; i < item.quantity; i++) {
-            this.cartService.addItem({
-              productId: product.id,
-              productName: product.name,
-              productDescription: product.description || '',
-              basePrice: product.price,
-              selectedOptions: cartOptions,
-              quantity: 1,
-              imageUrl: product.imageUrl
-            });
-            itemsAdded++;
+    this.notificationService.confirm(
+      'Confirmar Recepción',
+      `¿Confirmas que recibiste el pedido #${order.id.slice(-8)}?`,
+      'Confirmar',
+      'Cancelar'
+    ).then(confirmed => {
+      if (confirmed) {
+        // Usar el nuevo endpoint específico para actualizar el estado a "entregado"
+        const statusForEndpoint = this.orderService.mapFrontendStatusToStatusEndpoint('delivered');
+        this.orderService.updateStatus(order.id, statusForEndpoint).pipe(
+          takeUntil(this.destroy$),
+          catchError((error: HttpErrorResponse) => {
+            const errorMessage = error?.error?.message || error?.message || 'Error al confirmar la recepción del pedido';
+            this.notificationService.showError(errorMessage);
+            return of(null);
+          })
+        ).subscribe(response => {
+          if (response) {
+            // Actualizar el estado local del pedido
+            const orderIndex = this.orders.findIndex(o => o.id === order.id);
+            if (orderIndex !== -1) {
+              this.orders[orderIndex].status = 'delivered';
+              this.orders[orderIndex].statusChangedByAdmin = true;
+              this.orders[orderIndex].lastStatusChangeTime = new Date();
+              
+              // Agregar al historial de estados
+              if (!this.orders[orderIndex].statusHistory) {
+                this.orders[orderIndex].statusHistory = [];
+              }
+              this.orders[orderIndex].statusHistory!.push({
+                status: 'delivered',
+                timestamp: new Date(),
+                message: 'Recepción confirmada por el usuario'
+              });
+              
+              // Detener el progreso automático
+              if (this.progressIntervals.has(order.id)) {
+                clearInterval(this.progressIntervals.get(order.id));
+                this.progressIntervals.delete(order.id);
+              }
+            }
+            
+            this.notificationService.showSuccess('¡Recepción confirmada! Gracias por tu compra.', 'Pedido Recibido');
+            this.cdr.detectChanges();
           }
-          if (itemsAdded === totalItems) {
-            this.notificationService.showSuccess(`Se agregaron ${itemsAdded} item(s) al carrito`);
-            setTimeout(() => {
-              this.router.navigate(['/menu']);
-            }, 1000);
-          }
-        } else {
-          const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
-            id: opt.id || `opt_${item.id}_${index}`,
-            name: opt.name,
-            price: opt.price
-          }));
-
-          for (let i = 0; i < item.quantity; i++) {
-            this.cartService.addItem({
-              productId: item.id,
-              productName: item.name,
-              productDescription: '',
-              basePrice: item.price,
-              selectedOptions: cartOptions,
-              quantity: 1
-            });
-            itemsAdded++;
-          }
-          if (itemsAdded === totalItems) {
-            this.notificationService.showSuccess(`Se agregaron ${itemsAdded} item(s) al carrito`);
-            setTimeout(() => {
-              this.router.navigate(['/menu']);
-            }, 1000);
-          }
-        }
-      });
+        });
+      }
     });
+  }
+
+  reorder(order: Order): void {
+    if (!order || !order.items || order.items.length === 0) {
+      this.notificationService.showError('No hay items para volver a pedir');
+      return;
+    }
+
+    // Filtrar items que tengan al menos nombre y precio (mínimo requerido)
+    const validItems = order.items.filter(item => {
+      return item && item.name && item.price !== undefined && item.price !== null && item.quantity > 0;
+    });
+
+    if (validItems.length === 0) {
+      this.notificationService.showError('No hay items válidos para volver a pedir');
+      return;
+    }
+
+    // Separar items con ID válido de los que no lo tienen
+    const itemsWithId = validItems.filter(item => {
+      if (item.id === null || item.id === undefined) return false;
+      const idStr = String(item.id);
+      return idStr !== '0' && idStr !== '' && idStr !== 'null' && idStr !== 'undefined';
+    });
+
+    const itemsWithoutId = validItems.filter(item => {
+      if (item.id === null || item.id === undefined) return true;
+      const idStr = String(item.id);
+      return idStr === '0' || idStr === '' || idStr === 'null' || idStr === 'undefined';
+    });
+
+    let totalItemsAdded = 0;
+    let hasErrors = false;
+
+    // Procesar items con ID válido (intentar obtener del menú)
+    if (itemsWithId.length > 0) {
+      const productObservables = itemsWithId.map(item =>
+        this.menuService.getItemById(item.id).pipe(
+          catchError(() => of(null))
+        )
+      );
+
+      forkJoin(productObservables).pipe(
+        takeUntil(this.destroy$)
+      ).subscribe(products => {
+        itemsWithId.forEach((item, index) => {
+          const product = products[index];
+
+          if (product) {
+            // Producto encontrado, usar datos del producto
+            const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
+              id: opt.id || `opt_${item.id}_${index}`,
+              name: opt.name,
+              price: opt.price
+            }));
+
+            // Agregar cada unidad al carrito
+            for (let i = 0; i < item.quantity; i++) {
+              this.cartService.addItem({
+                productId: product.id,
+                productName: product.name,
+                productDescription: product.description || '',
+                basePrice: product.price,
+                selectedOptions: cartOptions,
+                quantity: 1,
+                imageUrl: product.imageUrl
+              });
+              totalItemsAdded++;
+            }
+          } else {
+            // Producto no encontrado, usar datos del pedido como fallback
+            this.addItemToCartFromOrder(item);
+            totalItemsAdded += item.quantity;
+            hasErrors = true;
+          }
+        });
+
+        // Procesar items sin ID válido (usar datos del pedido directamente)
+        itemsWithoutId.forEach(item => {
+          this.addItemToCartFromOrder(item);
+          totalItemsAdded += item.quantity;
+          hasErrors = true;
+        });
+
+        // Mostrar mensaje y navegar
+        this.finishReorder(totalItemsAdded, hasErrors);
+      });
+    } else {
+      // Todos los items no tienen ID válido, usar datos del pedido directamente
+      itemsWithoutId.forEach(item => {
+        this.addItemToCartFromOrder(item);
+        totalItemsAdded += item.quantity;
+      });
+      hasErrors = itemsWithoutId.length > 0;
+      this.finishReorder(totalItemsAdded, hasErrors);
+    }
+  }
+
+  private addItemToCartFromOrder(item: OrderItem): void {
+    const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
+      id: opt.id || `opt_${item.id || 'unknown'}_${index}`,
+      name: opt.name,
+      price: opt.price
+    }));
+
+    // Usar el ID del item o generar uno temporal
+    const productId = (item.id && item.id !== 0) ? item.id : `temp_${Date.now()}_${Math.random()}`;
+
+    for (let i = 0; i < item.quantity; i++) {
+      this.cartService.addItem({
+        productId: productId,
+        productName: item.name,
+        productDescription: '',
+        basePrice: item.price,
+        selectedOptions: cartOptions,
+        quantity: 1
+      });
+    }
+  }
+
+  private finishReorder(totalItemsAdded: number, hasErrors: boolean): void {
+    if (totalItemsAdded > 0) {
+      const message = hasErrors
+        ? `Se agregaron ${totalItemsAdded} item(s) al carrito. Algunos productos pueden no estar disponibles.`
+        : `Se agregaron ${totalItemsAdded} item(s) al carrito`;
+      this.notificationService.showSuccess(message);
+      setTimeout(() => {
+        this.router.navigate(['/menu']);
+      }, 1000);
+    } else {
+      this.notificationService.showError('No se pudieron agregar items al carrito');
+    }
   }
 
   getOrderStatusSteps(order: Order): Array<{status: string, label: string, icon: string, completed: boolean, current: boolean}> {
@@ -1149,15 +1817,20 @@ private loadUserProfile() {
     if (!this.expandedOrders) {
       this.expandedOrders = new Set<string>();
     }
-    if (this.expandedOrders.has(order.id)) {
-      this.expandedOrders.delete(order.id);
+    const orderId = String(order.id);
+    if (this.expandedOrders.has(orderId)) {
+      this.expandedOrders.delete(orderId);
     } else {
-      this.expandedOrders.add(order.id);
+      this.expandedOrders.add(orderId);
     }
+    this.cdr.detectChanges();
   }
 
   isOrderExpanded(order: Order): boolean {
-    return this.expandedOrders?.has(order.id) || false;
+    if (!this.expandedOrders || !order || !order.id) {
+      return false;
+    }
+    return this.expandedOrders.has(String(order.id));
   }
 
   formatDate(date: Date): string {
@@ -1186,7 +1859,7 @@ private loadUserProfile() {
 
   getAvatarImage(): string {
     if (!this.userProfile) {
-      return 'https://i.pravatar.cc/150?img=1';
+      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Usuario&backgroundColor=b6e3f4,c0aede';
     }
 
     const name = this.userProfile.fullName?.toLowerCase() || '';
@@ -1222,7 +1895,7 @@ private loadUserProfile() {
       }
     }
     let hash = 0;
-    const nameForHash = name || email;
+    const nameForHash = name || email || 'Usuario';
     for (let i = 0; i < nameForHash.length; i++) {
       hash = nameForHash.charCodeAt(i) + ((hash << 5) - hash);
     }
@@ -1254,6 +1927,12 @@ private loadUserProfile() {
     }
   }
 
+  handleImageError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    const nameForHash = this.userProfile?.fullName || this.userProfile?.email || 'Usuario';
+    img.src = 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(nameForHash) + '&backgroundColor=b6e3f4,c0aede';
+  }
+
   getPaymentMethodName(method: string): string {
     const methods: { [key: string]: string } = {
       'card': 'Tarjeta',
@@ -1276,7 +1955,7 @@ private loadUserProfile() {
           return dateB - dateA;
         });
       },
-      error: (error) => {
+      error: (error: HttpErrorResponse) => {
         console.error('Error loading reservations:', error);
         this.reservations = [];
       }
@@ -1328,7 +2007,7 @@ private loadUserProfile() {
     }
 
     this.editingReservation = reservation;
-    
+
     // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para el input
     let formattedDate = '';
     try {
@@ -1344,7 +2023,7 @@ private loadUserProfile() {
       const today = new Date().toISOString().split('T')[0];
       formattedDate = today;
     }
-    
+
     // Convertir hora de HH:mm a. m./p. m. a HH:mm para el input
     let formattedTime = '';
     try {
@@ -1353,13 +2032,13 @@ private loadUserProfile() {
         let hours = parseInt(timeMatch[1], 10);
         const minutes = timeMatch[2];
         const period = timeMatch[3].toLowerCase();
-        
+
         if (period.includes('p') && hours !== 12) {
           hours += 12;
         } else if (period.includes('a') && hours === 12) {
           hours = 0;
         }
-        
+
         formattedTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
       } else {
         // Si ya está en formato HH:mm, usarlo directamente
@@ -1394,7 +2073,7 @@ private loadUserProfile() {
     }
 
     const formValue = this.reservationForm.value;
-    
+
     // Transformar los datos al formato que espera el backend
     const updateReservationDto = {
       date: this.formatDateToDDMMYYYY(formValue.date),
@@ -1412,7 +2091,7 @@ private loadUserProfile() {
         this.notificationService.showSuccess('Reserva actualizada exitosamente');
         this.closeEditReservationModal();
       },
-      error: (error) => {
+      error: (error: HttpErrorResponse) => {
         const errorMessage = error?.message || error?.error?.message || 'Error al actualizar la reserva';
         this.notificationService.showError(errorMessage);
       }
@@ -1436,7 +2115,7 @@ private loadUserProfile() {
           this.reservations = this.reservations.filter(r => r.id !== reservation.id);
           this.notificationService.showSuccess('Reserva eliminada exitosamente');
         },
-        error: (error) => {
+        error: (error: HttpErrorResponse) => {
           const errorMessage = error?.message || error?.error?.message || 'Error al eliminar la reserva';
           this.notificationService.showError(errorMessage);
         }
@@ -1444,17 +2123,11 @@ private loadUserProfile() {
     }
   }
 
-  /**
-   * Convierte una fecha de formato YYYY-MM-DD a DD/MM/YYYY
-   */
   private formatDateToDDMMYYYY(dateString: string): string {
     const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
   }
 
-  /**
-   * Convierte una hora de formato HH:mm a HH:mm a. m./p. m.
-   */
   private formatTimeToAMPM(timeString: string): string {
     const [hours, minutes] = timeString.split(':');
     const hour = parseInt(hours, 10);

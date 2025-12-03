@@ -16,7 +16,6 @@
   color: #6b1d3d;
 }
 
-/* Forzar color vinotinto en iconos sociales */
 .social-icons i.bi-facebook,
 .social-icons i.bi-instagram,
 .social-icons a i,
@@ -33,6 +32,130 @@
   color: #ffffff !important;
   fill: #ffffff !important;
   stroke: #ffffff !important;
+}
+
+@media (max-width: 768px) {
+  button,
+  .btn,
+  a[role="button"],
+  .nav-link,
+  .account-btn,
+  .cart-button {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(107, 29, 61, 0.1);
+  }
+
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .form-group {
+    margin-bottom: 1.25rem;
+  }
+
+  .modal,
+  .modal-dialog {
+    margin: 0.5rem;
+    max-width: calc(100% - 1rem);
+  }
+
+  .card {
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+}
+
+@media (max-width: 992px) and (min-width: 769px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  button,
+  .btn,
+  a[role="button"] {
+    min-height: 42px;
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 576px) {
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  section {
+    padding: 2rem 0;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    line-height: 1.3;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    line-height: 1.3;
+  }
+
+  p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  *:hover {
+    transition: none;
+  }
+
+  button:active,
+  .btn:active,
+  a:active,
+  .nav-link:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: 2px solid #6b1d3d;
+    outline-offset: 2px;
+  }
+}
+
+@media (max-width: 768px) {
+  * {
+    will-change: auto;
+  }
+
+  .card,
+  .btn,
+  button {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
 }
 
 

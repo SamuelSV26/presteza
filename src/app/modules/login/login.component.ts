@@ -7,6 +7,7 @@ import { NotificationService } from '../../core/services/notification.service';
 import { filter, take } from 'rxjs/operators';
 import { timeout } from 'rxjs';
 import { TokenService } from '../../core/services/token.service';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-login',
@@ -18,7 +19,6 @@ import { TokenService } from '../../core/services/token.service';
 export class LoginComponent implements OnInit {
   loginEmail = '';
   loginPassword = '';
-  rememberMe = false;
   loginError: string | null = null;
   isLoading = false;
   showForgotPasswordModal = false;
@@ -31,12 +31,15 @@ export class LoginComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private notificationService: NotificationService,
-    private tokenService: TokenService
-  ) {}
+    private tokenService: TokenService,
+    private title: Title,
+    private meta: Meta
+  ) {
+    this.title.setTitle('Login - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Inicia sesión en PRESTEZA para acceder a tu cuenta y realizar pedidos.' });
+  }
 
   ngOnInit() {
-    // Solo redirigir si el usuario está autenticado Y está en la página de login
-    // No redirigir automáticamente desde otras rutas
     const currentUrl = this.router.url;
     if (currentUrl === '/login' && this.authService.isAuthenticated()) {
       const userRole = this.authService.getRole();
@@ -95,7 +98,7 @@ export class LoginComponent implements OnInit {
     this.isLoading = true;
     this.loginError = null;
     const returnUrl = this.route.snapshot.queryParams['returnUrl'] || sessionStorage.getItem('returnUrl');
-    this.authService.login(this.loginEmail, this.loginPassword, this.rememberMe).subscribe({
+    this.authService.login(this.loginEmail, this.loginPassword, false).subscribe({
       next: (response) => {
         this.isLoading = false;
         const performRedirect = (userInfo: any) => {
@@ -157,14 +160,10 @@ export class LoginComponent implements OnInit {
     this.router.navigate(['/']);
   }
 
-  onForgotPassword(event?: Event) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    this.forgotPasswordEmail = this.loginEmail || '';
-    this.forgotPasswordError = null;
-    this.showForgotPasswordModal = true;
+  onForgotPassword(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.router.navigateByUrl('/forgot-password');
   }
 
   closeForgotPasswordModal() {

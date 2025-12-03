@@ -1,8 +1,11 @@
 <section class="admin-dashboard">
   <div class="admin-container-wrapper">
+    <!-- Overlay para móvil -->
+    <div class="sidebar-overlay" [class.active]="sidebarOpen && isMobile()" (click)="toggleSidebar()"></div>
+    
     <div class="container-fluid admin-container">
     <!-- Navegación Lateral -->
-    <div class="admin-sidebar">
+    <div class="admin-sidebar" [class.sidebar-open]="sidebarOpen">
       <nav class="admin-nav">
         <button
           class="nav-item"
@@ -66,6 +69,14 @@
         </button>
         <button
           class="nav-item"
+          [class.active]="activeTab === 'customers'"
+          (click)="setActiveTab('customers')">
+          <i class="bi bi-people"></i>
+          <span>Clientes</span>
+          <span class="badge">{{ stats.totalCustomers }}</span>
+        </button>
+        <button
+          class="nav-item"
           [class.active]="activeTab === 'settings'"
           (click)="setActiveTab('settings')">
           <i class="bi bi-gear"></i>
@@ -82,6 +93,15 @@
 
     <!-- Contenido Principal -->
     <div class="admin-content">
+      <!-- Botón para abrir/cerrar sidebar en móvil -->
+      <button 
+        class="mobile-sidebar-toggle" 
+        *ngIf="isMobile()" 
+        (click)="toggleSidebar()"
+        [title]="sidebarOpen ? 'Cerrar menú' : 'Abrir menú'">
+        <i class="bi" [ngClass]="sidebarOpen ? 'bi-x-lg' : 'bi-list'"></i>
+      </button>
+      
       <!-- Mensaje de Bienvenida -->
       <div class="welcome-section">
         <h1 class="welcome-title">
@@ -200,7 +220,7 @@
                 <tr *ngFor="let order of orders.slice(0, 5)">
                   <td>{{ order.id.slice(-8) }}</td>
                   <td>{{ formatDate(order.date) }}</td>
-                  <td>{{ order.deliveryPhone || order.deliveryAddress || 'N/A' }}</td>
+                  <td>{{ order.userName || order.deliveryPhone || order.deliveryAddress || 'N/A' }}</td>
                   <td>${{ order.total | number }}</td>
                   <td>
                     <span class="status-badge" [ngClass]="getOrderStatusClass(order.status)">
@@ -258,6 +278,11 @@
             <option value="">Todas las categorías</option>
             <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
           </select>
+          <select class="filter-select" [(ngModel)]="availabilityFilter">
+            <option value="all">Todos los productos</option>
+            <option value="available">Solo disponibles</option>
+            <option value="unavailable">Solo no disponibles</option>
+          </select>
         </div>
 
         <!-- Vista de Lista -->
@@ -277,7 +302,7 @@
               <tr *ngFor="let product of getFilteredProducts()">
                 <td>{{ product.id }}</td>
                 <td>{{ product.name }}</td>
-                <td>{{ product.categoryId }}</td>
+                <td>{{ getCategoryName(product.categoryId) }}</td>
                 <td>${{ product.price | number }}</td>
                 <td>
                   <span class="status-badge" [class.status-success]="product.available" [class.status-danger]="!product.available">
@@ -286,6 +311,9 @@
                 </td>
                 <td>
                   <div class="action-buttons">
+                    <button class="btn-icon-small" (click)="viewProductDetails(product)" title="Ver">
+                      <i class="bi bi-eye"></i>
+                    </button>
                     <button class="btn-icon-small" (click)="openProductModal(product)" title="Editar">
                       <i class="bi bi-pencil"></i>
                     </button>
@@ -326,9 +354,12 @@
                 <p class="product-description">{{ product.description }}</p>
                 <div class="product-category">
                   <i class="bi bi-folder"></i>
-                  <span>{{ product.categoryId }}</span>
+                  <span>{{ getCategoryName(product.categoryId) }}</span>
                 </div>
                 <div class="product-card-actions">
+                  <button class="btn-icon-small" (click)="viewProductDetails(product)" title="Ver">
+                    <i class="bi bi-eye"></i>
+                  </button>
                   <button class="btn-icon-small" (click)="openProductModal(product)" title="Editar">
                     <i class="bi bi-pencil"></i>
                   </button>
@@ -378,16 +409,23 @@
                 class="search-input"
                 placeholder="Buscar pedidos..."
                 [(ngModel)]="searchTerm" />
+              <button
+                class="btn-sm btn-outline-danger"
+                (click)="clearAllOrders()"
+                title="Eliminar todos los pedidos del localStorage">
+                <i class="bi bi-trash me-1"></i>
+                Limpiar Pedidos Locales
+              </button>
               <div class="view-mode-toggle">
-                <button 
-                  class="view-mode-btn" 
+                <button
+                  class="view-mode-btn"
                   [class.active]="orderViewMode === 'list'"
                   (click)="orderViewMode = 'list'"
                   title="Vista de lista">
                   <i class="bi bi-list-ul"></i>
                 </button>
-                <button 
-                  class="view-mode-btn" 
+                <button
+                  class="view-mode-btn"
                   [class.active]="orderViewMode === 'grid'"
                   (click)="orderViewMode = 'grid'"
                   title="Vista de cuadrícula">
@@ -400,7 +438,7 @@
 
         <!-- Lista de Pedidos -->
         <div class="orders-container-admin" [ngClass]="'view-' + orderViewMode">
-          <div *ngFor="let order of getFilteredOrders(); trackBy: trackByOrderId" 
+          <div *ngFor="let order of getFilteredOrders(); trackBy: trackByOrderId"
                class="order-card-admin"
                [class.order-card-grid]="orderViewMode === 'grid'"
                [class.order-card-list]="orderViewMode === 'list'">
@@ -432,21 +470,17 @@
             </div>
 
             <div class="order-items-admin" *ngIf="orderViewMode === 'list' || orderViewMode === 'grid'">
-              <div *ngFor="let item of order.items; let itemIndex = index" 
+              <div *ngFor="let item of order.items; let itemIndex = index"
                    class="order-item-admin"
                    [class.item-unavailable]="item.unavailable">
                 <div class="item-details-admin">
                   <div class="item-main-info">
                     <span class="item-name-admin">
                       {{ item.name }}
-                      <span class="unavailable-badge" *ngIf="item.unavailable">
-                        <i class="bi bi-exclamation-triangle me-1"></i>
-                        No Disponible
-                      </span>
                     </span>
-                    <span class="item-quantity-admin" *ngIf="!item.unavailable || item.quantity > 0">x{{ item.quantity }}</span>
-                    <span class="item-price-admin" *ngIf="!item.unavailable || item.quantity > 0">${{ (item.price * item.quantity) | number }}</span>
-                    <button class="btn-unavailable" 
+                    <span class="item-quantity-admin">x{{ item.quantity }}</span>
+                    <span class="item-price-admin">${{ (item.price * item.quantity) | number }}</span>
+                    <button class="btn-unavailable"
                             *ngIf="!item.unavailable && order.status !== 'delivered' && order.status !== 'cancelled'"
                             (click)="markItemAsUnavailable(order, item, itemIndex)"
                             title="Marcar como no disponible">
@@ -472,7 +506,7 @@
                 </div>
               </div>
             </div>
-            
+
             <!-- Vista compacta para cuadrícula -->
             <div class="order-items-compact" *ngIf="orderViewMode === 'grid'">
               <div class="items-count-badge">
@@ -631,10 +665,10 @@
                 <p><strong>Cantidad:</strong> {{ selectedItemForUnavailable.item.quantity }}</p>
                 <p><strong>Pedido:</strong> #{{ selectedItemForUnavailable.order.id.slice(-8) }}</p>
               </div>
-              
+
               <div class="unavailable-actions">
                 <h4>¿Qué deseas hacer?</h4>
-                
+
                 <div class="action-option">
                   <button class="action-option-btn" (click)="handleUnavailableItem('cancel', 'Producto agotado')">
                     <i class="bi bi-x-circle"></i>
@@ -644,23 +678,13 @@
                     </div>
                   </button>
                 </div>
-                
+
                 <div class="action-option">
                   <button class="action-option-btn" (click)="handleUnavailableItem('notify', 'Producto no disponible temporalmente')">
                     <i class="bi bi-bell"></i>
                     <div>
                       <strong>Notificar al Cliente</strong>
                       <small>Marcar como no disponible y notificar al cliente</small>
-                    </div>
-                  </button>
-                </div>
-                
-                <div class="action-option">
-                  <button class="action-option-btn" (click)="handleUnavailableItem('replace', 'Producto reemplazado')">
-                    <i class="bi bi-arrow-repeat"></i>
-                    <div>
-                      <strong>Reemplazar Producto</strong>
-                      <small>Reemplazar con otro producto similar</small>
                     </div>
                   </button>
                 </div>
@@ -740,7 +764,7 @@
                 <p class="supply-description">{{ supply.description }}</p>
               </div>
               <span class="stock-badge" [ngClass]="getStockStatusClass(supply.quantity)">
-                <i class="bi" [class.bi-exclamation-triangle]="supply.quantity === 0 || supply.quantity < lowStockThreshold" 
+                <i class="bi" [class.bi-exclamation-triangle]="supply.quantity === 0 || supply.quantity < lowStockThreshold"
                    [class.bi-check-circle]="supply.quantity >= lowStockThreshold"></i>
                 {{ getStockStatusText(supply.quantity) }}
               </span>
@@ -856,24 +880,24 @@
             </div>
 
             <div class="reservation-actions-admin">
-              <button 
-                class="btn-success" 
+              <button
+                class="btn-success"
                 *ngIf="reservation.status === 'pending'"
                 (click)="confirmReservation(reservation)"
                 title="Confirmar reserva">
                 <i class="bi bi-check-circle me-1"></i>
                 Confirmar
               </button>
-              <button 
-                class="btn-warning" 
+              <button
+                class="btn-warning"
                 *ngIf="reservation.status === 'pending' || reservation.status === 'confirmed'"
                 (click)="openCancelReservationModal(reservation)"
                 title="Cancelar reserva">
                 <i class="bi bi-x-circle me-1"></i>
                 Cancelar
               </button>
-              <button 
-                class="btn-info" 
+              <button
+                class="btn-info"
                 *ngIf="reservation.status === 'confirmed'"
                 (click)="completeReservation(reservation)"
                 title="Marcar como completada">
@@ -903,11 +927,7 @@
             Gestión de Adicionales
           </h2>
           <div class="header-actions">
-            <button class="btn-outline" (click)="resetExtrasToDefaults()">
-              <i class="bi bi-arrow-clockwise me-2"></i>
-              Restaurar por Defecto
-            </button>
-            <button class="btn-primary" (click)="openExtraFormModal()" type="button">
+            <button class="btn-primary" (click)="openAddModal()" type="button">
               <i class="bi bi-plus-lg me-2"></i>
               Nuevo Adicional
             </button>
@@ -916,55 +936,75 @@
 
         <div class="alert alert-info">
           <i class="bi bi-info-circle me-2"></i>
-          <strong>Nota:</strong> Los adicionales deshabilitados no aparecerán como opción para los clientes al realizar pedidos.
+          <strong>Nota:</strong> Los adicionales deshabilitados no aparecerán como opción para los clientes.
+          Puedes asociar adicionales por categorías (todos los productos de esa categoría) o por productos específicos.
+          También puedes combinar ambos métodos.
         </div>
 
-        <div class="extras-grid" *ngIf="availableExtras.length > 0">
-          <div *ngFor="let extra of availableExtras; trackBy: trackByExtraId" class="extra-card" [class.unavailable]="!extra.available">
+        <!-- Buscador -->
+        <div class="search-section mb-3">
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Buscar adicionales por nombre o descripción..."
+            [(ngModel)]="addSearchTerm">
+        </div>
+
+        <!-- Grid de Adicionales -->
+        <div class="extras-grid" *ngIf="filteredAdds.length > 0">
+          <div *ngFor="let add of filteredAdds" class="extra-card" [class.unavailable]="!add.available">
             <div class="extra-card-header">
-              <h3 class="extra-name">{{ extra.name }}</h3>
-              <span class="status-badge" [class.status-success]="extra.available" [class.status-danger]="!extra.available">
-                {{ extra.available ? 'Disponible' : 'No Disponible' }}
+              <h3 class="extra-name">{{ add.name }}</h3>
+              <span class="status-badge" [class.status-success]="add.available" [class.status-danger]="!add.available">
+                {{ add.available ? 'Disponible' : 'No Disponible' }}
               </span>
             </div>
             <div class="extra-card-body">
               <p class="extra-description">
-                {{ extra.available ? 'Este adicional está disponible para los clientes' : 'Este adicional está deshabilitado y no aparecerá en el menú' }}
+                {{ add.description || 'Sin descripción' }}
               </p>
+              <div class="extra-categories mt-2" *ngIf="add.categoryIds && add.categoryIds.length > 0">
+                <strong>Categorías:</strong>
+                <span class="category-tags">
+                  {{ getCategoryNames(add.categoryIds) }}
+                </span>
+              </div>
+              <div class="extra-products mt-2" *ngIf="add.dishIds && add.dishIds.length > 0">
+                <strong>Productos específicos:</strong>
+                <span class="category-tags">
+                  {{ getProductNames(add.dishIds) }}
+                </span>
+              </div>
+              <div class="extra-categories mt-2" *ngIf="(!add.categoryIds || add.categoryIds.length === 0) && (!add.dishIds || add.dishIds.length === 0)">
+                <span class="text-muted">Sin categorías ni productos asignados</span>
+              </div>
             </div>
             <div class="extra-card-footer">
               <div class="extra-price">
-                <strong>Precio:</strong> ${{ extra.price | number }}
+                <strong>Precio:</strong> ${{ add.price | number }}
               </div>
             </div>
             <div class="extra-card-actions">
-              <button 
+              <button
                 type="button"
-                class="btn-icon-small btn-view" 
-                (click)="viewExtra(extra)"
-                title="Ver detalles">
-                <i class="bi bi-eye"></i>
-              </button>
-              <button 
-                type="button"
-                class="btn-icon-small btn-edit" 
-                (click)="openExtraFormModal(extra)"
+                class="btn-icon-small btn-edit"
+                (click)="openAddModal(add)"
                 title="Editar">
                 <i class="bi bi-pencil"></i>
               </button>
-              <button 
+              <button
                 type="button"
-                class="btn-toggle" 
-                [class.btn-success]="extra.available"
-                [class.btn-danger]="!extra.available"
-                (click)="toggleExtraAvailability(extra)"
-                title="{{ extra.available ? 'Deshabilitar' : 'Habilitar' }}">
-                <i class="bi" [class.bi-toggle-on]="extra.available" [class.bi-toggle-off]="!extra.available"></i>
+                class="btn-toggle"
+                [class.btn-success]="add.available"
+                [class.btn-danger]="!add.available"
+                (click)="toggleAddAvailability(add)"
+                title="{{ add.available ? 'Deshabilitar' : 'Habilitar' }}">
+                <i class="bi" [class.bi-toggle-on]="add.available" [class.bi-toggle-off]="!add.available"></i>
               </button>
-              <button 
+              <button
                 type="button"
-                class="btn-icon-small btn-danger btn-delete" 
-                (click)="deleteExtra(extra)"
+                class="btn-icon-small btn-danger btn-delete"
+                (click)="deleteAdd(add)"
                 title="Eliminar">
                 <i class="bi bi-trash"></i>
               </button>
@@ -972,14 +1012,177 @@
           </div>
         </div>
 
-        <div *ngIf="availableExtras.length === 0" class="empty-state">
+        <div *ngIf="filteredAdds.length === 0 && adds.length === 0" class="empty-state">
           <i class="bi bi-plus-circle empty-icon"></i>
           <h3>No hay adicionales registrados</h3>
           <p>Agrega adicionales para que los clientes puedan personalizar sus pedidos</p>
-          <button class="btn-primary" (click)="openExtraFormModal()">
+          <button class="btn-primary" (click)="openAddModal()">
             <i class="bi bi-plus-lg me-2"></i>
             Agregar Primer Adicional
           </button>
+        </div>
+
+        <div *ngIf="filteredAdds.length === 0 && adds.length > 0" class="empty-state">
+          <i class="bi bi-search empty-icon"></i>
+          <h3>No se encontraron adicionales</h3>
+          <p>Intenta con otro término de búsqueda</p>
+        </div>
+      </div>
+
+      <!-- Modal para Crear/Editar Adicional -->
+      <div *ngIf="showAddModal" class="modal-overlay" (click)="closeAddModal()">
+        <div class="modal-content modal-large" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3 class="modal-title">
+              {{ selectedAdd ? 'Editar Adicional' : 'Nuevo Adicional' }}
+            </h3>
+            <button type="button" class="btn-close" (click)="closeAddModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form [formGroup]="addForm" (ngSubmit)="saveAdd($event)">
+              <div class="form-group">
+                <label class="form-label">Nombre del Adicional *</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  formControlName="name"
+                  placeholder="Ej: Queso extra">
+                <div *ngIf="addForm.get('name')?.invalid && addForm.get('name')?.touched" class="text-danger">
+                  El nombre es requerido (mínimo 2 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Precio (COP) *</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  formControlName="price"
+                  min="0"
+                  step="100"
+                  placeholder="0">
+                <div *ngIf="addForm.get('price')?.invalid && addForm.get('price')?.touched" class="text-danger">
+                  El precio es requerido y debe ser mayor a 0
+                </div>
+              </div>
+
+              <!-- Selector de modo: Categorías o Productos Específicos -->
+              <div class="form-group">
+                <label class="form-label">Disponibilidad del Adicional *</label>
+                <div class="selection-mode-tabs mb-3">
+                  <button
+                    type="button"
+                    class="btn-mode-tab"
+                    [class.active]="addSelectionMode === 'categories'"
+                    (click)="addSelectionMode = 'categories'; addForm.patchValue({ dishIds: [] }); selectedProductsForAdd = []">
+                    Por Categorías
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-mode-tab"
+                    [class.active]="addSelectionMode === 'products'"
+                    (click)="addSelectionMode = 'products'; addForm.patchValue({ categoryIds: [] })">
+                    Por Productos Específicos
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-mode-tab"
+                    [class.active]="addSelectionMode === 'both'"
+                    (click)="addSelectionMode = 'both'">
+                    Ambos
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selección por Categorías -->
+              <div class="form-group" *ngIf="addSelectionMode === 'categories' || addSelectionMode === 'both'">
+                <label class="form-label">
+                  Categorías
+                  <span *ngIf="addSelectionMode === 'categories'" class="text-danger">*</span>
+                </label>
+                <div class="category-selection-info mb-2">
+                  <small class="text-muted">
+                    Selecciona las categorías donde este adicional estará disponible.
+                    Para que esté disponible en todos los productos, selecciona todas las categorías.
+                  </small>
+                </div>
+                <div class="category-selection-actions mb-2">
+                  <button type="button" class="btn-sm btn-outline-primary" (click)="selectAllCategories()">
+                    Seleccionar Todas
+                  </button>
+                  <button type="button" class="btn-sm btn-outline-secondary" (click)="deselectAllCategories()">
+                    Deseleccionar Todas
+                  </button>
+                </div>
+                <div class="categories-checkbox-grid">
+                  <label *ngFor="let category of categories" class="category-checkbox-item">
+                    <input
+                      type="checkbox"
+                      [checked]="isCategorySelected(category.id)"
+                      (change)="toggleCategorySelection(category.id)">
+                    <span>{{ category.name }}</span>
+                  </label>
+                </div>
+                <div *ngIf="categories.length === 0" class="alert alert-warning">
+                  No hay categorías disponibles. Crea categorías primero.
+                </div>
+              </div>
+
+              <!-- Selección por Productos Específicos -->
+              <div class="form-group" *ngIf="addSelectionMode === 'products' || addSelectionMode === 'both'">
+                <label class="form-label">
+                  Productos Específicos
+                  <span *ngIf="addSelectionMode === 'products'" class="text-danger">*</span>
+                </label>
+                <div class="category-selection-info mb-2">
+                  <small class="text-muted">
+                    Selecciona los productos específicos donde este adicional estará disponible.
+                  </small>
+                </div>
+                <div class="category-selection-actions mb-2">
+                  <button type="button" class="btn-sm btn-outline-primary" (click)="selectAllProducts()">
+                    Seleccionar Todos
+                  </button>
+                  <button type="button" class="btn-sm btn-outline-secondary" (click)="deselectAllProducts()">
+                    Deseleccionar Todos
+                  </button>
+                </div>
+                <div class="categories-checkbox-grid">
+                  <label *ngFor="let product of products" class="category-checkbox-item">
+                    <input
+                      type="checkbox"
+                      [checked]="isProductSelected(product.id)"
+                      (change)="toggleProductSelection(product.id)">
+                    <span>{{ product.name }}</span>
+                  </label>
+                </div>
+                <div *ngIf="products.length === 0" class="alert alert-warning">
+                  No hay productos disponibles. Crea productos primero.
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-check-label">
+                  <input
+                    type="checkbox"
+                    class="form-check-input"
+                    formControlName="available">
+                  Disponible para los clientes
+                </label>
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn-outline" (click)="closeAddModal(); $event.stopPropagation()">
+                  Cancelar
+                </button>
+                <button type="submit" class="btn-primary" [disabled]="addForm.invalid" (click)="saveAdd($event)">
+                  {{ selectedAdd ? 'Actualizar' : 'Crear' }}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
 
@@ -1041,23 +1244,23 @@
             </div>
 
             <div class="message-actions-admin">
-              <button 
-                class="btn-info" 
+              <button
+                class="btn-info"
                 (click)="openMessageModal(message)"
                 title="Ver mensaje completo">
                 <i class="bi bi-eye me-1"></i>
                 Ver Mensaje
               </button>
-              <button 
-                class="btn-success" 
+              <button
+                class="btn-success"
                 *ngIf="!message.read"
                 (click)="markMessageAsRead(message)"
                 title="Marcar como leído">
                 <i class="bi bi-check-circle me-1"></i>
                 Marcar Leído
               </button>
-              <button 
-                class="btn-danger" 
+              <button
+                class="btn-danger"
                 (click)="deleteMessage(message)"
                 title="Eliminar mensaje">
                 <i class="bi bi-trash me-1"></i>
@@ -1115,13 +1318,430 @@
           </div>
           <div class="modal-actions">
             <button type="button" class="btn-outline" (click)="closeMessageModal()">Cerrar</button>
-            <button 
-              type="button" 
-              class="btn-danger" 
+            <button
+              type="button"
+              class="btn-danger"
               (click)="deleteMessage(selectedMessage); closeMessageModal()">
               <i class="bi bi-trash me-2"></i>
               Eliminar
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Clientes -->
+      <div *ngIf="activeTab === 'customers'" class="tab-content">
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="bi bi-people me-2"></i>
+            Gestión de Clientes
+          </h2>
+          <div class="header-actions">
+            <div class="view-toggle">
+              <button
+                class="view-toggle-btn"
+                [class.active]="customerViewMode === 'list'"
+                (click)="customerViewMode = 'list'"
+                title="Vista de lista">
+                <i class="bi bi-list-ul"></i>
+              </button>
+              <button
+                class="view-toggle-btn"
+                [class.active]="customerViewMode === 'grid'"
+                (click)="customerViewMode = 'grid'"
+                title="Vista de cuadrícula">
+                <i class="bi bi-grid-3x3-gap"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filtros y Búsqueda -->
+        <div class="customer-filter-section">
+          <div class="customer-filter-tabs">
+            <button class="customer-filter-tab" [class.active]="customerFilter === 'all'" (click)="customerFilter = 'all'">
+              Todos ({{ customers.length }})
+            </button>
+            <button class="customer-filter-tab" [class.active]="customerFilter === 'active'" (click)="customerFilter = 'active'">
+              Activos
+            </button>
+            <button class="customer-filter-tab" [class.active]="customerFilter === 'inactive'" (click)="customerFilter = 'inactive'">
+              Inactivos
+            </button>
+          </div>
+          <div class="customer-search-section">
+            <input
+              type="text"
+              class="customer-search-input"
+              placeholder="Buscar clientes por nombre, email o teléfono..."
+              [(ngModel)]="customerSearchTerm" />
+            <button class="btn-primary" (click)="openAdminModal()" style="margin-left: 1rem;">
+              <i class="bi bi-person-plus me-2"></i>
+              Crear Admin
+            </button>
+          </div>
+        </div>
+
+        <!-- Vista de Lista -->
+        <div *ngIf="customerViewMode === 'list'" class="customers-container-admin">
+          <div *ngFor="let customer of getFilteredCustomers()" class="customer-card-admin" [class.active]="customer.status === 'active'">
+            <div class="customer-header-admin">
+              <div class="customer-info-admin">
+                <div class="customer-avatar">
+                  {{ getCustomerInitials(customer.name) }}
+                </div>
+                <div>
+                  <div class="customer-id-row-admin">
+                    <span class="customer-name-admin">{{ customer.name }}</span>
+                    <span class="customer-role-badge" [ngClass]="customer.role">{{ customer.role }}</span>
+                    <span class="customer-status-badge" [ngClass]="customer.status">{{ customer.status === 'active' ? 'Activo' : 'Inactivo' }}</span>
+                  </div>
+                  <div class="customer-email-admin" *ngIf="customer.email">
+                    <i class="bi bi-envelope"></i>
+                    {{ customer.email }}
+                  </div>
+                  <div class="customer-phone-admin" *ngIf="customer.phone">
+                    <i class="bi bi-telephone"></i>
+                    {{ customer.phone }}
+                  </div>
+                  <div class="customer-address-info" *ngIf="customer.address">
+                    <i class="bi bi-geo-alt"></i>
+                    <span>{{ customer.address }}</span>
+                  </div>
+                  <div class="customer-registered-date" *ngIf="customer.lastOrderDate">
+                    <i class="bi bi-calendar3"></i>
+                    Última actividad: {{ formatDate(customer.lastOrderDate) }}
+                  </div>
+                  <div class="customer-registered-date" *ngIf="!customer.lastOrderDate && customer.createdAt">
+                    <i class="bi bi-calendar3"></i>
+                    Registrado: {{ formatDate(customer.createdAt) }}
+                  </div>
+                  <div class="customer-registered-date" *ngIf="!customer.lastOrderDate && !customer.createdAt">
+                    <i class="bi bi-calendar3"></i>
+                    Sin actividad registrada
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="customer-stats">
+              <div class="customer-stat-item">
+                <span class="customer-stat-value">{{ customer.totalOrders || 0 }}</span>
+                <span class="customer-stat-label">Pedidos</span>
+              </div>
+              <div class="customer-stat-item">
+                <span class="customer-stat-value">{{ customer.totalReservations || 0 }}</span>
+                <span class="customer-stat-label">Reservas</span>
+              </div>
+              <div class="customer-stat-item">
+                <span class="customer-stat-value">${{ (customer.totalSpent || 0) | number:'1.0-0' }}</span>
+                <span class="customer-stat-label">Total Gastado</span>
+              </div>
+            </div>
+
+            <div class="customer-actions-admin">
+              <button class="btn-primary" (click)="openCustomerModal(customer)">
+                <i class="bi bi-eye me-1"></i>
+                Ver Detalles
+              </button>
+              <button class="btn-icon-small" (click)="openCustomerModal(customer, true)" title="Editar">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn-icon-small btn-danger" (click)="deleteCustomer(customer)" title="Eliminar">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vista de Grid -->
+        <div *ngIf="customerViewMode === 'grid'" class="customers-grid-view">
+          <div *ngFor="let customer of getFilteredCustomers()" class="customer-card-compact" [class.active]="customer.status === 'active'">
+            <div class="customer-card-compact-header">
+              <div class="customer-avatar">
+                {{ getCustomerInitials(customer.name) }}
+              </div>
+              <div>
+                <h3 class="customer-name-admin">{{ customer.name }}</h3>
+                <span class="customer-status-badge" [ngClass]="customer.status">{{ customer.status === 'active' ? 'Activo' : 'Inactivo' }}</span>
+              </div>
+            </div>
+            <div class="customer-card-compact-body">
+              <div class="customer-email-admin" *ngIf="customer.email">
+                <i class="bi bi-envelope"></i>
+                {{ customer.email }}
+              </div>
+              <div class="customer-phone-admin" *ngIf="customer.phone">
+                <i class="bi bi-telephone"></i>
+                {{ customer.phone }}
+              </div>
+              <div class="customer-stats" style="margin: 0.5rem 0;">
+                <div class="customer-stat-item">
+                  <span class="customer-stat-value" style="font-size: 1.25rem;">{{ customer.totalOrders || 0 }}</span>
+                  <span class="customer-stat-label">Pedidos</span>
+                </div>
+                <div class="customer-stat-item">
+                  <span class="customer-stat-value" style="font-size: 1.25rem;">${{ (customer.totalSpent || 0) | number:'1.0-0' }}</span>
+                  <span class="customer-stat-label">Gastado</span>
+                </div>
+              </div>
+            </div>
+            <div class="customer-card-compact-footer">
+              <button class="btn-primary" (click)="openCustomerModal(customer)">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="getFilteredCustomers().length === 0" class="empty-state">
+          <i class="bi bi-people empty-icon"></i>
+          <h3>No se encontraron clientes</h3>
+          <p *ngIf="customerFilter !== 'all' || customerSearchTerm">No hay clientes que coincidan con los filtros seleccionados</p>
+          <p *ngIf="customerFilter === 'all' && !customerSearchTerm">Aún no hay clientes registrados</p>
+        </div>
+      </div>
+
+      <!-- Modal de Detalles de Cliente -->
+      <div *ngIf="showCustomerModal && selectedCustomer" class="modal-overlay" (click)="closeCustomerModal()">
+        <div class="modal-content customer-details-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3 class="modal-title">Detalles del Cliente</h3>
+            <button class="modal-close-btn" (click)="closeCustomerModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="customer-details-header">
+              <div class="customer-details-avatar">
+                {{ getCustomerInitials(selectedCustomer.name) }}
+              </div>
+              <div class="customer-details-info">
+                <h2 class="customer-details-name">{{ selectedCustomer.name }}</h2>
+                <div class="customer-details-email" *ngIf="selectedCustomer.email">
+                  <i class="bi bi-envelope me-1"></i>
+                  {{ selectedCustomer.email }}
+                </div>
+                <div class="customer-details-phone" *ngIf="selectedCustomer.phone">
+                  <i class="bi bi-telephone me-1"></i>
+                  {{ selectedCustomer.phone }}
+                </div>
+                <div style="margin-top: 0.5rem;">
+                  <span class="customer-role-badge" [ngClass]="selectedCustomer.role">{{ selectedCustomer.role }}</span>
+                  <span class="customer-status-badge" [ngClass]="selectedCustomer.status" style="margin-left: 0.5rem;">
+                    {{ selectedCustomer.status === 'active' ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="customer-details-sections" *ngIf="!isEditingCustomer">
+              <div class="customer-details-section">
+                <h4 class="customer-details-section-title">
+                  <i class="bi bi-info-circle"></i>
+                  Información General
+                </h4>
+                <div class="customer-details-grid">
+                  <div class="customer-detail-item">
+                    <span class="customer-detail-label">Nombre</span>
+                    <span class="customer-detail-value">{{ selectedCustomer.name }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="selectedCustomer.email">
+                    <span class="customer-detail-label">Email</span>
+                    <span class="customer-detail-value">{{ selectedCustomer.email }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="selectedCustomer.phone">
+                    <span class="customer-detail-label">Teléfono</span>
+                    <span class="customer-detail-value">{{ selectedCustomer.phone }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="selectedCustomer.address">
+                    <span class="customer-detail-label">Dirección</span>
+                    <span class="customer-detail-value">{{ selectedCustomer.address }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="selectedCustomer.lastOrderDate">
+                    <span class="customer-detail-label">Última Actividad</span>
+                    <span class="customer-detail-value">{{ formatDate(selectedCustomer.lastOrderDate) }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="!selectedCustomer.lastOrderDate && selectedCustomer.createdAt">
+                    <span class="customer-detail-label">Fecha de Registro</span>
+                    <span class="customer-detail-value">{{ formatDate(selectedCustomer.createdAt) }}</span>
+                  </div>
+                  <div class="customer-detail-item" *ngIf="!selectedCustomer.lastOrderDate && !selectedCustomer.createdAt">
+                    <span class="customer-detail-label">Última Actividad</span>
+                    <span class="customer-detail-value">Sin actividad registrada</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="customer-details-section">
+                <h4 class="customer-details-section-title">
+                  <i class="bi bi-bar-chart"></i>
+                  Estadísticas
+                </h4>
+                <div class="customer-stats">
+                  <div class="customer-stat-item">
+                    <span class="customer-stat-value">{{ selectedCustomer.totalOrders || 0 }}</span>
+                    <span class="customer-stat-label">Total Pedidos</span>
+                  </div>
+                  <div class="customer-stat-item">
+                    <span class="customer-stat-value">{{ selectedCustomer.totalReservations || 0 }}</span>
+                    <span class="customer-stat-label">Total Reservas</span>
+                  </div>
+                  <div class="customer-stat-item">
+                    <span class="customer-stat-value">${{ (selectedCustomer.totalSpent || 0) | number:'1.0-0' }}</span>
+                    <span class="customer-stat-label">Total Gastado</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="customer-orders-list" *ngIf="getCustomerOrders(selectedCustomer.id).length > 0">
+                <h4 class="customer-orders-list-title">
+                  <i class="bi bi-receipt-cutoff"></i>
+                  Pedidos del Cliente
+                </h4>
+                <div *ngFor="let order of getCustomerOrders(selectedCustomer.id).slice(0, 5)" class="customer-order-item">
+                  <div class="customer-order-info">
+                    <span class="customer-order-id">Pedido #{{ order.id.slice(-8) }}</span>
+                    <span class="customer-order-date">{{ formatDate(order.date) }}</span>
+                  </div>
+                  <span class="customer-order-total">${{ order.total | number }}</span>
+                </div>
+              </div>
+
+              <div class="customer-reservations-list" *ngIf="getCustomerReservations(selectedCustomer.email, selectedCustomer.name).length > 0">
+                <h4 class="customer-reservations-list-title">
+                  <i class="bi bi-calendar-check"></i>
+                  Reservas del Cliente
+                </h4>
+                <div *ngFor="let reservation of getCustomerReservations(selectedCustomer.email, selectedCustomer.name).slice(0, 5)" class="customer-reservation-item">
+                  <div class="customer-reservation-info">
+                    <span class="customer-reservation-table">Mesa {{ reservation.tableNumber }}</span>
+                    <span class="customer-reservation-date">{{ reservation.date }} - {{ reservation.time }}</span>
+                  </div>
+                  <span class="status-badge" [ngClass]="getReservationStatusClass(reservation.status)">
+                    {{ getReservationStatusText(reservation.status) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Formulario de Edición -->
+            <div *ngIf="isEditingCustomer" class="customer-edit-form">
+              <h4 class="customer-details-section-title">
+                <i class="bi bi-pencil"></i>
+                Editar Cliente
+              </h4>
+              <form [formGroup]="customerForm" (ngSubmit)="saveCustomer()">
+                <div class="form-group">
+                  <label class="form-label">Nombre *</label>
+                  <input type="text" formControlName="name" class="form-control" />
+                  <div *ngIf="customerForm.get('name')?.invalid && customerForm.get('name')?.touched" class="text-danger">
+                    El nombre es requerido (mínimo 2 caracteres)
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Email *</label>
+                  <input type="email" formControlName="email" class="form-control" />
+                  <div *ngIf="customerForm.get('email')?.invalid && customerForm.get('email')?.touched" class="text-danger">
+                    El email es requerido y debe ser válido
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Teléfono *</label>
+                  <input type="text" formControlName="phone" class="form-control" />
+                  <div *ngIf="customerForm.get('phone')?.invalid && customerForm.get('phone')?.touched" class="text-danger">
+                    El teléfono es requerido
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Dirección</label>
+                  <input type="text" formControlName="address" class="form-control" />
+                </div>
+              </form>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button *ngIf="!isEditingCustomer" class="btn-primary" (click)="openCustomerModal(selectedCustomer, true)">
+              <i class="bi bi-pencil me-2"></i>
+              Editar Cliente
+            </button>
+            <button *ngIf="!isEditingCustomer" class="btn-danger" (click)="deleteCustomer(selectedCustomer)">
+              <i class="bi bi-trash me-2"></i>
+              Eliminar Cliente
+            </button>
+            <button *ngIf="isEditingCustomer" type="button" class="btn-outline" (click)="closeCustomerModal()">Cancelar</button>
+            <button *ngIf="isEditingCustomer" type="submit" class="btn-primary" [disabled]="customerForm.invalid" (click)="saveCustomer()">
+              Guardar Cambios
+            </button>
+            <button *ngIf="!isEditingCustomer" class="btn-outline" (click)="closeCustomerModal()">Cerrar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal para Crear Admin -->
+      <div *ngIf="showAdminModal" class="modal-overlay" (click)="closeAdminModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Crear Nuevo Administrador</h3>
+            <button class="modal-close-btn" (click)="closeAdminModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form [formGroup]="adminForm" (ngSubmit)="createAdmin()">
+              <div class="form-group">
+                <label class="form-label">Nombre Completo *</label>
+                <input type="text" formControlName="name" class="form-control" />
+                <div *ngIf="adminForm.get('name')?.invalid && adminForm.get('name')?.touched" class="text-danger">
+                  El nombre es requerido (mínimo 2 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Email *</label>
+                <input type="email" formControlName="email" class="form-control" />
+                <div *ngIf="adminForm.get('email')?.invalid && adminForm.get('email')?.touched" class="text-danger">
+                  El email es requerido y debe ser válido
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Teléfono *</label>
+                <input type="text" formControlName="phone" class="form-control" placeholder="10 dígitos" />
+                <div *ngIf="adminForm.get('phone')?.invalid && adminForm.get('phone')?.touched" class="text-danger">
+                  El teléfono es requerido (10 dígitos)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Contraseña *</label>
+                <input type="password" formControlName="password" class="form-control" />
+                <div *ngIf="adminForm.get('password')?.invalid && adminForm.get('password')?.touched" class="text-danger">
+                  La contraseña debe tener al menos 8 caracteres, incluir mayúsculas, minúsculas y números
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Confirmar Contraseña *</label>
+                <input type="password" formControlName="confirmPassword" class="form-control" />
+                <div *ngIf="adminForm.get('confirmPassword')?.invalid && adminForm.get('confirmPassword')?.touched" class="text-danger">
+                  Las contraseñas deben coincidir
+                </div>
+                <div *ngIf="adminForm.hasError('passwordMismatch') && adminForm.get('confirmPassword')?.touched" class="text-danger">
+                  Las contraseñas no coinciden
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn-outline" (click)="closeAdminModal()">Cancelar</button>
+                <button type="submit" class="btn-primary" [disabled]="adminForm.invalid">
+                  Crear Administrador
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -1223,280 +1843,186 @@
             </div>
           </div>
 
-          <!-- Botones de Acción -->
-          <div class="settings-actions">
-            <button type="button" class="btn-outline" (click)="settingsForm.reset()">
-              <i class="bi bi-arrow-counterclockwise"></i>
-              Restablecer
-            </button>
-            <button type="submit" class="btn-primary">
-              <i class="bi bi-check-lg"></i>
+          <div class="settings-form-footer">
+            <button type="submit" class="btn-primary" [disabled]="settingsForm.invalid">
+              <i class="bi bi-save me-2"></i>
               Guardar Configuración
             </button>
           </div>
         </form>
       </div>
-    </div>
-  </div>
 
-  <!-- Modal: Agregar/Editar Producto -->
-  <div *ngIf="showProductModal" class="modal-overlay" (click)="closeProductModal()">
-    <div class="modal-content modal-large" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3 class="modal-title">{{ selectedProduct ? 'Editar Producto' : 'Agregar Nuevo Producto' }}</h3>
-        <button class="modal-close" (click)="closeProductModal()">
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
-      <form [formGroup]="productForm" (ngSubmit)="saveProduct()" class="modal-form">
-        <div class="form-group">
-          <label class="form-label">Nombre del Producto</label>
-          <input type="text" formControlName="name" class="form-control" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Descripción</label>
-          <textarea formControlName="description" class="form-control" rows="3"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">URL de la Imagen</label>
-          <input type="url" formControlName="imageUrl" class="form-control" placeholder="https://ejemplo.com/imagen.jpg" />
-          <small class="form-text text-muted">Ingresa la URL completa de la imagen del producto</small>
-        </div>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <div class="form-group">
-              <label class="form-label">Precio</label>
-              <input type="number" formControlName="price" class="form-control" />
-            </div>
+      <!-- Modal de Producto -->
+      <div *ngIf="showProductModal" class="modal-overlay" (click)="closeProductModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>{{ isViewingProduct ? 'Ver Producto' : (selectedProduct ? 'Editar Producto' : 'Nuevo Producto') }}</h3>
+            <button class="modal-close-btn" (click)="closeProductModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
           </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label class="form-label">Categoría</label>
-              <select formControlName="categoryId" class="form-control">
-                <option value="">Seleccionar categoría</option>
-                <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" formControlName="available" />
-            <span>Producto disponible</span>
-          </label>
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn-outline" (click)="closeProductModal()">Cancelar</button>
-          <button type="submit" class="btn-primary">Guardar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-  </div>
+          <div class="modal-body">
+            <form [formGroup]="productForm" (ngSubmit)="saveProduct()">
+              <div class="form-group">
+                <label class="form-label">Nombre *</label>
+                <input type="text" formControlName="name" class="form-control" />
+                <div *ngIf="productForm.get('name')?.invalid && productForm.get('name')?.touched" class="text-danger">
+                  El nombre es requerido (mínimo 3 caracteres)
+                </div>
+              </div>
 
-  <!-- Modal: Categoría -->
-  <div *ngIf="showCategoryModal" class="modal-overlay" (click)="closeCategoryModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3 class="modal-title">{{ selectedCategory ? 'Editar Categoría' : 'Agregar Nueva Categoría' }}</h3>
-        <button class="modal-close" (click)="closeCategoryModal()">
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
-      <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()">
-        <div class="form-group">
-          <label class="form-label">Nombre de la Categoría</label>
-          <input type="text" formControlName="name" class="form-control" placeholder="Ej: Hamburguesas" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Descripción</label>
-          <textarea formControlName="description" class="form-control" rows="3" placeholder="Descripción de la categoría"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">URL de la Imagen (Opcional)</label>
-          <input type="url" formControlName="imageUrl" class="form-control" placeholder="https://ejemplo.com/imagen.jpg" />
-          <small class="form-text text-muted">URL de una imagen que represente esta categoría. Si no se proporciona, se usará una imagen por defecto.</small>
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn-outline" (click)="closeCategoryModal()">Cancelar</button>
-          <button type="submit" class="btn-primary">Guardar</button>
-        </div>
-      </form>
-    </div>
-  </div>
+              <div class="form-group">
+                <label class="form-label">Descripción *</label>
+                <textarea formControlName="description" class="form-control" rows="3"></textarea>
+                <div *ngIf="productForm.get('description')?.invalid && productForm.get('description')?.touched" class="text-danger">
+                  La descripción es requerida (mínimo 10 caracteres)
+                </div>
+              </div>
 
-  <!-- Modal de Insumo -->
-  <div class="modal-overlay" *ngIf="showSupplyModal" (click)="closeSupplyModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3>{{ selectedSupply ? 'Editar Insumo' : 'Nuevo Insumo' }}</h3>
-        <button class="modal-close-btn" (click)="closeSupplyModal()">
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
-      <form [formGroup]="supplyForm" (ngSubmit)="saveSupply()" class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Nombre del Insumo</label>
-          <input type="text" formControlName="name" class="form-control" placeholder="Ej: Harina, Aceite, etc." />
-          <div *ngIf="supplyForm.get('name')?.invalid && supplyForm.get('name')?.touched" class="error-message">
-            El nombre es requerido y debe tener al menos 3 caracteres
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Descripción</label>
-          <textarea formControlName="description" class="form-control" rows="3" placeholder="Descripción del insumo"></textarea>
-          <div *ngIf="supplyForm.get('description')?.invalid && supplyForm.get('description')?.touched" class="error-message">
-            La descripción es requerida y debe tener al menos 10 caracteres
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Precio Unitario</label>
-            <input type="number" formControlName="unit_price" class="form-control" min="0" step="0.01" />
-            <div *ngIf="supplyForm.get('unit_price')?.invalid && supplyForm.get('unit_price')?.touched" class="error-message">
-              El precio debe ser mayor o igual a 0
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Cantidad</label>
-            <input type="number" formControlName="quantity" class="form-control" min="0" />
-            <div *ngIf="supplyForm.get('quantity')?.invalid && supplyForm.get('quantity')?.touched" class="error-message">
-              La cantidad debe ser mayor o igual a 0
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-outline" (click)="closeSupplyModal()">
-            Cancelar
-          </button>
-          <button type="submit" class="btn-primary" [disabled]="supplyForm.invalid">
-            {{ selectedSupply ? 'Actualizar' : 'Crear' }}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+              <div class="form-group">
+                <label class="form-label">Precio *</label>
+                <input type="number" formControlName="price" class="form-control" min="1" step="100" />
+                <div *ngIf="productForm.get('price')?.invalid && productForm.get('price')?.touched" class="text-danger">
+                  El precio es requerido y debe ser mayor a 0
+                </div>
+              </div>
 
-  <!-- Modal: Cancelar Reserva -->
-  <div *ngIf="showCancelReservationModal && selectedReservation" class="modal-overlay" (click)="closeCancelReservationModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3 class="modal-title">Cancelar Reserva</h3>
-        <button class="modal-close" (click)="closeCancelReservationModal()">
-          <i class="bi bi-x-lg"></i>
-        </button>
+              <div class="form-group">
+                <label class="form-label">Categoría *</label>
+                <select formControlName="categoryId" class="form-control">
+                  <option value="">Selecciona una categoría</option>
+                  <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
+                </select>
+                <div *ngIf="productForm.get('categoryId')?.invalid && productForm.get('categoryId')?.touched" class="text-danger">
+                  La categoría es requerida
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">URL de Imagen</label>
+                <input type="text" formControlName="imageUrl" class="form-control" placeholder="https://..." />
+              </div>
+
+              <div class="form-group">
+                <label class="form-check-label">
+                  <input type="checkbox" formControlName="available" class="form-check-input" />
+                  Disponible
+                </label>
+              </div>
+
+              <div class="modal-footer">
+                <button *ngIf="!isViewingProduct" type="button" class="btn-outline" (click)="closeProductModal()">Cancelar</button>
+                <button *ngIf="isViewingProduct" type="button" class="btn-primary" (click)="openProductModal(selectedProduct || undefined)">
+                  <i class="bi bi-pencil me-2"></i>
+                  Editar
+                </button>
+                <button *ngIf="!isViewingProduct" type="submit" class="btn-primary" [disabled]="productForm.invalid">
+                  {{ selectedProduct ? 'Actualizar' : 'Crear' }}
+                </button>
+                <button *ngIf="isViewingProduct" type="button" class="btn-outline" (click)="closeProductModal()">Cerrar</button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
-      <div class="modal-body">
-        <div class="reservation-details-modal">
-          <p><strong>Mesa:</strong> {{ selectedReservation.tableNumber }}</p>
-          <p><strong>Fecha:</strong> {{ selectedReservation.date }}</p>
-          <p><strong>Hora:</strong> {{ selectedReservation.time }}</p>
-          <p><strong>Cliente:</strong> {{ selectedReservation.userName }} ({{ selectedReservation.userEmail }})</p>
-          <p><strong>Personas:</strong> {{ selectedReservation.numberOfPeople }}</p>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Motivo de cancelación (opcional)</label>
-          <textarea 
-            [(ngModel)]="cancelReason" 
-            class="form-control" 
-            rows="3" 
-            placeholder="Ej: Mesa no disponible, cambio de horario, etc. Este mensaje se enviará al cliente."></textarea>
-          <small class="form-text text-muted">Si no especificas un motivo, se usará un mensaje por defecto.</small>
-        </div>
-        <div class="alert alert-warning">
-          <i class="bi bi-exclamation-triangle me-2"></i>
-          <strong>Importante:</strong> Al cancelar esta reserva, el cliente será notificado automáticamente.
+
+      <!-- Modal de Categoría -->
+      <div *ngIf="showCategoryModal" class="modal-overlay" (click)="closeCategoryModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>{{ selectedCategory ? 'Editar Categoría' : 'Nueva Categoría' }}</h3>
+            <button class="modal-close-btn" (click)="closeCategoryModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()">
+              <div class="form-group">
+                <label class="form-label">Nombre *</label>
+                <input type="text" formControlName="name" class="form-control" />
+                <div *ngIf="categoryForm.get('name')?.invalid && categoryForm.get('name')?.touched" class="text-danger">
+                  El nombre es requerido (mínimo 2 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Descripción *</label>
+                <textarea formControlName="description" class="form-control" rows="3"></textarea>
+                <div *ngIf="categoryForm.get('description')?.invalid && categoryForm.get('description')?.touched" class="text-danger">
+                  La descripción es requerida (mínimo 5 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">URL de Imagen</label>
+                <input type="text" formControlName="imageUrl" class="form-control" placeholder="https://..." />
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn-outline" (click)="closeCategoryModal()">Cancelar</button>
+                <button type="submit" class="btn-primary" [disabled]="categoryForm.invalid">
+                  {{ selectedCategory ? 'Actualizar' : 'Crear' }}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
-      <div class="modal-actions">
-        <button type="button" class="btn-outline" (click)="closeCancelReservationModal()">Cerrar</button>
-        <button type="button" class="btn-warning" (click)="cancelReservation()">
-          <i class="bi bi-x-circle me-1"></i>
-          Confirmar Cancelación
-        </button>
+
+      <!-- Modal de Inventario/Insumo -->
+      <div *ngIf="showSupplyModal" class="modal-overlay" (click)="closeSupplyModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>{{ selectedSupply ? 'Editar Insumo' : 'Nuevo Insumo' }}</h3>
+            <button class="modal-close-btn" (click)="closeSupplyModal()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form [formGroup]="supplyForm" (ngSubmit)="saveSupply()">
+              <div class="form-group">
+                <label class="form-label">Nombre *</label>
+                <input type="text" formControlName="name" class="form-control" />
+                <div *ngIf="supplyForm.get('name')?.invalid && supplyForm.get('name')?.touched" class="text-danger">
+                  El nombre es requerido (mínimo 3 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Descripción *</label>
+                <textarea formControlName="description" class="form-control" rows="3"></textarea>
+                <div *ngIf="supplyForm.get('description')?.invalid && supplyForm.get('description')?.touched" class="text-danger">
+                  La descripción es requerida (mínimo 10 caracteres)
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Precio Unitario *</label>
+                <input type="number" formControlName="unit_price" class="form-control" min="0" step="100" />
+                <div *ngIf="supplyForm.get('unit_price')?.invalid && supplyForm.get('unit_price')?.touched" class="text-danger">
+                  El precio unitario es requerido y debe ser mayor o igual a 0
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Cantidad *</label>
+                <input type="number" formControlName="quantity" class="form-control" min="0" />
+                <div *ngIf="supplyForm.get('quantity')?.invalid && supplyForm.get('quantity')?.touched" class="text-danger">
+                  La cantidad es requerida y debe ser mayor o igual a 0
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn-outline" (click)="closeSupplyModal()">Cancelar</button>
+                <button type="submit" class="btn-primary" [disabled]="supplyForm.invalid">
+                  {{ selectedSupply ? 'Actualizar' : 'Crear' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-
-  <!-- Modal: Crear/Editar/Ver Adicional -->
-  <div *ngIf="showExtraFormModal" class="modal-overlay" style="z-index: 10000;" (click)="closeExtraFormModal()">
-    <div class="modal-content modal-large" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3 class="modal-title">
-          <i class="bi bi-plus-circle me-2"></i>
-          {{ extraForm.disabled ? 'Ver' : (selectedExtra ? 'Editar' : 'Crear') }} Adicional
-        </h3>
-        <button class="modal-close" (click)="closeExtraFormModal()">
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
-      <form [formGroup]="extraForm" (ngSubmit)="saveExtra()" class="modal-form">
-        <div class="form-group">
-          <label class="form-label">
-            <i class="bi bi-tag me-2"></i>
-            Nombre del Adicional *
-          </label>
-          <input 
-            type="text" 
-            formControlName="name" 
-            class="form-control"
-            placeholder="Ej: Queso extra"
-            [readonly]="extraForm.disabled" />
-          <div *ngIf="extraForm.get('name')?.errors && extraForm.get('name')?.touched" class="invalid-feedback">
-            <span *ngIf="extraForm.get('name')?.errors?.['required']">El nombre es requerido</span>
-            <span *ngIf="extraForm.get('name')?.errors?.['minlength']">El nombre debe tener al menos 2 caracteres</span>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">
-            <i class="bi bi-currency-dollar me-2"></i>
-            Precio *
-          </label>
-          <input 
-            type="number" 
-            formControlName="price" 
-            class="form-control"
-            placeholder="0"
-            min="0"
-            step="100"
-            [readonly]="extraForm.disabled" />
-          <div *ngIf="extraForm.get('price')?.errors && extraForm.get('price')?.touched" class="invalid-feedback">
-            <span *ngIf="extraForm.get('price')?.errors?.['required']">El precio es requerido</span>
-            <span *ngIf="extraForm.get('price')?.errors?.['min']">El precio debe ser mayor o igual a 0</span>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">
-            <i class="bi bi-toggle-on me-2"></i>
-            Estado
-          </label>
-          <div class="form-check form-switch">
-            <input 
-              class="form-check-input" 
-              type="checkbox" 
-              formControlName="available"
-              id="extraAvailable"
-              [disabled]="extraForm.disabled" />
-            <label class="form-check-label" for="extraAvailable">
-              {{ extraForm.get('available')?.value ? 'Disponible' : 'No Disponible' }}
-            </label>
-          </div>
-        </div>
-
-        <div class="modal-actions" *ngIf="!extraForm.disabled">
-          <button type="button" class="btn-outline" (click)="closeExtraFormModal()">Cancelar</button>
-          <button type="submit" class="btn-primary" [disabled]="extraForm.invalid">
-            <i class="bi bi-check-lg me-2"></i>
-            {{ selectedExtra ? 'Actualizar' : 'Crear' }}
-          </button>
-        </div>
-        <div class="modal-actions" *ngIf="extraForm.disabled">
-          <button type="button" class="btn-primary" (click)="closeExtraFormModal()">Cerrar</button>
-        </div>
-      </form>
-    </div>
   </div>
 </section>
-

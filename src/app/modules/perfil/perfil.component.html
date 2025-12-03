@@ -4,12 +4,22 @@
     <div class="hero-content-wrapper">
       <div class="profile-avatar-large">
         <div class="avatar-circle-large">
-          <img [src]="getAvatarImage()" [alt]="userProfile?.fullName || 'Usuario'" class="avatar-image" />
+          <img [src]="getAvatarImage()" [alt]="userProfile?.fullName || 'Usuario'" class="avatar-image" 
+               (error)="handleImageError($event)" />
+          <div class="avatar-badge">
+            <i class="bi bi-check-circle-fill"></i>
+          </div>
         </div>
       </div>
       <div class="hero-content">
         <h1 class="hero-title">{{ userProfile?.fullName || 'Mi Perfil' }}</h1>
         <p class="hero-subtitle">Gestiona tu cuenta y preferencias</p>
+        <div class="hero-stats" *ngIf="userProfile && orders.length > 0">
+          <div class="hero-stat-item">
+            <i class="bi bi-bag-check"></i>
+            <span>{{ orders.length }} {{ orders.length === 1 ? 'pedido' : 'pedidos' }}</span>
+          </div>
+        </div>
         <div *ngIf="!userProfile" class="alert alert-info mt-3">
           <i class="bi bi-info-circle me-2"></i>
           <strong>Modo de demostración:</strong> Mostrando datos de prueba
@@ -20,12 +30,23 @@
 
   <!-- Contenido Principal -->
   <div class="container py-5">
-    <!-- Tabs de Navegación -->
-    <div class="profile-tabs">
+    <!-- Botón Hamburguesa para Móvil/Tablet -->
+    <button class="sidebar-toggle-btn" (click)="toggleSidebar()" [class.active]="sidebarOpen">
+      <i class="bi bi-list"></i>
+    </button>
+    
+    <!-- Overlay para cerrar sidebar -->
+    <div class="sidebar-overlay" *ngIf="sidebarOpen" (click)="closeSidebar()"></div>
+    
+    <div class="profile-container-wrapper">
+      <!-- Sidebar de Navegación -->
+      <div class="profile-sidebar" [class.open]="sidebarOpen">
+        <!-- Tabs de Navegación -->
+        <div class="profile-tabs">
       <button
         class="tab-btn"
         [class.active]="activeTab === 'profile'"
-        (click)="setActiveTab('profile')"
+        (click)="setActiveTab('profile'); closeSidebar()"
       >
         <i class="bi bi-person-circle me-2"></i>
         Mi Perfil
@@ -33,7 +54,7 @@
       <button
         class="tab-btn"
         [class.active]="activeTab === 'orders'"
-        (click)="setActiveTab('orders')"
+        (click)="setActiveTab('orders'); closeSidebar()"
       >
         <i class="bi bi-receipt me-2"></i>
         Mis Pedidos
@@ -42,7 +63,7 @@
       <button
         class="tab-btn"
         [class.active]="activeTab === 'addresses'"
-        (click)="setActiveTab('addresses')"
+        (click)="setActiveTab('addresses'); closeSidebar()"
       >
         <i class="bi bi-geo-alt me-2"></i>
         Direcciones
@@ -50,7 +71,7 @@
       <button
         class="tab-btn"
         [class.active]="activeTab === 'payment'"
-        (click)="setActiveTab('payment')"
+        (click)="setActiveTab('payment'); closeSidebar()"
       >
         <i class="bi bi-credit-card me-2"></i>
         Métodos de Pago
@@ -58,7 +79,7 @@
       <button
         class="tab-btn"
         [class.active]="activeTab === 'reservations'"
-        (click)="setActiveTab('reservations')"
+        (click)="setActiveTab('reservations'); closeSidebar()"
       >
         <i class="bi bi-calendar-check me-2"></i>
         Mis Reservas
@@ -67,15 +88,16 @@
       <button
         class="tab-btn"
         [class.active]="activeTab === 'settings'"
-        (click)="setActiveTab('settings')"
+        (click)="setActiveTab('settings'); closeSidebar()"
       >
         <i class="bi bi-gear me-2"></i>
         Configuración
       </button>
-    </div>
+        </div>
+      </div>
 
-    <!-- Contenido de las Tabs -->
-    <div class="profile-content">
+      <!-- Contenido de las Tabs -->
+      <div class="profile-content">
       <!-- Tab: Mi Perfil -->
       <div *ngIf="activeTab === 'profile'" class="tab-content">
         <!-- Resumen Rápido -->
@@ -93,27 +115,43 @@
               Editar Perfil
             </button>
           </div>
-          <div class="quick-info">
-            <div class="info-item">
-              <i class="bi bi-envelope-fill"></i>
-              <div>
-                <span class="info-label">Email</span>
-                <span class="info-value">{{ userProfile?.email || 'N/A' }}</span>
+          
+          <!-- Información del Usuario -->
+          <div class="profile-info-section" *ngIf="userProfile">
+            <div class="profile-info-grid">
+              <!-- Tarjeta de Nombre -->
+              <div class="profile-info-card">
+                <div class="profile-info-icon-wrapper name-icon">
+                  <i class="bi bi-person-fill"></i>
+                </div>
+                <div class="profile-info-content">
+                  <div class="profile-info-label">Nombre Completo</div>
+                  <div class="profile-info-value">{{ userProfile.fullName || 'No especificado' }}</div>
+                </div>
               </div>
-            </div>
-            <div class="info-item">
-              <i class="bi bi-telephone-fill"></i>
-              <div>
-                <span class="info-label">Teléfono</span>
-                <span class="info-value">{{ userProfile?.phone || 'N/A' }}</span>
+              
+              <!-- Tarjeta de Email -->
+              <div class="profile-info-card">
+                <div class="profile-info-icon-wrapper email-icon">
+                  <i class="bi bi-envelope-fill"></i>
+                </div>
+                <div class="profile-info-content">
+                  <div class="profile-info-label">Correo Electrónico</div>
+                  <div class="profile-info-value">{{ userProfile.email || 'No especificado' }}</div>
+                </div>
               </div>
-            </div>
-            <div class="info-item">
-              <i class="bi bi-calendar-check"></i>
-              <div>
-                <span class="info-label">Miembro desde</span>
-                <span class="info-value">{{ userProfile && userProfile.memberSince ? formatDate(userProfile.memberSince) : 'N/A' }}</span>
+              
+              <!-- Tarjeta de Teléfono -->
+              <div class="profile-info-card">
+                <div class="profile-info-icon-wrapper phone-icon">
+                  <i class="bi bi-telephone-fill"></i>
+                </div>
+                <div class="profile-info-content">
+                  <div class="profile-info-label">Teléfono</div>
+                  <div class="profile-info-value">{{ userProfile.phone || 'No especificado' }}</div>
+                </div>
               </div>
+              
             </div>
           </div>
         </div>
@@ -139,99 +177,7 @@
               Agregar Primera Dirección
             </button>
           </div>
-          <!-- Grid para Desktop -->
-          <div *ngIf="addresses.length > 0" class="addresses-grid">
-            <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
-              <div class="address-card-header">
-                <div class="address-icon-wrapper">
-                  <i class="bi bi-geo-alt-fill"></i>
-                </div>
-                <div class="address-title-section">
-                  <h3 class="address-title">{{ address.title }}</h3>
-                  <span class="address-badge" *ngIf="address.isDefault">
-                    <i class="bi bi-star-fill"></i>
-                    Principal
-                  </span>
-                </div>
-              </div>
-              <div class="address-details">
-                <div class="address-detail-item">
-                  <i class="bi bi-geo-alt"></i>
-                  <span>{{ address.address }}</span>
-                </div>
-                <div class="address-detail-item" *ngIf="address.neighborhood">
-                  <i class="bi bi-pin-map"></i>
-                  <span>{{ address.neighborhood }}</span>
-                </div>
-                <div class="address-detail-item">
-                  <i class="bi bi-geo"></i>
-                  <span>{{ address.city }} - {{ address.postalCode }}</span>
-                </div>
-              </div>
-              <div class="address-actions">
-                <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
-                  <i class="bi bi-star"></i>
-                  <span>Principal</span>
-                </button>
-                <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
-                  <i class="bi bi-pencil"></i>
-                  <span>Editar</span>
-                </button>
-                <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
-                  <i class="bi bi-trash"></i>
-                  <span>Eliminar</span>
-                </button>
-              </div>
-            </div>
-          </div>
-          <!-- Scroll Horizontal para Móvil -->
-          <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
-            <div class="addresses-scroll-content">
-              <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
-                <div class="address-card-header">
-                  <div class="address-icon-wrapper">
-                    <i class="bi bi-geo-alt-fill"></i>
-                  </div>
-                  <div class="address-title-section">
-                    <h3 class="address-title">{{ address.title }}</h3>
-                    <span class="address-badge" *ngIf="address.isDefault">
-                      <i class="bi bi-star-fill"></i>
-                      Principal
-                    </span>
-                  </div>
-                </div>
-                <div class="address-details">
-                  <div class="address-detail-item">
-                    <i class="bi bi-geo-alt"></i>
-                    <span>{{ address.address }}</span>
-                  </div>
-                  <div class="address-detail-item" *ngIf="address.neighborhood">
-                    <i class="bi bi-pin-map"></i>
-                    <span>{{ address.neighborhood }}</span>
-                  </div>
-                  <div class="address-detail-item">
-                    <i class="bi bi-geo"></i>
-                    <span>{{ address.city }} - {{ address.postalCode }}</span>
-                  </div>
-                </div>
-                <div class="address-actions">
-                  <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
-                    <i class="bi bi-star"></i>
-                    <span>Principal</span>
-                  </button>
-                  <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
-                    <i class="bi bi-pencil"></i>
-                    <span>Editar</span>
-                  </button>
-                  <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
-                    <i class="bi bi-trash"></i>
-                    <span>Eliminar</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- Scroll Horizontal para Móvil -->
+          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
             <div class="addresses-scroll-content">
               <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
@@ -292,30 +238,7 @@
               <i class="bi bi-arrow-right ms-2"></i>
             </button>
           </div>
-          <!-- Grid para Desktop -->
-          <div class="dishes-grid">
-            <div *ngFor="let dish of recommendedDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
-              <div class="dish-image-wrapper">
-                <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'"
-                     [alt]="dish.name"
-                     class="dish-image" />
-                <div class="dish-overlay">
-                  <i class="bi bi-eye"></i>
-                </div>
-              </div>
-              <div class="dish-content">
-                <h3 class="dish-name">{{ dish.name }}</h3>
-                <p class="dish-description">{{ dish.description }}</p>
-                <div class="dish-footer">
-                  <span class="dish-price">${{ dish.price | number }}</span>
-                  <button class="dish-btn" (click)="navigateToProductDetail(dish.id, dish.categoryId); $event.stopPropagation()">
-                    <i class="bi bi-cart-plus"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- Scroll Horizontal para Móvil -->
+          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div class="dishes-scroll-wrapper">
             <div class="dishes-scroll-content">
               <div *ngFor="let dish of recommendedDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
@@ -358,33 +281,7 @@
               <i class="bi bi-arrow-right ms-2"></i>
             </button>
           </div>
-          <!-- Grid para Desktop -->
-          <div class="dishes-grid">
-            <div *ngFor="let dish of favoriteDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
-              <div class="dish-image-wrapper">
-                <div class="favorite-badge">
-                  <i class="bi bi-heart-fill"></i>
-                </div>
-                <img [src]="dish.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'"
-                     [alt]="dish.name"
-                     class="dish-image" />
-                <div class="dish-overlay">
-                  <i class="bi bi-eye"></i>
-                </div>
-              </div>
-              <div class="dish-content">
-                <h3 class="dish-name">{{ dish.name }}</h3>
-                <p class="dish-description">{{ dish.description }}</p>
-                <div class="dish-footer">
-                  <span class="dish-price">${{ dish.price | number }}</span>
-                  <button class="dish-btn" (click)="navigateToProductDetail(dish.id, dish.categoryId); $event.stopPropagation()">
-                    <i class="bi bi-cart-plus"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- Scroll Horizontal para Móvil -->
+          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div class="dishes-scroll-wrapper">
             <div class="dishes-scroll-content">
               <div *ngFor="let dish of favoriteDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
@@ -502,11 +399,15 @@
 
               <!-- Vista de Lista - Items completos -->
               <div class="order-items" *ngIf="orderViewMode === 'list'">
-                <div *ngFor="let item of order.items" class="order-item">
+                <div *ngFor="let item of order.items" class="order-item" [class.item-unavailable]="item.unavailable">
                   <div class="item-main">
                     <span class="item-name">{{ item.name }}</span>
-                    <span class="item-quantity">x{{ item.quantity }}</span>
-                    <span class="item-price">${{ (item.price * item.quantity) | number }}</span>
+                    <span class="item-quantity" *ngIf="!item.unavailable || item.quantity > 0">x{{ item.quantity }}</span>
+                    <span class="item-price" *ngIf="!item.unavailable || item.quantity > 0">${{ (item.price * item.quantity) | number }}</span>
+                  </div>
+                  <div class="unavailable-notice" *ngIf="item.unavailable && item.unavailableReason">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span><strong>Producto no disponible:</strong> {{ item.unavailableReason }}</span>
                   </div>
                   <div class="item-options" *ngIf="item.selectedOptions && item.selectedOptions.length > 0">
                     <small *ngFor="let option of item.selectedOptions" class="option-tag">
@@ -541,13 +442,68 @@
               </div>
 
               <div class="order-details" *ngIf="isOrderExpanded(order)">
+                <!-- Items del pedido - SIEMPRE mostrar -->
+                <div class="details-section-title" *ngIf="order.items && order.items.length > 0">
+                  <h4>Productos pedidos:</h4>
+                </div>
+                <div class="order-items-details" *ngIf="order.items && order.items.length > 0">
+                  <div *ngFor="let item of order.items" class="order-item-detail" [class.item-detail-unavailable]="item.unavailable">
+                    <div class="item-detail-main">
+                      <span class="item-detail-name">{{ item.name || 'Producto sin nombre' }}</span>
+                      <span class="item-detail-quantity" *ngIf="!item.unavailable || item.quantity > 0">x{{ item.quantity || 1 }}</span>
+                      <span class="item-detail-price" *ngIf="!item.unavailable || item.quantity > 0">${{ ((item.price || 0) * (item.quantity || 1)) | number }}</span>
+                    </div>
+                    <div class="unavailable-notice-detail" *ngIf="item.unavailable && item.unavailableReason">
+                      <i class="bi bi-exclamation-triangle-fill"></i>
+                      <span><strong>Producto no disponible:</strong> {{ item.unavailableReason }}</span>
+                    </div>
+                    <div class="item-detail-options" *ngIf="item.selectedOptions && item.selectedOptions.length > 0">
+                      <small *ngFor="let option of item.selectedOptions" class="option-detail-tag">
+                        <span class="option-detail-name">{{ option.name }}</span>
+                        <span class="option-detail-price" *ngIf="option.price > 0">+${{ option.price | number }}</span>
+                      </small>
+                    </div>
+                    <div class="item-detail-notes" *ngIf="item.notes">
+                      <small><i class="bi bi-chat-left-text me-1"></i>{{ item.notes }}</small>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Información del pedido -->
+                <div class="details-section-title">
+                  <h4>Información del pedido:</h4>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Fecha del pedido:</span>
+                  <span class="detail-value">{{ formatDate(order.date) }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.trackingCode">
+                  <span class="detail-label">Código de seguimiento:</span>
+                  <span class="detail-value">{{ order.trackingCode }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.paymentMethod">
+                  <span class="detail-label">Método de pago:</span>
+                  <span class="detail-value">{{ getPaymentMethodName(order.paymentMethod) }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.items && order.items.length > 0">
+                  <span class="detail-label">Cantidad de items:</span>
+                  <span class="detail-value">{{ order.items.length }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.subtotal !== undefined && order.subtotal !== null">
+                  <span class="detail-label">Subtotal:</span>
+                  <span class="detail-value">${{ order.subtotal | number }}</span>
+                </div>
+                <div class="detail-row" *ngIf="order.additionalFees !== undefined && order.additionalFees !== null && order.additionalFees > 0">
+                  <span class="detail-label">Costos adicionales:</span>
+                  <span class="detail-value">${{ order.additionalFees | number }}</span>
+                </div>
                 <div class="detail-row" *ngIf="order.orderType">
                   <span class="detail-label">Tipo de pedido:</span>
                   <span class="detail-value">{{ order.orderType === 'delivery' ? 'Entrega a Domicilio' : 'Recoger en Restaurante' }}</span>
                 </div>
                 <div class="detail-row" *ngIf="order.deliveryAddress">
                   <span class="detail-label">Dirección:</span>
-                  <span class="detail-value">{{ order.deliveryAddress }}, {{ order.deliveryNeighborhood || '' }}</span>
+                  <span class="detail-value">{{ order.deliveryAddress }}{{ order.deliveryNeighborhood ? ', ' + order.deliveryNeighborhood : '' }}</span>
                 </div>
                 <div class="detail-row" *ngIf="order.deliveryPhone">
                   <span class="detail-label">Teléfono:</span>
@@ -556,18 +512,6 @@
                 <div class="detail-row" *ngIf="order.deliveryInstructions">
                   <span class="detail-label">Instrucciones:</span>
                   <span class="detail-value">{{ order.deliveryInstructions }}</span>
-                </div>
-                <div class="detail-row" *ngIf="order.paymentMethod">
-                  <span class="detail-label">Método de pago:</span>
-                  <span class="detail-value">{{ getPaymentMethodName(order.paymentMethod) }}</span>
-                </div>
-                <div class="detail-row" *ngIf="order.subtotal">
-                  <span class="detail-label">Subtotal:</span>
-                  <span class="detail-value">${{ order.subtotal | number }}</span>
-                </div>
-                <div class="detail-row" *ngIf="order.additionalFees">
-                  <span class="detail-label">Costos adicionales:</span>
-                  <span class="detail-value">${{ order.additionalFees | number }}</span>
                 </div>
                 <div class="detail-row" *ngIf="order.estimatedPrepTime">
                   <span class="detail-label">Tiempo estimado de preparación:</span>
@@ -590,7 +534,9 @@
                     <i class="bi bi-x-circle me-2"></i>
                     Cancelar
                   </button>
-                  <button class="btn-outline btn-sm" *ngIf="order.status === 'ready'">
+                  <button class="btn-outline btn-sm" *ngIf="order.status === 'ready'" 
+                          (click)="confirmReception(order)" 
+                          title="Confirmar que recibiste el pedido">
                     <i class="bi bi-check-lg me-2"></i>
                     Confirmar Recepción
                   </button>
@@ -619,52 +565,7 @@
             <h3>No tienes direcciones guardadas</h3>
             <p>Agrega una dirección para facilitar tus pedidos</p>
           </div>
-          <!-- Grid para Desktop -->
-          <div *ngIf="addresses.length > 0" class="addresses-grid">
-            <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
-              <div class="address-card-header">
-                <div class="address-icon-wrapper">
-                  <i class="bi bi-geo-alt-fill"></i>
-                </div>
-                <div class="address-title-section">
-                  <h3 class="address-title">{{ address.title }}</h3>
-                  <span class="address-badge" *ngIf="address.isDefault">
-                    <i class="bi bi-star-fill"></i>
-                    Principal
-                  </span>
-                </div>
-              </div>
-              <div class="address-details">
-                <div class="address-detail-item">
-                  <i class="bi bi-geo-alt"></i>
-                  <span>{{ address.address }}</span>
-                </div>
-                <div class="address-detail-item" *ngIf="address.neighborhood">
-                  <i class="bi bi-pin-map"></i>
-                  <span>{{ address.neighborhood }}</span>
-                </div>
-                <div class="address-detail-item">
-                  <i class="bi bi-geo"></i>
-                  <span>{{ address.city }} - {{ address.postalCode }}</span>
-                </div>
-              </div>
-              <div class="address-actions">
-                <button class="action-btn star-btn" title="Marcar como Principal" *ngIf="!address.isDefault" (click)="setDefaultAddress(address)">
-                  <i class="bi bi-star"></i>
-                  <span>Principal</span>
-                </button>
-                <button class="action-btn edit-btn" title="Editar" (click)="editAddress(address)">
-                  <i class="bi bi-pencil"></i>
-                  <span>Editar</span>
-                </button>
-                <button class="action-btn delete-btn" title="Eliminar" (click)="deleteAddress(address)">
-                  <i class="bi bi-trash"></i>
-                  <span>Eliminar</span>
-                </button>
-              </div>
-            </div>
-          </div>
-          <!-- Scroll Horizontal para Móvil -->
+          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
             <div class="addresses-scroll-content">
               <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
@@ -733,23 +634,37 @@
             <p>Agrega un método de pago para agilizar tus pedidos</p>
           </div>
           <div *ngIf="paymentMethods.length > 0" class="payment-methods-list">
-            <div *ngFor="let method of paymentMethods" class="payment-method-card">
+            <div *ngFor="let method of paymentMethods" class="payment-method-card" [class.primary-card]="method.is_primary || method.isDefault">
               <div class="payment-icon">
-                <i class="bi bi-credit-card-2-front" *ngIf="method.type === 'card'"></i>
+                <i class="bi bi-credit-card-2-front" *ngIf="method.type === 'credit' || method.type === 'debit'"></i>
                 <i class="bi bi-cash-coin" *ngIf="method.type === 'cash'"></i>
               </div>
               <div class="payment-info">
-                <h3 *ngIf="method.type === 'card'">
-                  {{ method.brand }} •••• {{ method.last4 }}
+                <h3 *ngIf="method.type === 'credit' || method.type === 'debit'">
+                  <span class="card-brand">{{ method.brand | titlecase }}</span>
+                  <span class="card-type">{{ method.type === 'credit' ? 'Crédito' : 'Débito' }}</span>
+                  <span class="card-number">•••• {{ method.last_four_digits }}</span>
                 </h3>
                 <h3 *ngIf="method.type === 'cash'">Efectivo</h3>
-                <span class="payment-badge" *ngIf="method.isDefault">Principal</span>
+                <p *ngIf="method.cardholder_name" class="cardholder-name">{{ method.cardholder_name }}</p>
+                <p *ngIf="method.expiry_date" class="expiry-date">Expira: {{ method.expiry_date }}</p>
+                <span class="payment-badge" *ngIf="method.is_primary || method.isDefault">
+                  <i class="bi bi-star-fill me-1"></i>Principal
+                </span>
               </div>
               <div class="payment-actions">
-                <button class="btn-icon" title="Editar" (click)="editPaymentMethod(method)">
-                  <i class="bi bi-pencil"></i>
+                <button 
+                  *ngIf="!(method.is_primary || method.isDefault)"
+                  class="btn-icon" 
+                  title="Establecer como principal" 
+                  (click)="setPrimaryPaymentMethod(method)">
+                  <i class="bi bi-star"></i>
                 </button>
-                <button class="btn-icon" title="Eliminar" (click)="deletePaymentMethod(method)">
+                <button 
+                  type="button"
+                  class="btn-icon delete-btn" 
+                  title="Eliminar tarjeta" 
+                  (click)="deletePaymentMethod(method, $event)">
                   <i class="bi bi-trash"></i>
                 </button>
               </div>
@@ -772,14 +687,14 @@
           </div>
           <form [formGroup]="paymentMethodForm" (ngSubmit)="onPaymentMethodSubmit()" class="modal-body">
             <div class="form-group">
-              <label class="form-label">Tipo de Método</label>
+              <label class="form-label">Tipo de Tarjeta</label>
               <select formControlName="type" class="form-control">
-                <option value="card">Tarjeta de Crédito/Débito</option>
-                <option value="cash">Efectivo</option>
+                <option value="credit">Tarjeta de Crédito</option>
+                <option value="debit">Tarjeta de Débito</option>
               </select>
             </div>
 
-            <div *ngIf="paymentMethodForm.get('type')?.value === 'card'" class="card-form-fields">
+            <div class="card-form-fields">
               <div class="form-group">
                 <label class="form-label">Número de Tarjeta *</label>
                 <input
@@ -855,10 +770,11 @@
               <div class="form-group">
                 <label class="form-label">Marca de Tarjeta *</label>
                 <select formControlName="brand" class="form-control">
-                  <option value="Visa">Visa</option>
-                  <option value="Mastercard">Mastercard</option>
-                  <option value="American Express">American Express</option>
-                  <option value="Diners Club">Diners Club</option>
+                  <option value="visa">Visa</option>
+                  <option value="mastercard">Mastercard</option>
+                  <option value="amex">American Express</option>
+                  <option value="diners">Diners Club</option>
+                  <option value="discover">Discover</option>
                 </select>
               </div>
             </div>
@@ -912,7 +828,7 @@
                 <i class="bi bi-check-circle-fill me-2"></i>
                 <strong>¡Reserva Confirmada!</strong> Tu mesa está lista para ti.
               </div>
-              
+
               <div class="reservation-header">
                 <div class="reservation-info">
                   <div class="reservation-id-row">
@@ -955,16 +871,16 @@
 
               <!-- Acciones de Reserva -->
               <div class="reservation-actions" *ngIf="canEditReservation(reservation) || canDeleteReservation(reservation)">
-                <button 
-                  class="btn-edit-reservation" 
+                <button
+                  class="btn-edit-reservation"
                   *ngIf="canEditReservation(reservation)"
                   (click)="openEditReservationModal(reservation)"
                   title="Editar reserva">
                   <i class="bi bi-pencil me-1"></i>
                   Editar
                 </button>
-                <button 
-                  class="btn-delete-reservation" 
+                <button
+                  class="btn-delete-reservation"
                   *ngIf="canDeleteReservation(reservation)"
                   (click)="deleteReservation(reservation)"
                   title="Eliminar reserva">
@@ -995,9 +911,9 @@
                 <i class="bi bi-calendar3 me-2"></i>
                 Fecha *
               </label>
-              <input 
-                type="date" 
-                formControlName="date" 
+              <input
+                type="date"
+                formControlName="date"
                 class="form-control"
                 [min]="minDate"
                 [class.is-invalid]="submitted && reservationForm.get('date')?.errors" />
@@ -1011,9 +927,9 @@
                 <i class="bi bi-clock me-2"></i>
                 Hora *
               </label>
-              <input 
-                type="time" 
-                formControlName="time" 
+              <input
+                type="time"
+                formControlName="time"
                 class="form-control"
                 [class.is-invalid]="submitted && reservationForm.get('time')?.errors" />
               <div *ngIf="submitted && reservationForm.get('time')?.errors" class="invalid-feedback">
@@ -1026,9 +942,9 @@
                 <i class="bi bi-people me-2"></i>
                 Número de Personas *
               </label>
-              <input 
-                type="number" 
-                formControlName="numberOfPeople" 
+              <input
+                type="number"
+                formControlName="numberOfPeople"
                 class="form-control"
                 min="1"
                 max="20"
@@ -1045,9 +961,9 @@
                 <i class="bi bi-chat-left-text me-2"></i>
                 Solicitudes Especiales (Opcional)
               </label>
-              <textarea 
-                formControlName="specialRequests" 
-                class="form-control" 
+              <textarea
+                formControlName="specialRequests"
+                class="form-control"
                 rows="3"
                 placeholder="Ej: Mesa cerca de la ventana, sin ruido, etc."></textarea>
             </div>
@@ -1135,16 +1051,6 @@
                   </div>
                 </div>
               </div>
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label class="form-label">
-                    <i class="bi bi-calendar-check me-2"></i>Miembro desde
-                  </label>
-                  <div class="info-display">
-                    {{ userProfile && userProfile.memberSince ? formatDate(userProfile.memberSince) : 'N/A' }}
-                  </div>
-                </div>
-              </div>
             </div>
             <div class="form-actions">
               <button type="submit" class="btn-primary">
@@ -1211,6 +1117,7 @@
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   </div>

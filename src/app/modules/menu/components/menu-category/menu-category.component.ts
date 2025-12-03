@@ -9,6 +9,7 @@ import { MenuCategory } from '../../../../core/models/MenuCategory';
 import { MenuItem } from '../../../../core/models/MenuItem';
 import { MenuService } from '../../../../core/services/menu.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-menu-category',
@@ -36,8 +37,13 @@ export class MenuCategoryComponent implements OnInit {
     private route: ActivatedRoute,
     public router: Router,
     private menuService: MenuService,
-    private authService: AuthService
-  ) { }
+    private authService: AuthService,
+    private title: Title,
+    private meta: Meta
+  ) {
+    this.title.setTitle('Menú - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Explora el menú de PRESTEZA y elige entre opciones para tu pedido.' });
+  }
 
   ngOnInit(): void {
     this.isAuthenticated = this.authService.isAuthenticated();

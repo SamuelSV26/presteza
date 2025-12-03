@@ -58,9 +58,9 @@
                     <input
                       type="radio"
                       name="savedAddress"
-                      [value]="savedAddress.id"
+                      [value]="savedAddress.id || ''"
                       [checked]="selectedSavedAddress === savedAddress.id"
-                      (change)="onSavedAddressSelect(savedAddress.id)"
+                      (change)="onSavedAddressSelect(savedAddress.id || undefined)"
                     />
                     <div class="saved-address-content">
                       <div class="saved-address-icon">
@@ -135,31 +135,39 @@
             </h3>
 
             <!-- Métodos de Pago Guardados (si hay) -->
+            <!-- Tarjetas Guardadas -->
             <div *ngIf="savedPaymentMethods.length > 0" class="saved-payment-methods mb-4">
-              <label class="section-subtitle">Métodos Guardados</label>
+              <label class="section-subtitle">
+                <i class="bi bi-credit-card-2-front me-2"></i>
+                Tarjetas Guardadas
+              </label>
               <div class="saved-methods-list">
-                <div *ngFor="let savedMethod of savedPaymentMethods" class="saved-method-card" [class.active]="selectedSavedMethod === savedMethod.id">
-                  <label class="saved-method-option">
+                <div *ngFor="let savedMethod of savedPaymentMethods" class="saved-method-card" [class.active]="selectedSavedMethod === savedMethod.id" [class.primary-card]="savedMethod.is_primary || savedMethod.isDefault">
+                  <label class="saved-method-option" *ngIf="savedMethod.id">
                     <input
                       type="radio"
                       name="savedPaymentMethod"
                       [value]="savedMethod.id"
                       [checked]="selectedSavedMethod === savedMethod.id"
-                      (change)="onSavedMethodSelect(savedMethod.id)"
+                      (change)="onSavedMethodSelect(savedMethod.id!)"
                     />
                     <div class="saved-method-content">
                       <div class="saved-method-icon">
-                        <i class="bi bi-credit-card-2-front" *ngIf="savedMethod.type === 'card'"></i>
-                        <i class="bi bi-cash-coin" *ngIf="savedMethod.type === 'cash'"></i>
+                        <i class="bi bi-credit-card-2-front"></i>
                       </div>
                       <div class="saved-method-info">
-                        <span class="saved-method-name" *ngIf="savedMethod.type === 'card'">
-                          {{ savedMethod.brand }} •••• {{ savedMethod.last4 }}
-                        </span>
-                        <span class="saved-method-name" *ngIf="savedMethod.type === 'cash'">
-                          Efectivo
-                        </span>
-                        <span class="saved-method-badge" *ngIf="savedMethod.isDefault">Principal</span>
+                        <div class="saved-method-header">
+                          <span class="method-brand">{{ savedMethod.brand | titlecase }}</span>
+                          <span class="method-type-badge">{{ savedMethod.type === 'credit' ? 'Crédito' : 'Débito' }}</span>
+                          <span class="saved-method-badge primary-badge" *ngIf="savedMethod.is_primary || savedMethod.isDefault">
+                            <i class="bi bi-star-fill"></i> Principal
+                          </span>
+                        </div>
+                        <div class="saved-method-details">
+                          <span class="method-number">•••• {{ savedMethod.last_four_digits }}</span>
+                          <span class="method-name" *ngIf="savedMethod.cardholder_name">{{ savedMethod.cardholder_name }}</span>
+                          <span class="method-expiry" *ngIf="savedMethod.expiry_date">Exp: {{ savedMethod.expiry_date }}</span>
+                        </div>
                       </div>
                     </div>
                   </label>

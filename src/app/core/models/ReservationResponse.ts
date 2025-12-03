@@ -1,23 +1,15 @@
-/**
- * Respuesta del backend al crear/obtener una reserva
- */
+
 export interface ReservationResponse {
   message?: string;
   reservation?: ReservationFromBackend;
 }
 
-/**
- * Respuesta del backend al obtener múltiples reservas
- */
 export interface ReservationsResponse {
   message?: string;
   reservations?: ReservationFromBackend[];
   count?: number;
 }
 
-/**
- * Estructura de reserva que viene del backend (MongoDB)
- */
 export interface ReservationFromBackend {
   _id?: string;
   id?: string;
@@ -34,9 +26,6 @@ export interface ReservationFromBackend {
   updatedAt?: string;
 }
 
-/**
- * Interfaz de reserva para el frontend
- */
 export interface Reservation {
   id: string;
   tableNumber: string;

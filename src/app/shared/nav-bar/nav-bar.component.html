@@ -11,16 +11,20 @@
 
       <a class="account-btn header-account-btn" role="button" (click)="onAccountClick($event)">
         <i class="bi bi-person-circle"></i>
-        <span *ngIf="userName">{{ userName }}</span>
-        <span *ngIf="!userName">MI CUENTA</span>
+        <span *ngIf="isAuthenticated && isAdmin">ADMIN</span>
+        <span *ngIf="isAuthenticated && !isAdmin && userName">{{ userName }}</span>
+        <span *ngIf="!isAuthenticated">MI CUENTA</span>
       </a>
 
       <!-- Dropdown del Usuario Autenticado -->
       <div *ngIf="showUserDropdown" class="user-dropdown" (click)="$event.stopPropagation()">
         <div class="user-dropdown-content">
           <div class="user-dropdown-header">
-            <i class="bi bi-person-circle"></i>
+            <div class="user-dropdown-avatar">
+              <i class="bi bi-person-circle"></i>
+            </div>
             <div class="user-dropdown-info">
+              <p class="user-dropdown-name">{{ userName }}</p>
               <p class="user-dropdown-email">{{ userEmail }}</p>
             </div>
           </div>
@@ -29,6 +33,7 @@
             <i class="bi bi-person"></i>
             <span>Mi Perfil</span>
           </button>
+          <div class="user-dropdown-divider"></div>
           <button class="user-dropdown-item user-dropdown-logout" (click)="logout()">
             <i class="bi bi-box-arrow-right"></i>
             <span>Cerrar Sesión</span>
@@ -87,11 +92,7 @@
               />
             </div>
             <div class="login-modal-options">
-              <label class="remember-me">
-                <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" [disabled]="isLoading" />
-                <span>Recordarme</span>
-              </label>
-              <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
+              <a href="/forgot-password" class="forgot-password" (click)="onForgotPassword($event)">¿Olvidaste tu contraseña?</a>
             </div>
             <button type="submit" class="login-submit-btn" [disabled]="isLoading">
               <span *ngIf="!isLoading">Iniciar Sesión</span>

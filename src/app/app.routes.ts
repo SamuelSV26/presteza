@@ -12,6 +12,8 @@ import { PerfilComponent } from './modules/perfil/perfil.component';
 import { AdminDashboardComponent } from './modules/admin/admin-dashboard.component';
 import { CheckoutComponent } from './modules/checkout/checkout.component';
 import { ReservasComponent } from './modules/reservas/reservas.component';
+import { ResetPasswordComponent } from './modules/reset-password/reset-password.component';
+import { ForgotPasswordComponent } from './modules/forgot-password/forgot-password.component';
 import { homeGuard } from './core/guards/home.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
@@ -80,6 +82,14 @@ export const routes: Routes = [
     path: 'reservas',
     component: ReservasComponent,
     canActivate: [authGuard]
+  },
+  {
+    path: 'forgot-password',
+    component: ForgotPasswordComponent
+  },
+  {
+    path: 'reset-password',
+    component: ResetPasswordComponent
   }
 ];
 

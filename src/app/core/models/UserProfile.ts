@@ -5,8 +5,6 @@ export interface UserPreferences {
   favoriteCategories: string[];
 }
 
-
-
 export interface UserProfile {
   id: string;
   fullName: string;

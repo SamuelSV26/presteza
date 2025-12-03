@@ -66,4 +66,12 @@ export class NotificationComponent implements OnInit, OnDestroy {
   trackByNotificationId(index: number, notification: Notification): string {
     return notification.id;
   }
+
+  isDeleteDialog(): boolean {
+    return this.confirmDialog?.title?.toLowerCase().includes('eliminar') ?? false;
+  }
+
+  getConfirmDialogIcon(): string {
+    return this.isDeleteDialog() ? 'bi-exclamation-triangle-fill' : 'bi-question-circle-fill';
+  }
 }

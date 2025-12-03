@@ -185,11 +185,10 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Estilos específicos para la sección de removals */
 .removal-group {
   background: linear-gradient(135deg, rgba(220, 53, 69, 0.05) 0%, rgba(220, 53, 69, 0.02) 100%);
   border: 2px solid rgba(220, 53, 69, 0.2);
-  order: -1; /* Mostrar primero */
+  order: -1; 
 }
 
 .removal-title {
@@ -604,7 +603,6 @@
   gap: 1.5rem;
 }
 
-/* Mensaje cuando no hay opciones */
 .no-options-message {
   background: #ffffff;
   border-radius: 16px;
@@ -659,7 +657,6 @@
   opacity: 0.4;
 }
 
-/* Estilos específicos para la sección de removals */
 .removal-group {
   background: linear-gradient(135deg, #ffffff 0%, #fffafa 100%);
   border-left: 5px solid #dc3545;
@@ -721,7 +718,6 @@
   font-weight: 400;
 }
 
-/* Grid layout para chips */
 .options-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -736,7 +732,6 @@
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
 }
 
-/* Estilo de chip para opciones */
 .option-chip {
   display: flex;
   flex-direction: column;
@@ -777,7 +772,6 @@
   pointer-events: none;
 }
 
-/* Chip de eliminación */
 .removal-chip {
   border-color: rgba(220, 53, 69, 0.25);
   background: linear-gradient(135deg, #ffffff 0%, #fffafa 100%);
@@ -822,7 +816,6 @@
   transform: scale(1.1);
 }
 
-/* Chip de adición */
 .addon-chip {
   border-color: rgba(0, 123, 255, 0.25);
   background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
@@ -1212,9 +1205,14 @@
   font-size: 1.05rem;
 }
 
-@media (max-width: 968px) {
+@media (max-width: 992px) and (min-width: 769px) {
+  .product-detail-page {
+    padding-top: 1.5rem;
+  }
+
   .product-detail-content {
     grid-template-columns: 1fr;
+    gap: 2.5rem;
   }
 
   .product-image-section {
@@ -1223,11 +1221,141 @@
   }
 
   .product-image {
-    height: 400px;
+    height: 450px;
+    border-radius: 20px;
+  }
+
+  .product-image-wrapper {
+    border-radius: 20px;
   }
 
   .product-title {
-    font-size: 2rem;
+    font-size: 2.25rem;
+  }
+
+  .product-description {
+    font-size: 1.05rem;
+  }
+
+  .favorite-btn-large {
+    width: 52px;
+    height: 52px;
+    top: 15px;
+    right: 15px;
+  }
+
+  .favorite-btn-large i {
+    font-size: 1.4rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .product-detail-page {
+    padding-top: 1rem;
+    margin-top: 70px;
+  }
+
+  .product-detail-content {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    margin-top: 1.5rem;
+  }
+
+  .product-image-section {
+    position: relative;
+    top: 0;
+  }
+
+  .product-image {
+    height: 350px;
+    border-radius: 16px;
+  }
+
+  .product-image-wrapper {
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  }
+
+  .product-title {
+    font-size: 1.75rem;
+    margin-bottom: 0.875rem;
+  }
+
+  .product-description {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+  }
+
+  .favorite-btn-large {
+    width: 48px;
+    height: 48px;
+    top: 12px;
+    right: 12px;
+  }
+
+  .favorite-btn-large i {
+    font-size: 1.3rem;
+  }
+
+  .product-header {
+    padding-bottom: 1.5rem;
+  }
+
+  .rating-section {
+    margin-bottom: 1.25rem;
+  }
+
+  .btn-back {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    border-radius: 10px;
+  }
+}
+
+@media (max-width: 576px) {
+  .product-detail-page {
+    padding-top: 0.75rem;
+  }
+
+  .product-detail-content {
+    gap: 1.5rem;
+    margin-top: 1rem;
+  }
+
+  .product-image {
+    height: 300px;
+    border-radius: 14px;
+  }
+
+  .product-image-wrapper {
+    border-radius: 14px;
+  }
+
+  .product-title {
+    font-size: 1.5rem;
+  }
+
+  .product-description {
+    font-size: 0.95rem;
+  }
+
+  .favorite-btn-large {
+    width: 44px;
+    height: 44px;
+    top: 10px;
+    right: 10px;
+  }
+
+  .favorite-btn-large i {
+    font-size: 1.2rem;
+  }
+
+  .btn-back {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
   }
 }
 

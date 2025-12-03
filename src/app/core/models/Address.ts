@@ -1,9 +1,31 @@
 export interface Address {
-  id: string;
-  title: string;
+  id?: string;
+  title?: string;
+  name?: string;
   address: string;
-  neighborhood?: string; // Barrio
+  neighborhood?: string;
   city: string;
-  postalCode: string;
-  isDefault: boolean;
+  postalCode?: string;
+  postal_code?: string;
+  isDefault?: boolean;
+  is_primary?: boolean;
+}
+
+// DTOs para el backend
+export interface AddAddressDto {
+  name: string;
+  address: string;
+  neighborhood?: string;
+  city: string;
+  postal_code: string;
+  is_primary?: boolean;
+}
+
+export interface UpdateAddressDto {
+  name?: string;
+  address?: string;
+  neighborhood?: string;
+  city?: string;
+  postal_code?: string;
+  is_primary?: boolean;
 }

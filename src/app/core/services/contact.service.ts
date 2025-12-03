@@ -1,179 +1,161 @@
 import { Injectable } from '@angular/core';
-import { Observable, of, throwError } from 'rxjs';
-import { CreateContactMessageDto, ContactMessageFromBackend, ContactMessage } from '../models/ContactMessage';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
+import { 
+  CreateContactMessageDto, 
+  ContactMessageFromBackend, 
+  ContactMessage,
+  CreateCommentDto,
+  CommentFromBackend
+} from '../models/ContactMessage';
+import { environment } from '../../../environments/environment';
+import { ErrorHandlerService } from './error-handler.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ContactService {
-  private readonly STORAGE_KEY = 'presteza_contact_messages';
+  private apiUrl = `${environment.apiUrl}/comments`;
 
-  constructor() {}
+  constructor(
+    private http: HttpClient,
+    private errorHandler: ErrorHandlerService
+  ) {}
 
-  /**
-   * Obtiene todos los mensajes desde localStorage
-   */
-  private getMessagesFromStorage(): ContactMessageFromBackend[] {
-    const messagesJson = localStorage.getItem(this.STORAGE_KEY);
-    if (!messagesJson) {
-      return [];
-    }
-    try {
-      return JSON.parse(messagesJson);
-    } catch (error) {
-      console.error('Error parsing messages from localStorage:', error);
-      return [];
-    }
+  // Mapear DTO del frontend al formato del backend
+  private mapToBackendDto(dto: CreateContactMessageDto): CreateCommentDto {
+    return {
+      user_name: dto.name,
+      user_email: dto.email,
+      user_phone: dto.phone,
+      user_title: dto.subject,
+      user_comment: dto.message
+    };
   }
 
-  /**
-   * Guarda los mensajes en localStorage
-   */
-  private saveMessagesToStorage(messages: ContactMessageFromBackend[]): void {
-    try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(messages));
-    } catch (error) {
-      console.error('Error saving messages to localStorage:', error);
+  // Mapear respuesta del backend al formato del frontend
+  private mapCommentToContactMessage(comment: CommentFromBackend): ContactMessageFromBackend {
+    // Validar que el comentario tenga los campos necesarios
+    if (!comment) {
+      console.error('Comentario nulo o indefinido recibido del backend');
+      throw new Error('Comentario inválido recibido del backend');
     }
+
+    return {
+      _id: comment._id,
+      id: comment._id || comment.id || '',
+      name: comment.user_name || '',
+      email: comment.user_email || '',
+      phone: comment.user_phone || '',
+      subject: comment.user_title || '',
+      message: comment.user_comment || '',
+      read: false, // El backend no tiene este campo, se maneja en el frontend si es necesario
+      createdAt: comment.createdAt || new Date().toISOString(),
+      updatedAt: comment.updatedAt || comment.createdAt || new Date().toISOString()
+    };
   }
 
-  /**
-   * Genera un ID único para el mensaje
-   */
-  private generateId(): string {
-    return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  /**
-   * Envía un mensaje de contacto (guarda en localStorage)
-   */
   create(createContactMessageDto: CreateContactMessageDto): Observable<ContactMessageFromBackend> {
-    try {
-      const messages = this.getMessagesFromStorage();
-      const newMessage: ContactMessageFromBackend = {
-        _id: this.generateId(),
-        id: this.generateId(),
-        name: createContactMessageDto.name,
-        email: createContactMessageDto.email,
-        phone: createContactMessageDto.phone,
-        subject: createContactMessageDto.subject,
-        message: createContactMessageDto.message,
-        read: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      messages.push(newMessage);
-      this.saveMessagesToStorage(messages);
-
-      return of(newMessage);
-    } catch (error) {
-      return throwError(() => ({
-        message: 'Error al guardar el mensaje',
-        error
-      }));
-    }
+    const commentDto = this.mapToBackendDto(createContactMessageDto);
+    
+    return this.http.post<CommentFromBackend>(this.apiUrl, commentDto).pipe(
+      map(comment => this.mapCommentToContactMessage(comment)),
+      catchError((error: HttpErrorResponse) => {
+        const appError = this.errorHandler.handleHttpError(error);
+        return throwError(() => appError);
+      })
+    );
   }
 
-  /**
-   * Obtiene todos los mensajes de contacto (solo admin)
-   */
   findAll(): Observable<ContactMessageFromBackend[]> {
-    try {
-      const messages = this.getMessagesFromStorage();
-      return of(messages);
-    } catch (error) {
-      return throwError(() => ({
-        message: 'Error al cargar los mensajes',
-        error
-      }));
-    }
+    return this.http.get<any>(this.apiUrl).pipe(
+      map(response => {
+        // Manejar diferentes formatos de respuesta del backend
+        let comments: CommentFromBackend[] = [];
+        
+        if (Array.isArray(response)) {
+          // Si la respuesta es directamente un array
+          comments = response;
+        } else if (response.comments && Array.isArray(response.comments)) {
+          // Si la respuesta está dentro de un objeto con propiedad 'comments'
+          comments = response.comments;
+        } else if (response.data && Array.isArray(response.data)) {
+          // Si la respuesta está dentro de un objeto con propiedad 'data'
+          comments = response.data;
+        } else {
+          console.warn('Formato de respuesta inesperado del backend:', response);
+          comments = [];
+        }
+        
+        // Mapear comentarios con manejo de errores individual
+        const mappedMessages: ContactMessageFromBackend[] = [];
+        comments.forEach((comment, index) => {
+          try {
+            const mapped = this.mapCommentToContactMessage(comment);
+            mappedMessages.push(mapped);
+          } catch (error) {
+            console.error(`Error al mapear comentario en índice ${index}:`, error, comment);
+            // Continuar con los demás comentarios aunque uno falle
+          }
+        });
+        
+        return mappedMessages;
+      }),
+      catchError((error: HttpErrorResponse) => {
+        console.error('Error al obtener comentarios del backend:', error);
+        const appError = this.errorHandler.handleHttpError(error);
+        return throwError(() => appError);
+      })
+    );
   }
 
-  /**
-   * Obtiene un mensaje de contacto por ID
-   */
   findOne(id: string): Observable<ContactMessageFromBackend> {
-    try {
-      const messages = this.getMessagesFromStorage();
-      const message = messages.find(m => m._id === id || m.id === id);
-      
-      if (!message) {
-        return throwError(() => ({
-          message: 'Mensaje no encontrado',
-          status: 404
-        }));
-      }
-
-      return of(message);
-    } catch (error) {
-      return throwError(() => ({
-        message: 'Error al obtener el mensaje',
-        error
-      }));
-    }
+    return this.http.get<CommentFromBackend>(`${this.apiUrl}/${id}`).pipe(
+      map(comment => this.mapCommentToContactMessage(comment)),
+      catchError((error: HttpErrorResponse) => {
+        const appError = this.errorHandler.handleHttpError(error);
+        return throwError(() => appError);
+      })
+    );
   }
 
-  /**
-   * Marca un mensaje como leído
-   */
   markAsRead(id: string): Observable<ContactMessageFromBackend> {
-    try {
-      const messages = this.getMessagesFromStorage();
-      const messageIndex = messages.findIndex(m => m._id === id || m.id === id);
-
-      if (messageIndex === -1) {
-        return throwError(() => ({
-          message: 'Mensaje no encontrado',
-          status: 404
-        }));
-      }
-
-      messages[messageIndex].read = true;
-      messages[messageIndex].updatedAt = new Date().toISOString();
-      this.saveMessagesToStorage(messages);
-
-      return of(messages[messageIndex]);
-    } catch (error) {
-      return throwError(() => ({
-        message: 'Error al marcar el mensaje como leído',
-        error
-      }));
-    }
+    // El backend no tiene un campo "read", pero podemos mantener esta funcionalidad
+    // en el frontend si es necesario. Por ahora, solo retornamos el mensaje.
+    return this.findOne(id);
   }
 
-  /**
-   * Elimina un mensaje de contacto
-   */
   remove(id: string): Observable<void> {
-    try {
-      const messages = this.getMessagesFromStorage();
-      const filteredMessages = messages.filter(m => m._id !== id && m.id !== id);
-      this.saveMessagesToStorage(filteredMessages);
-      return of(undefined);
-    } catch (error) {
-      return throwError(() => ({
-        message: 'Error al eliminar el mensaje',
-        error
-      }));
-    }
+    return this.http.delete<void>(`${this.apiUrl}/${id}`).pipe(
+      catchError((error: HttpErrorResponse) => {
+        const appError = this.errorHandler.handleHttpError(error);
+        return throwError(() => appError);
+      })
+    );
   }
 
-  /**
-   * Convierte un mensaje del backend al formato del frontend
-   */
   mapBackendMessageToFrontend(backendMessage: ContactMessageFromBackend): ContactMessage {
     const messageId = backendMessage._id || backendMessage.id || '';
+    
+    // Función helper para convertir fechas de forma segura
+    const parseDate = (dateValue: string | Date | undefined): Date | undefined => {
+      if (!dateValue) return undefined;
+      if (dateValue instanceof Date) return dateValue;
+      const parsed = new Date(dateValue);
+      return isNaN(parsed.getTime()) ? undefined : parsed;
+    };
+    
     return {
       id: messageId,
-      name: backendMessage.name,
-      email: backendMessage.email,
-      phone: backendMessage.phone,
-      subject: backendMessage.subject,
-      message: backendMessage.message,
+      name: backendMessage.name || '',
+      email: backendMessage.email || '',
+      phone: backendMessage.phone || '',
+      subject: backendMessage.subject || '',
+      message: backendMessage.message || '',
       read: backendMessage.read || false,
-      createdAt: backendMessage.createdAt ? new Date(backendMessage.createdAt) : undefined,
-      updatedAt: backendMessage.updatedAt ? new Date(backendMessage.updatedAt) : undefined,
+      createdAt: parseDate(backendMessage.createdAt),
+      updatedAt: parseDate(backendMessage.updatedAt),
     };
   }
 }

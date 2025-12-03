@@ -1,9 +1,11 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { UserService } from '../../../../core/services/user.service';
 import { AuthService } from '../../../../core/services/auth.service';
-import { Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
+import { takeUntil, switchMap, map } from 'rxjs/operators';
+import { Meta, Title } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-menu-item',
@@ -12,7 +14,7 @@ import { Observable } from 'rxjs';
   templateUrl: './menu-item.component.html',
   styleUrl: './menu-item.component.css'
 })
-export class MenuItemComponent implements OnInit, OnChanges {
+export class MenuItemComponent implements OnInit, OnChanges, OnDestroy {
   @Input() name: string = '';
   @Input() description: string = '';
   @Input() price: number = 0;
@@ -21,18 +23,49 @@ export class MenuItemComponent implements OnInit, OnChanges {
   @Input() dishId: number | string = 0;
   @Input() stockStatus?: 'available' | 'low_stock' | 'out_of_stock';
   @Output() favoriteClick = new EventEmitter<{ dishId: number | string; action: 'add' | 'remove' | 'login' }>();
-  
+
   isFavorite$: Observable<boolean> = new Observable();
   isLoggedIn: boolean = false;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private userService: UserService,
     private authService: AuthService,
-    private router: Router
-  ) {}
+    private router: Router,
+    private title: Title,
+    private meta: Meta
+  ) {
+    this.title.setTitle('Menú - PRESTEZA');
+    this.meta.updateTag({ name: 'description', content: 'Explora el menú de PRESTEZA y elige entre opciones para tu pedido.' });
+  }
 
   ngOnInit() {
     this.checkLoginStatus();
+    this.updateFavoriteStatus();
+    
+    // Escuchar cuando el usuario inicia sesión
+    window.addEventListener('userLoggedIn', () => {
+      this.checkLoginStatus();
+      this.updateFavoriteStatus();
+    });
+    
+    // Escuchar cambios en favoritos
+    window.addEventListener('favoritesChanged', () => {
+      this.updateFavoriteStatus();
+    });
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  ngOnChanges() {
+    this.checkLoginStatus();
+    this.updateFavoriteStatus();
+  }
+
+  private updateFavoriteStatus() {
     if (this.dishId && this.isLoggedIn) {
       this.isFavorite$ = this.userService.isFavorite(this.dishId);
     } else {
@@ -40,19 +73,6 @@ export class MenuItemComponent implements OnInit, OnChanges {
         observer.next(false);
         observer.complete();
       });
-    }
-    window.addEventListener('userLoggedIn', () => {
-      this.checkLoginStatus();
-      if (this.dishId && this.isLoggedIn) {
-        this.isFavorite$ = this.userService.isFavorite(this.dishId);
-      }
-    });
-  }
-
-  ngOnChanges() {
-    this.checkLoginStatus();
-    if (this.dishId && this.isLoggedIn) {
-      this.isFavorite$ = this.userService.isFavorite(this.dishId);
     }
   }
 
@@ -62,18 +82,61 @@ export class MenuItemComponent implements OnInit, OnChanges {
 
   onFavoriteClick(event: Event) {
     event.stopPropagation();
+    event.preventDefault();
+    
+    console.log('onFavoriteClick llamado para dishId:', this.dishId);
+    
     this.checkLoginStatus();
     if (!this.isLoggedIn) {
+      console.log('Usuario no autenticado, redirigiendo a login');
       this.router.navigate(['/login']);
+      this.favoriteClick.emit({
+        dishId: this.dishId,
+        action: 'login'
+      });
       return;
     }
-    this.userService.toggleFavorite(this.dishId);
-    this.isFavorite$ = this.userService.isFavorite(this.dishId);
-    this.userService.isFavorite(this.dishId).subscribe(isFav => {
-      this.favoriteClick.emit({ 
-        dishId: this.dishId, 
-        action: isFav ? 'add' : 'remove' 
-      });
+    
+    if (!this.dishId || this.dishId === 0) {
+      console.warn('No se puede agregar a favoritos: dishId no está definido o es 0');
+      return;
+    }
+
+    console.log('Iniciando toggle de favorito para dishId:', this.dishId);
+
+    // Obtener el estado actual y luego hacer el toggle
+    this.userService.isFavorite(this.dishId).pipe(
+      takeUntil(this.destroy$),
+      switchMap((wasFavorite: boolean) => {
+        console.log(`Estado actual del favorito para ${this.dishId}:`, wasFavorite);
+        // Usar el nuevo método que devuelve Observable
+        return this.userService.toggleFavorite(this.dishId).pipe(
+          map(() => wasFavorite) // Pasar el estado anterior
+        );
+      })
+    ).subscribe({
+      next: (wasFavorite: boolean) => {
+        console.log(`✅ Favorito ${wasFavorite ? 'eliminado' : 'agregado'} correctamente`);
+        // Actualizar el estado del favorito
+        this.updateFavoriteStatus();
+        
+        // Emitir el evento con la acción correcta (invertida porque ya se cambió)
+        this.favoriteClick.emit({
+          dishId: this.dishId,
+          action: wasFavorite ? 'remove' : 'add'
+        });
+      },
+      error: (error) => {
+        console.error('❌ Error al alternar favorito:', error);
+        console.error('Detalles del error:', {
+          message: error?.message,
+          status: error?.status,
+          error: error?.error,
+          url: error?.url
+        });
+        // Actualizar el estado para reflejar el cambio visual
+        this.updateFavoriteStatus();
+      }
     });
   }
 }

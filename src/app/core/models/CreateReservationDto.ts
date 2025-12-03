@@ -1,6 +1,4 @@
-/**
- * DTO para crear una reserva - debe coincidir con el backend
- */
+
 export interface CreateReservationDto {
   tableNumber: string; // T1, T2, T27, etc.
   date: string; // Fecha en formato DD/MM/YYYY

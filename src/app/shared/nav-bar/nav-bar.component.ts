@@ -27,6 +27,8 @@ export class NavbarComponent implements OnInit {
   loginError: string | null = null;
   isLoading = false;
   isNavbarCollapsed = true;
+  isAuthenticated = false;
+  isAdmin = false;
 
   constructor(
     private router: Router, 
@@ -36,6 +38,7 @@ export class NavbarComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.updateAuthStatus();
     const userInfo = this.authService.getUserInfo();
     if (userInfo) {
       this.userName = userInfo.name;
@@ -60,6 +63,7 @@ export class NavbarComponent implements OnInit {
         this.userName = null;
         this.userEmail = null;
       }
+      this.updateAuthStatus();
     });
     window.addEventListener('showLoginModal', () => {
       this.showLoginModal = true;
@@ -71,6 +75,17 @@ export class NavbarComponent implements OnInit {
         this.userName = userInfo.name;
         this.userEmail = userInfo.email;
       }
+      this.updateAuthStatus();
+    });
+    
+    // Escuchar actualizaciones del perfil
+    window.addEventListener('userInfoUpdated', () => {
+      const userInfo = this.authService.getUserInfo();
+      if (userInfo) {
+        this.userName = userInfo.name;
+        this.userEmail = userInfo.email;
+      }
+      this.updateAuthStatus();
     });
   }
 
@@ -165,6 +180,13 @@ export class NavbarComponent implements OnInit {
     this.router.navigate(['/login']);
   }
 
+  onForgotPassword(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeLoginModal();
+    this.router.navigate(['/forgot-password']);
+  }
+
   onLoginSubmit() {
     if (!this.loginEmail || !this.loginPassword) {
       this.loginError = 'Por favor completa todos los campos';
@@ -184,6 +206,7 @@ export class NavbarComponent implements OnInit {
         if (userInfo) {
           this.userName = userInfo.name;
         }
+        this.updateAuthStatus();
         setTimeout(() => {
           const role = this.authService.getRole();
           const normalizedRole = role ? role.toString().toLowerCase().trim() : 'client';
@@ -207,6 +230,13 @@ export class NavbarComponent implements OnInit {
     this.authService.logout();
     this.userName = null;
     this.userEmail = null;
+    this.updateAuthStatus();
+  }
+
+  private updateAuthStatus(): void {
+    this.isAuthenticated = this.authService.isAuthenticated();
+    this.isAdmin = this.authService.isAdmin();
+    this.cdr.detectChanges();
   }
 
   @Input() name: string = '';

@@ -6,7 +6,6 @@ import { MenuCategory } from '../models/MenuCategory';
 import { MenuItem } from '../models/MenuItem';
 import { MenuService } from '../services/menu.service';
 
-
 export interface HomeData {
   categories: MenuCategory[];
   featuredProducts: MenuItem[];
