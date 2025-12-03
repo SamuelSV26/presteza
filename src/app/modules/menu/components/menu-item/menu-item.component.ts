@@ -15,17 +15,17 @@ import { Meta, Title } from '@angular/platform-browser';
   styleUrl: './menu-item.component.css'
 })
 export class MenuItemComponent implements OnInit, OnChanges, OnDestroy {
-  @Input() name: string = '';
-  @Input() description: string = '';
-  @Input() price: number = 0;
+  @Input() name = '';
+  @Input() description = '';
+  @Input() price = 0;
   @Input() imageUrl: string | undefined = '';
-  @Input() available: boolean = true;
+  @Input() available = true;
   @Input() dishId: number | string = 0;
   @Input() stockStatus?: 'available' | 'low_stock' | 'out_of_stock';
   @Output() favoriteClick = new EventEmitter<{ dishId: number | string; action: 'add' | 'remove' | 'login' }>();
 
-  isFavorite$: Observable<boolean> = new Observable();
-  isLoggedIn: boolean = false;
+  isFavorite$ = new Observable<boolean>();
+  isLoggedIn = false;
   private destroy$ = new Subject<void>();
 
   constructor(

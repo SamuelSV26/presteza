@@ -61,7 +61,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
   reservationForm: FormGroup;
 
   private destroy$ = new Subject<void>();
-  private progressIntervals: Map<string, any> = new Map();
+  private progressIntervals = new Map<string, any>();
   private ordersRefreshInterval: any = null;
 
   constructor(
@@ -126,7 +126,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
     this.paymentMethodForm.get('cvv')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{3,4}$/)]);
   }
 
-  minDate: string = '';
+  minDate = '';
 
   ngOnInit() {
     if (this.authService.isAdmin()) {
@@ -1194,7 +1194,7 @@ private loadUserProfile() {
 
   formatCardNumber(event: Event) {
     const input = event.target as HTMLInputElement;
-    let value = input.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
+    const value = input.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
     const formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
     this.paymentMethodForm.patchValue({ cardNumber: formattedValue }, { emitEvent: false });
   }
@@ -1512,7 +1512,7 @@ private loadUserProfile() {
   }
 
   getOrderStatusClass(status: string): string {
-    const statusClasses: { [key: string]: string } = {
+    const statusClasses: Record<string, string> = {
       'pending': 'status-pending',
       'preparing': 'status-preparing',
       'ready': 'status-ready',
@@ -1523,7 +1523,7 @@ private loadUserProfile() {
   }
 
   getOrderStatusText(status: string): string {
-    const statusTexts: { [key: string]: string } = {
+    const statusTexts: Record<string, string> = {
       'pending': 'Pendiente',
       'preparing': 'Preparando',
       'ready': 'Listo',
@@ -1534,7 +1534,7 @@ private loadUserProfile() {
   }
 
   getOrderStatusIcon(status: string): string {
-    const statusIcons: { [key: string]: string } = {
+    const statusIcons: Record<string, string> = {
       'pending': 'bi-clock-history',
       'preparing': 'bi-hourglass-split',
       'ready': 'bi-check-circle',
@@ -1774,7 +1774,7 @@ private loadUserProfile() {
     }
   }
 
-  getOrderStatusSteps(order: Order): Array<{status: string, label: string, icon: string, completed: boolean, current: boolean}> {
+  getOrderStatusSteps(order: Order): {status: string, label: string, icon: string, completed: boolean, current: boolean}[] {
     const steps = [
       { status: 'pending', label: 'Confirmado', icon: 'bi-check-circle', completed: true, current: false },
       { status: 'preparing', label: 'Preparando', icon: 'bi-hourglass-split', completed: false, current: false },
@@ -1934,7 +1934,7 @@ private loadUserProfile() {
   }
 
   getPaymentMethodName(method: string): string {
-    const methods: { [key: string]: string } = {
+    const methods: Record<string, string> = {
       'card': 'Tarjeta',
       'cash': 'Efectivo',
       'nequi': 'Nequi',
@@ -1963,7 +1963,7 @@ private loadUserProfile() {
   }
 
   getReservationStatusClass(status: string): string {
-    const statusClasses: { [key: string]: string } = {
+    const statusClasses: Record<string, string> = {
       'pending': 'status-pending',
       'confirmed': 'status-confirmed',
       'cancelled': 'status-cancelled',
@@ -1973,7 +1973,7 @@ private loadUserProfile() {
   }
 
   getReservationStatusText(status: string): string {
-    const statusTexts: { [key: string]: string } = {
+    const statusTexts: Record<string, string> = {
       'pending': 'Pendiente',
       'confirmed': 'Confirmada',
       'cancelled': 'Cancelada',
@@ -1983,7 +1983,7 @@ private loadUserProfile() {
   }
 
   getReservationStatusIcon(status: string): string {
-    const statusIcons: { [key: string]: string } = {
+    const statusIcons: Record<string, string> = {
       'pending': 'bi-clock-history',
       'confirmed': 'bi-check-circle-fill',
       'cancelled': 'bi-x-circle',

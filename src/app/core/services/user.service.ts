@@ -342,7 +342,7 @@ export class UserService {
 
       return this.http.patch<any>(`${this.apiUrl}/${userId}`, updateData).pipe(
         map((response: any) => {
-          let currentProfile = this.userProfileSubject.value;
+          const currentProfile = this.userProfileSubject.value;
 
           let registrationDate: Date;
           const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');

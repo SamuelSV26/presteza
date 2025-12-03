@@ -30,7 +30,7 @@ export class NotificationService {
   private confirmResponseSubject = new BehaviorSubject<{ id: string; confirmed: boolean } | null>(null);
   public confirmResponse$ = this.confirmResponseSubject.asObservable();
 
-  showSuccess(message: string, title?: string, duration: number = 5000): void {
+  showSuccess(message: string, title?: string, duration = 5000): void {
     this.addNotification({
       id: this.generateId(),
       type: 'success',
@@ -40,7 +40,7 @@ export class NotificationService {
     });
   }
 
-  showError(message: string, title?: string, duration: number = 7000): void {
+  showError(message: string, title?: string, duration = 7000): void {
     this.addNotification({
       id: this.generateId(),
       type: 'error',
@@ -50,7 +50,7 @@ export class NotificationService {
     });
   }
 
-  showInfo(message: string, title?: string, duration: number = 5000): void {
+  showInfo(message: string, title?: string, duration = 5000): void {
     this.addNotification({
       id: this.generateId(),
       type: 'info',
@@ -60,7 +60,7 @@ export class NotificationService {
     });
   }
 
-  showWarning(message: string, title?: string, duration: number = 6000): void {
+  showWarning(message: string, title?: string, duration = 6000): void {
     this.addNotification({
       id: this.generateId(),
       type: 'warning',
@@ -70,7 +70,7 @@ export class NotificationService {
     });
   }
 
-  confirm(title: string, message: string, confirmText: string = 'Aceptar', cancelText: string = 'Cancelar'): Promise<boolean> {
+  confirm(title: string, message: string, confirmText = 'Aceptar', cancelText = 'Cancelar'): Promise<boolean> {
     return new Promise((resolve) => {
       const dialogId = this.generateId();
       const dialog: ConfirmDialog = {

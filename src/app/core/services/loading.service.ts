@@ -21,7 +21,7 @@ export class LoadingService {
     return this.loadingSubject.value;
   }
 
-  startLoading(message: string = ''): void {
+  startLoading(message = ''): void {
     this.loadingCount++;
     this.loadingSubject.next(true);
     if (message) {
@@ -45,7 +45,7 @@ export class LoadingService {
 
   async executeWithLoading<T>(
     fn: () => Promise<T>,
-    message: string = 'Cargando...'
+    message = 'Cargando...'
   ): Promise<T> {
     try {
       this.startLoading(message);

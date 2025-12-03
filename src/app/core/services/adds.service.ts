@@ -134,7 +134,7 @@ export class AddsService {
             return;
           }
 
-          let nameFromId = frontendId
+          const nameFromId = frontendId
             .replace(/^addon-/, '')
             .replace(/-/g, ' ')
             .toLowerCase()

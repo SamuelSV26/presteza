@@ -22,7 +22,7 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
   product: MenuItem | null = null;
   loading = true;
   quantity = 1;
-  selectedOptions: Map<string, boolean> = new Map();
+  selectedOptions = new Map<string, boolean>();
   totalPrice = 0;
   basePrice = 0;
   private destroy$ = new Subject<void>();
@@ -33,7 +33,7 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
   extras: ProductOption[] = [];
   sizes: ProductOption[] = [];
   removals: ProductOption[] = [];
-  isFavorite$: Observable<boolean> = new Observable();
+  isFavorite$ = new Observable<boolean>();
   isLoggedIn = false;
   private addsUpdatedHandler = () => {
     setTimeout(() => {
@@ -227,7 +227,7 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
       return;
     }
     if (!this.product) return;
-    const selectedOptionsList: Array<{ id: string; name: string; price: number; type?: 'addon' | 'size' | 'extra' | 'removal' }> = [];
+    const selectedOptionsList: { id: string; name: string; price: number; type?: 'addon' | 'size' | 'extra' | 'removal' }[] = [];
     this.selectedOptions.forEach((checked, optionId) => {
       if (checked) {
         let option: ProductOption | undefined;

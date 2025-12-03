@@ -12,7 +12,7 @@ import { Meta, Title } from '@angular/platform-browser';
 const DEFAULT_CATEGORY_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80';
 const GRADIENT_OVERLAY = 'linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6))';
 
-const CATEGORY_IMAGES: { [key: string]: string } = {
+const CATEGORY_IMAGES: Record<string, string> = {
   'bebidas': 'https://images.unsplash.com/photo-1546171753-97d7676e4602?w=800&q=80',
   'desayunos': 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=800&q=80',
   'comida rapida': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',

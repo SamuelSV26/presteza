@@ -47,7 +47,7 @@ constructor(
   private errorHandler: ErrorHandlerService
 ) { }
 
-  login(email: string, password: string, rememberMe: boolean = false): Observable<LoginResponse> {
+  login(email: string, password: string, rememberMe = false): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.apiUrl}/login`, {
       email,
       password
@@ -65,7 +65,7 @@ constructor(
           }
         }
 
-        let preservedData: any = {};
+        const preservedData: any = {};
         if (oldUserId) {
           preservedData.userProfile = localStorage.getItem(`userProfile_${oldUserId}`);
           preservedData.userAddresses = localStorage.getItem(`userAddresses_${oldUserId}`);
@@ -175,7 +175,7 @@ constructor(
     const userInfo = this.getUserInfo();
     const userId = userInfo?.userId || userInfo?.email;
     const email = userInfo?.email;
-    let preservedData: any = {};
+    const preservedData: any = {};
 
     if (userId) {
       preservedData.userProfile = localStorage.getItem(`userProfile_${userId}`);

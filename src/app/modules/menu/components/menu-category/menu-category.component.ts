@@ -25,13 +25,13 @@ export class MenuCategoryComponent implements OnInit {
   loading = true;
   error: string | null = null;
   currentCategoryId: string | null = null;
-  isAuthenticated: boolean = false;
+  isAuthenticated = false;
 
-  searchTerm: string = '';
+  searchTerm = '';
   sortBy: 'name' | 'price-asc' | 'price-desc' = 'name';
   priceRange: { min: number | null; max: number | null } = { min: null, max: null };
-  totalItems: number = 0;
-  filteredCount: number = 0;
+  totalItems = 0;
+  filteredCount = 0;
 
   constructor(
     private route: ActivatedRoute,

@@ -14,7 +14,7 @@ import { environment } from '../../../environments/environment';
 export class MenuService {
   private apiUrl = environment.apiUrl;
   private suppliesCache: Supply[] = [];
-  private suppliesCacheTime: number = 0;
+  private suppliesCacheTime = 0;
   private cacheTimeout = 30000;
 
   constructor(

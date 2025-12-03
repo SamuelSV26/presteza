@@ -43,9 +43,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   paymentForm: FormGroup;
   isLoading = false;
   showPaymentModal = false;
-  paymentLink: string = '';
-  paymentCode: string = '';
-  paymentReference: string = '';
+  paymentLink = '';
+  paymentCode = '';
+  paymentReference = '';
   bankAccount: any = null;
   showPaymentInfo = false;
   savedPaymentMethods: SavedPaymentMethod[] = [];
@@ -1387,7 +1387,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   formatCardNumber(event: Event): void {
     const input = event.target as HTMLInputElement;
-    let value = input.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
+    const value = input.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
     const formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
     this.paymentForm.patchValue({ cardNumber: formattedValue }, { emitEvent: false });
   }

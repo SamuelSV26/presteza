@@ -30,11 +30,11 @@ export class ReservasComponent implements OnInit {
   submitted = false;
   formSuccess = false;
   selectedTable: Table | null = null;
-  selectedBar: boolean = false;
-  customCapacity: number = 7;
+  selectedBar = false;
+  customCapacity = 7;
   showCustomInput = false;
   isLoading = false;
-  minDate: string = '';
+  minDate = '';
 
   tables: Table[] = [
     // Mesas de 1 persona - Fila superior

@@ -11,7 +11,7 @@ import { Meta, Title } from '@angular/platform-browser';
 const DEFAULT_CATEGORY_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80';
 const GRADIENT_OVERLAY = 'linear-gradient(135deg, rgba(107, 29, 61, 0.7) 0%, rgba(139, 45, 79, 0.6) 50%, rgba(0, 0, 0, 0.5) 100%)';
 
-const CATEGORY_IMAGES: { [key: string]: string } = {
+const CATEGORY_IMAGES: Record<string, string> = {
   'bebidas': 'https://images.unsplash.com/photo-1546171753-97d7676e4602?w=800&q=80',
   'desayunos': 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=800&q=80',
   'comida rapida': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',
@@ -193,7 +193,7 @@ export class HomeComponent implements OnInit {
     if (typeof id === 'string' && id.length === 24) {
       return 'Destacado';
     }
-    const badges: { [key: number]: string } = {
+    const badges: Record<number, string> = {
       1: 'Más Popular',
       6: 'Especial',
       30: 'Recomendado'

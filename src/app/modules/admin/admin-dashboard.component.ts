@@ -618,7 +618,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   private mapBackendOrderToFrontend(backendOrder: OrderFromBackend): Order {
     const orderId = backendOrder._id || backendOrder.id || '';
-    let detailedOrder: Order | null = null;
+    const detailedOrder: Order | null = null;
     let orderItems: any[] = [];
     if (orderItems.length === 0) {
       if (backendOrder.products && backendOrder.products.length > 0) {
@@ -736,7 +736,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   getOrderStatusClass(status: string): string {
-    const statusClasses: { [key: string]: string } = {
+    const statusClasses: Record<string, string> = {
       'pending': 'status-pending',
       'preparing': 'status-preparing',
       'ready': 'status-ready',
@@ -864,7 +864,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   getOrderStatusText(status: string): string {
-    const statusTexts: { [key: string]: string } = {
+    const statusTexts: Record<string, string> = {
       'pending': 'Pendiente',
       'preparing': 'Preparando',
       'ready': 'Listo',
@@ -1283,7 +1283,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   getReservationStatusClass(status: string): string {
-    const statusClasses: { [key: string]: string } = {
+    const statusClasses: Record<string, string> = {
       'pending': 'status-pending',
       'confirmed': 'status-confirmed',
       'cancelled': 'status-cancelled',
@@ -1293,7 +1293,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   getReservationStatusText(status: string): string {
-    const statusTexts: { [key: string]: string } = {
+    const statusTexts: Record<string, string> = {
       'pending': 'Pendiente',
       'confirmed': 'Confirmada',
       'cancelled': 'Cancelada',
@@ -2103,7 +2103,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return filtered;
   }
 
-  openCustomerModal(customer: any, edit: boolean = false): void {
+  openCustomerModal(customer: any, edit = false): void {
     this.selectedCustomer = customer;
     this.isEditingCustomer = edit;
     if (edit && customer) {

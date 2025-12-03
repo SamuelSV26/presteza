@@ -239,9 +239,9 @@ export class NavbarComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  @Input() name: string = '';
-  @Input() description: string = '';
-  @Input() price: number = 0;
+  @Input() name = '';
+  @Input() description = '';
+  @Input() price = 0;
   @Input() imageUrl: string | undefined = '';
-  @Input() available: boolean = true;
+  @Input() available = true;
 }

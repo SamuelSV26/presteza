@@ -107,7 +107,7 @@ export class SupplyService {
     );
   }
 
-  getLowStock(threshold: number = 10): Observable<SuppliesListResponse> {
+  getLowStock(threshold = 10): Observable<SuppliesListResponse> {
     return this.filterByQuantity(threshold, 'lt');
   }
 
