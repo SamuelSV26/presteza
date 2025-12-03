@@ -82,11 +82,8 @@ export class MenuItemComponent implements OnInit, OnChanges, OnDestroy {
     event.stopPropagation();
     event.preventDefault();
     
-    console.log('onFavoriteClick llamado para dishId:', this.dishId);
-    
     this.checkLoginStatus();
     if (!this.isLoggedIn) {
-      console.log('Usuario no autenticado, redirigiendo a login');
       this.router.navigate(['/login']);
       this.favoriteClick.emit({
         dishId: this.dishId,
@@ -96,37 +93,25 @@ export class MenuItemComponent implements OnInit, OnChanges, OnDestroy {
     }
     
     if (!this.dishId || this.dishId === 0) {
-      console.warn('No se puede agregar a favoritos: dishId no está definido o es 0');
       return;
     }
-
-    console.log('Iniciando toggle de favorito para dishId:', this.dishId);
 
     this.userService.isFavorite(this.dishId).pipe(
       takeUntil(this.destroy$),
       switchMap((wasFavorite: boolean) => {
-        console.log(`Estado actual del favorito para ${this.dishId}:`, wasFavorite);
         return this.userService.toggleFavorite(this.dishId).pipe(
           map(() => wasFavorite)
         );
       })
     ).subscribe({
       next: (wasFavorite: boolean) => {
-        console.log(`✅ Favorito ${wasFavorite ? 'eliminado' : 'agregado'} correctamente`);
         this.updateFavoriteStatus();
-                this.favoriteClick.emit({
+        this.favoriteClick.emit({
           dishId: this.dishId,
           action: wasFavorite ? 'remove' : 'add'
         });
       },
-      error: (error) => {
-        console.error('❌ Error al alternar favorito:', error);
-        console.error('Detalles del error:', {
-          message: error?.message,
-          status: error?.status,
-          error: error?.error,
-          url: error?.url
-        });
+      error: () => {
         this.updateFavoriteStatus();
       }
     });

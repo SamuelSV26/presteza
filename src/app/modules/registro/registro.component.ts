@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -13,13 +13,12 @@ import { Meta, Title } from '@angular/platform-browser';
   templateUrl: './registro.component.html',
   styleUrls: ['./registro.component.css']
 })
-export class RegistroComponent implements OnInit {
+export class RegistroComponent {
   registroForm: FormGroup;
   submitted = false;
   formSuccess = false;
   formError: string | null = null;
   isLoading = false;
-  loginModalOpen = false;
 
   constructor(
     private fb: FormBuilder,
@@ -144,9 +143,6 @@ export class RegistroComponent implements OnInit {
 
   get f() {
     return this.registroForm.controls;
-  }
-
-  ngOnInit() {
   }
 
   navigateToLogin(event?: Event) {

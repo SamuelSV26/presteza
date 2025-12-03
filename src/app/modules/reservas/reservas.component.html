@@ -23,13 +23,11 @@
 
           <div class="tables-layout">
             <div class="restaurant-floor">
-              <!-- Paredes -->
               <div class="wall wall-top"></div>
               <div class="wall wall-right"></div>
               <div class="wall wall-bottom"></div>
               <div class="wall wall-left"></div>
 
-              <!-- Ventanas -->
               <div class="window window-top-left" title="Ventana"></div>
               <div class="window window-top-right" title="Ventana"></div>
               <div class="window window-right-top" title="Ventana"></div>
@@ -37,7 +35,6 @@
               <div class="window window-bottom-left" title="Ventana"></div>
               <div class="window window-bottom-right" title="Ventana"></div>
 
-              <!-- Cocina -->
               <div class="kitchen-area" title="Cocina">
                 <div class="kitchen-label">
                   <i class="bi bi-fire"></i>
@@ -50,7 +47,6 @@
                 </div>
               </div>
 
-              <!-- Puerta de Entrada -->
               <div class="entrance-door" title="Entrada">
                 <div class="entrance-label-simple">ENTRADA</div>
                 <div class="door-frame">
@@ -59,7 +55,6 @@
                 </div>
               </div>
 
-              <!-- Barra Comunal -->
               <div
                 class="bar-container"
                 [class.selected]="selectedBar"
@@ -75,7 +70,6 @@
                 </div>
               </div>
 
-              <!-- Opción de Mesa Personalizada -->
               <div
                 class="custom-table-wrapper"
                 [class.selected]="showCustomInput"
@@ -97,7 +91,6 @@
                 </div>
               </div>
 
-              <!-- Mesas -->
               <div
                 *ngFor="let table of tables"
                 class="table-container"
@@ -107,14 +100,12 @@
                 (click)="selectTable(table)"
                 [title]="'Mesa ' + table.id + ' - ' + table.capacity + ' personas'"
               >
-                <!-- Sillas alrededor de la mesa -->
                 <div class="chairs-container" [attr.data-capacity]="table.capacity">
                   <div class="chair" *ngFor="let chair of getChairsForTable(table.capacity); let i = index"
                        [style.transform]="getChairPosition(i, table.capacity)">
                   </div>
                 </div>
 
-                <!-- Mesa -->
                 <div class="table-top" [class]="getTableShape(table.capacity)">
                   <div class="table-number">{{ table.id }}</div>
                   <div class="table-capacity-badge">{{ table.capacity }}</div>
@@ -124,7 +115,6 @@
             </div>
           </div>
 
-          <!-- Selector de Capacidad Personalizada -->
           <div *ngIf="showCustomInput || (selectedTable && reservationForm.get('guests')?.value === 1) || (selectedBar && reservationForm.get('guests')?.value === 1)" class="custom-capacity-selector">
             <div class="selector-header">
               <i class="bi bi-people-fill"></i>
@@ -193,7 +183,6 @@
           </div>
 
           <form [formGroup]="reservationForm" (ngSubmit)="onSubmit()" class="reservation-form">
-            <!-- Fecha -->
             <div class="form-group mb-4">
               <label for="date" class="form-label">
                 <i class="bi bi-calendar-event me-2"></i>Fecha

@@ -1,5 +1,4 @@
 <section class="registro-page">
-  <!-- Hero Section -->
   <div class="hero-section">
     <div class="hero-overlay"></div>
     <div class="hero-content">
@@ -8,7 +7,6 @@
     </div>
   </div>
 
-  <!-- Formulario de Registro -->
   <div class="container py-5">
     <div class="row justify-content-center">
       <div class="col-lg-6 col-md-8">
@@ -22,13 +20,11 @@
           </div>
 
           <form [formGroup]="registroForm" (ngSubmit)="onSubmit()" class="registro-form">
-            <!-- Mensaje de éxito -->
             <div *ngIf="formSuccess" class="alert alert-success alert-dismissible fade show" role="alert">
               <i class="bi bi-check-circle-fill me-2"></i>
               ¡Cuenta creada exitosamente! Redirigiendo...
             </div>
 
-            <!-- Nombre -->
             <div class="form-group mb-4">
               <label for="name" class="form-label">
                 <i class="bi bi-person-fill me-2"></i>Nombre Completo
@@ -47,7 +43,6 @@
               </div>
             </div>
 
-            <!-- Email -->
             <div class="form-group mb-4">
               <label for="email" class="form-label">
                 <i class="bi bi-envelope-fill me-2"></i>Correo Electrónico
@@ -66,7 +61,6 @@
               </div>
             </div>
 
-            <!-- Teléfono -->
             <div class="form-group mb-4">
               <label for="phone" class="form-label">
                 <i class="bi bi-telephone-fill me-2"></i>Teléfono
@@ -85,7 +79,6 @@
               </div>
             </div>
 
-            <!-- Contraseña -->
             <div class="form-group mb-4">
               <label for="password" class="form-label">
                 <i class="bi bi-lock-fill me-2"></i>Contraseña
@@ -105,7 +98,6 @@
               </div>
             </div>
 
-            <!-- Confirmar Contraseña -->
             <div class="form-group mb-4">
               <label for="confirmPassword" class="form-label">
                 <i class="bi bi-lock-fill me-2"></i>Confirmar Contraseña
@@ -124,7 +116,6 @@
               </div>
             </div>
 
-            <!-- Aceptar Términos -->
             <div class="form-group mb-4">
               <label class="terms-checkbox">
                 <input
@@ -139,7 +130,6 @@
               </div>
             </div>
 
-            <!-- Botón de Registro -->
             <div class="form-actions">
               <button type="submit" class="submit-btn" [disabled]="isLoading">
                 <i class="bi bi-person-plus-fill me-2"></i>
@@ -151,7 +141,6 @@
               </button>
             </div>
 
-            <!-- Enlace a Login -->
             <div class="registro-footer">
               <p>¿Ya tienes una cuenta? <a href="#" class="login-link" (click)="navigateToLogin($event)">Inicia sesión aquí</a></p>
             </div>

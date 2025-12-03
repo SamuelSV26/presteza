@@ -37,34 +37,28 @@ export class ReservasComponent implements OnInit {
   minDate = '';
 
   tables: Table[] = [
-    // Mesas de 1 persona - Fila superior
     { id: 'T1', capacity: 1, x: 8, y: 20, available: true },
     { id: 'T2', capacity: 1, x: 18, y: 20, available: true },
     { id: 'T3', capacity: 1, x: 28, y: 20, available: true },
-    // Mesas de 2 personas - Fila superior
     { id: 'T4', capacity: 2, x: 38, y: 20, available: true },
     { id: 'T5', capacity: 2, x: 48, y: 20, available: true },
     { id: 'T6', capacity: 2, x: 58, y: 20, available: true },
-    // Mesas de 3 personas - Segunda fila
     { id: 'T7', capacity: 3, x: 8, y: 35, available: true },
     { id: 'T8', capacity: 3, x: 20, y: 35, available: true },
     { id: 'T9', capacity: 3, x: 32, y: 35, available: true },
     { id: 'T10', capacity: 3, x: 44, y: 35, available: true },
     { id: 'T11', capacity: 3, x: 56, y: 35, available: true },
-    // Mesas de 4 personas - Tercera fila
     { id: 'T12', capacity: 4, x: 8, y: 50, available: true },
     { id: 'T13', capacity: 4, x: 20, y: 50, available: true },
     { id: 'T14', capacity: 4, x: 32, y: 50, available: true },
     { id: 'T15', capacity: 4, x: 44, y: 50, available: true },
     { id: 'T16', capacity: 4, x: 56, y: 50, available: true },
     { id: 'T17', capacity: 4, x: 68, y: 50, available: true },
-    // Mesas de 5 personas - Cuarta fila
     { id: 'T18', capacity: 5, x: 10, y: 65, available: true },
     { id: 'T19', capacity: 5, x: 24, y: 65, available: true },
     { id: 'T20', capacity: 5, x: 38, y: 65, available: true },
     { id: 'T21', capacity: 5, x: 52, y: 65, available: true },
     { id: 'T22', capacity: 5, x: 66, y: 65, available: true },
-    // Mesas de 6 personas - Fila inferior
     { id: 'T23', capacity: 6, x: 12, y: 80, available: true },
     { id: 'T24', capacity: 6, x: 28, y: 80, available: true },
     { id: 'T25', capacity: 6, x: 44, y: 80, available: true },
@@ -242,7 +236,6 @@ export class ReservasComponent implements OnInit {
 
     const formValue = this.reservationForm.value;
 
-    // Determinar el número de mesa
     let tableNumber: string;
     if (this.selectedTable) {
       tableNumber = this.selectedTable.id;

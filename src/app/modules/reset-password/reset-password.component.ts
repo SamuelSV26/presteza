@@ -44,15 +44,10 @@ export class ResetPasswordComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Obtener el token de la URL (puede venir como query param o route param)
     this.token = this.route.snapshot.queryParams['token'] ||
                  this.route.snapshot.params['token'] ||
                  this.route.snapshot.queryParams['resetToken'] ||
                  this.route.snapshot.params['resetToken'];
-
-    console.log('Token obtenido:', this.token);
-    console.log('Query params:', this.route.snapshot.queryParams);
-    console.log('Route params:', this.route.snapshot.params);
 
     if (!this.token) {
       this.error = 'Token de recuperación no válido o faltante. Por favor, solicita un nuevo enlace de recuperación.';
@@ -126,19 +121,16 @@ export class ResetPasswordComponent implements OnInit {
     const newPassword = this.resetPasswordForm.get('newPassword')?.value;
 
     this.authService.resetPassword(this.token, newPassword).subscribe({
-      next: (response) => {
-        console.log('Respuesta del servidor:', response);
+      next: () => {
         this.isLoading = false;
         this.success = true;
         this.notificationService.showSuccess('Contraseña restablecida exitosamente. Ya puedes iniciar sesión con tu nueva contraseña.');
 
-        // Redirigir al login después de 2 segundos
         setTimeout(() => {
           this.router.navigate(['/login']);
         }, 2000);
       },
       error: (error) => {
-        console.error('Error en resetPassword:', error);
         this.isLoading = false;
         const errorMessage = error?.message || error?.error?.message || 'Error al restablecer la contraseña. El token puede haber expirado. Por favor, solicita un nuevo enlace.';
         this.error = errorMessage;

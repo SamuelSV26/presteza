@@ -19,7 +19,7 @@ import { MenuService } from '../../core/services/menu.service';
 import { OrderService } from '../../core/services/order.service';
 import { OrderFromBackend } from '../../core/models/OrderResponse';
 import { ReservationsService } from '../../core/services/reservations.service';
-import { Reservation, ReservationFromBackend } from '../../core/models/ReservationResponse';
+import { Reservation } from '../../core/models/ReservationResponse';
 import { UpdateReservationDto } from '../../core/models/UpdateReservationDto';
 import { Meta, Title } from '@angular/platform-browser';
 
@@ -102,7 +102,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
     }, { validator: this.passwordMatchValidator });
 
     this.paymentMethodForm = this.fb.group({
-      type: ['credit', [Validators.required]], // 'credit' o 'debit'
+      type: ['credit', [Validators.required]],
       cardNumber: ['', []],
       cardHolder: ['', []],
       expiryMonth: ['', []],
@@ -118,7 +118,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
       numberOfPeople: [2, [Validators.required, Validators.min(1), Validators.max(20)]],
       specialRequests: ['']
     });
-    // Los campos de tarjeta siempre son requeridos cuando se agrega una tarjeta
     this.paymentMethodForm.get('cardNumber')?.setValidators([Validators.required, Validators.pattern(/^[0-9\s]{13,19}$/)]);
     this.paymentMethodForm.get('cardHolder')?.setValidators([Validators.required]);
     this.paymentMethodForm.get('expiryMonth')?.setValidators([Validators.required, Validators.pattern(/^(0[1-9]|1[0-2])$/)]);
@@ -141,7 +140,6 @@ export class PerfilComponent implements OnInit, OnDestroy {
     this.loadOrders();
     this.loadReservations();
     
-    // Actualizar pedidos periódicamente solo si hay pedidos activos
     this.startOrdersRefresh();
     this.authService.userInfo$.pipe(takeUntil(this.destroy$)).subscribe(userInfo => {
       if (userInfo) {
@@ -157,12 +155,10 @@ export class PerfilComponent implements OnInit, OnDestroy {
       this.loadPaymentMethods();
     });
     
-    // Escuchar cambios en métodos de pago
     window.addEventListener('paymentMethodsChanged', () => {
       this.loadPaymentMethods();
     });
 
-    // Suscribirse a cambios en el perfil del usuario
     this.userService.userProfile$.pipe(takeUntil(this.destroy$)).subscribe(profile => {
       if (profile) {
         this.userProfile = profile;
@@ -204,7 +200,6 @@ private loadUserProfile() {
 
   const userId = userInfo.userId || userInfo.email;
 
-  // Obtener la fecha de registro: NO crear una nueva fecha, solo usar la existente
   let registrationDate: Date | null = null;
   const profile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
   const savedDate = profile?.memberSince;
@@ -212,20 +207,15 @@ private loadUserProfile() {
   if (savedDate) {
     const parsed = new Date(savedDate);
     if (!isNaN(parsed.getTime())) {
-      registrationDate = parsed; // Usar la fecha guardada si es válida
+      registrationDate = parsed;
     }
   }
 
-  // NO crear una nueva fecha aquí - esperar a que venga del backend o del perfil cargado
-
-  // Intentar obtener el perfil del backend
   this.userService.getUserProfile().pipe(
     takeUntil(this.destroy$),
     catchError(() => {
-      // Si falla, usar el perfil del localStorage
       const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
       if (storedProfile && (storedProfile.email === userInfo.email || storedProfile.id === userId)) {
-        // Preservar la fecha de registro existente
         if (storedProfile.memberSince) {
           const savedDate = new Date(storedProfile.memberSince);
           if (!isNaN(savedDate.getTime())) {
@@ -233,24 +223,23 @@ private loadUserProfile() {
           } else if (registrationDate) {
             storedProfile.memberSince = registrationDate;
           } else {
-            storedProfile.memberSince = new Date(); // Solo si no hay ninguna fecha
+            storedProfile.memberSince = new Date();
           }
         } else if (registrationDate) {
           storedProfile.memberSince = registrationDate;
         } else {
-          storedProfile.memberSince = new Date(); // Solo si no hay ninguna fecha
+          storedProfile.memberSince = new Date();
         }
         return of(storedProfile);
       }
 
-      // Si no existe perfil, crear uno local con fecha actual (solo para usuarios nuevos)
       const phoneFromStorage = localStorage.getItem('userPhone') || '';
       const newUserProfile: UserProfile = {
         id: userId,
         fullName: userInfo.name || 'Usuario',
         email: userInfo.email || '',
         phone: phoneFromStorage,
-        memberSince: registrationDate || new Date(), // Usar fecha guardada o fecha actual
+        memberSince: registrationDate || new Date(),
         preferences: {
           notifications: true,
           emailNotifications: true,
@@ -258,7 +247,6 @@ private loadUserProfile() {
           favoriteCategories: []
         }
       };
-      // Guardar el perfil con el teléfono si existe
       if (phoneFromStorage) {
         localStorage.setItem(`userProfile_${userId}`, JSON.stringify(newUserProfile));
       }
@@ -266,27 +254,18 @@ private loadUserProfile() {
     })
   ).subscribe(profile => {
     if (profile) {
-      // PRESERVAR SIEMPRE la fecha de registro original del backend o guardada
-      // Prioridad: 1) Fecha del perfil (del backend), 2) Fecha guardada, 3) Fecha actual (solo si es nuevo)
       if (profile.memberSince && !isNaN(new Date(profile.memberSince).getTime())) {
-        // El perfil ya tiene una fecha válida (del backend), preservarla
         profile.memberSince = new Date(profile.memberSince);
       } else if (registrationDate && !isNaN(registrationDate.getTime())) {
-        // Usar la fecha guardada en localStorage
         profile.memberSince = registrationDate;
       } else {
-        // Solo usar fecha actual si es un usuario completamente nuevo sin fecha previa
         profile.memberSince = new Date();
       }
 
-      // Asegurar que el teléfono esté presente (buscar en múltiples lugares)
-      // Priorizar el teléfono del token sobre el del perfil
       const phoneFromToken = localStorage.getItem('userPhone');
       if (phoneFromToken) {
-        // Si el perfil no tiene teléfono o es diferente al del token, actualizarlo
         if (!profile.phone || profile.phone === '' || profile.phone === 'No especificado' || profile.phone !== phoneFromToken) {
           profile.phone = phoneFromToken;
-          // Guardar el perfil actualizado con el teléfono
           const userId = userInfo.userId || userInfo.email;
           if (userId) {
             localStorage.setItem(`userProfile_${userId}`, JSON.stringify(profile));
@@ -301,17 +280,14 @@ private loadUserProfile() {
         phone: profile.phone || ''
       });
 
-      // Forzar detección de cambios para asegurar que la vista se actualice
       this.cdr.detectChanges();
 
-      // Si es un perfil nuevo, inicializarlo en el servicio
       if (!profile.id || profile.id === userId) {
         this.userService.initializeUserProfile(profile);
       }
     }
   });
 
-  // Cargar datos secundarios
   this.loadOrders();
   this.loadAddresses();
   this.loadPaymentMethods();
@@ -327,9 +303,7 @@ private loadUserProfile() {
       orders.forEach(order => {
         if (order.items && order.items.length > 0) {
           order.items.forEach(item => {
-            // Filtrar IDs inválidos (0, null, undefined, strings vacíos)
             if (item.id !== null && item.id !== undefined) {
-              // Convertir a string para comparar, luego verificar si es válido
               const idStr = String(item.id);
               if (idStr !== '0' && idStr !== '' && idStr !== 'null' && idStr !== 'undefined') {
                 purchasedProductIds.add(item.id);
@@ -339,7 +313,6 @@ private loadUserProfile() {
         }
       });
 
-      // Filtrar IDs inválidos antes de crear los observables
       const validProductIds = Array.from(purchasedProductIds).filter(id => {
         if (id === null || id === undefined) return false;
         if (id === 0 || id === '0') return false;
@@ -469,10 +442,8 @@ private loadUserProfile() {
   }
 
   private loadFavoriteDishes() {
-    // Ahora getFavoriteDishes() devuelve MenuItem[] directamente desde el backend
     this.userService.getFavoriteDishes().pipe(takeUntil(this.destroy$)).subscribe(dishes => {
       if (dishes && Array.isArray(dishes) && dishes.length > 0) {
-        // El backend ya devuelve los platos completos, solo asignar
         this.favoriteDishes = dishes.filter(dish => dish !== null && dish !== undefined) as MenuItem[];
       } else {
         this.favoriteDishes = [];
@@ -503,16 +474,13 @@ private loadUserProfile() {
 
   setActiveTab(tab: 'profile' | 'orders' | 'addresses' | 'payment' | 'settings' | 'reservations') {
     this.activeTab = tab;
-    // Cerrar sidebar en móvil/tablet después de seleccionar una opción
     if (window.innerWidth <= 992) {
       this.sidebarOpen = false;
     }
     if (tab === 'reservations') {
       this.loadReservations();
     } else if (tab === 'orders') {
-      // Actualizar pedidos inmediatamente cuando el usuario cambia a la pestaña
       this.loadOrders();
-      // Reiniciar el intervalo de actualización
       this.startOrdersRefresh();
     }
   }
@@ -590,21 +558,14 @@ private loadUserProfile() {
       }
     });
     this.loadRecommendedDishes();
-    // Reiniciar el intervalo de actualización cuando se cargan nuevos pedidos
     this.startOrdersRefresh();
   }
 
-  /**
-   * Inicia un intervalo para actualizar automáticamente los pedidos activos
-   * Solo actualiza pedidos que no están entregados o cancelados
-   */
   private startOrdersRefresh(): void {
-    // Limpiar intervalo anterior si existe
     if (this.ordersRefreshInterval) {
       clearInterval(this.ordersRefreshInterval);
     }
 
-    // Actualizar cada 15 segundos solo si hay pedidos activos y estamos en la pestaña de pedidos
     this.ordersRefreshInterval = setInterval(() => {
       if (this.activeTab === 'orders') {
         const hasActiveOrders = this.orders.some(order => 
@@ -615,20 +576,15 @@ private loadUserProfile() {
           this.refreshActiveOrders();
         }
       }
-    }, 15000); // Actualizar cada 15 segundos
+    }, 15000);
   }
 
-  /**
-   * Actualiza solo los pedidos activos desde el backend
-   * Compara los estados y actualiza solo los que han cambiado
-   */
   private refreshActiveOrders(): void {
     const userInfo = this.authService.getUserInfo();
     if (!userInfo || !userInfo.userId) {
       return;
     }
 
-    // Obtener solo los IDs de pedidos activos
     const activeOrderIds = this.orders
       .filter(order => order.status !== 'cancelled' && order.status !== 'delivered')
       .map(order => order.id);
@@ -637,7 +593,6 @@ private loadUserProfile() {
       return;
     }
 
-    // Obtener pedidos actualizados del backend
     this.orderService.findByUser(userInfo.userId).pipe(
       takeUntil(this.destroy$),
       catchError(() => of(null))
@@ -651,42 +606,29 @@ private loadUserProfile() {
         backendOrders = response;
       }
 
-      // Crear un mapa de pedidos del backend por ID
       const backendOrdersMap = new Map<string, OrderFromBackend>();
       backendOrders.forEach(backendOrder => {
         const orderId = backendOrder._id || backendOrder.id || '';
         backendOrdersMap.set(orderId, backendOrder);
       });
 
-      // Actualizar solo los pedidos activos que han cambiado
       let hasChanges = false;
       this.orders.forEach((order, index) => {
         if (activeOrderIds.includes(order.id)) {
           const backendOrder = backendOrdersMap.get(order.id);
           if (backendOrder) {
             const newStatus = this.mapBackendStatusToFrontend(backendOrder.status);
-            
-            // Si el estado cambió, actualizar el pedido
-            if (order.status !== newStatus) {
+                        if (order.status !== newStatus) {
               console.log(`🔄 Estado del pedido ${order.id} cambió de ${order.status} a ${newStatus}`);
-              
-              // Mapear el pedido completo desde el backend
-              const updatedOrder = this.mapBackendOrderToFrontend(backendOrder);
-              
-              // Preservar información local que no viene del backend
-              updatedOrder.trackingCode = order.trackingCode || updatedOrder.trackingCode;
+                            const updatedOrder = this.mapBackendOrderToFrontend(backendOrder);
+                            updatedOrder.trackingCode = order.trackingCode || updatedOrder.trackingCode;
               updatedOrder.estimatedPrepTime = order.estimatedPrepTime || updatedOrder.estimatedPrepTime;
               updatedOrder.estimatedDeliveryTime = order.estimatedDeliveryTime || updatedOrder.estimatedDeliveryTime;
-              
-              // Marcar que el estado fue cambiado por el admin (para completar la barra de progreso)
-              updatedOrder.statusChangedByAdmin = true;
+                            updatedOrder.statusChangedByAdmin = true;
               updatedOrder.lastStatusChangeTime = new Date();
-              
-              // Actualizar el pedido en el array
-              this.orders[index] = updatedOrder;
+                            this.orders[index] = updatedOrder;
               hasChanges = true;
 
-              // Mostrar notificación si el estado cambió a uno importante
               if (newStatus === 'ready') {
                 this.notificationService.showSuccess('¡Tu pedido está listo!', 'Pedido Listo');
               } else if (newStatus === 'delivered') {
@@ -695,10 +637,6 @@ private loadUserProfile() {
                 this.notificationService.showInfo('Tu pedido está en preparación', 'En Preparación');
               }
 
-              // Reiniciar el progreso automático si es necesario
-              // Nota: No reiniciamos el progreso automático cuando el estado fue cambiado por admin
-              // porque queremos que la barra se complete al 100%
-              // Solo reiniciamos si el pedido sigue activo y no fue cambiado por admin
               if (newStatus !== 'cancelled' && newStatus !== 'delivered' && !updatedOrder.statusChangedByAdmin) {
                 this.startAutoProgress(updatedOrder);
               }
@@ -707,7 +645,6 @@ private loadUserProfile() {
         }
       });
 
-      // Si hubo cambios, reordenar y actualizar la vista
       if (hasChanges) {
         this.orders.sort((a, b) => {
           const dateA = new Date(a.date).getTime();
@@ -722,22 +659,19 @@ private loadUserProfile() {
     });
   }
 
-  /**
-   * Mapea el estado del backend al estado del frontend
-   */
   private mapBackendStatusToFrontend(backendStatus: string): Order['status'] {
     const statusMap: Record<string, Order['status']> = {
       'pendiente': 'pending',
       'Preparando': 'preparing',
-      'preparando': 'preparing', // Por si viene en minúsculas
-      'en_proceso': 'preparing', // Compatibilidad con formato anterior
+      'preparando': 'preparing',
+      'en_proceso': 'preparing',
       'listo': 'ready',
-      'Listo': 'ready', // Por si viene con mayúscula
-      'completado': 'ready', // Compatibilidad con formato anterior
+      'Listo': 'ready',
+      'completado': 'ready',
       'entregado': 'delivered',
-      'Entregado': 'delivered', // Por si viene con mayúscula
+      'Entregado': 'delivered',
       'cancelado': 'cancelled',
-      'Cancelado': 'cancelled' // Por si viene con mayúscula
+      'Cancelado': 'cancelled'
     };
     return statusMap[backendStatus] || 'pending';
   }
@@ -761,15 +695,12 @@ private loadUserProfile() {
       }
     } catch {}
 
-    // Mapear items del backend si no se encontró detailedOrder
     let orderItems: any[] = [];
     if (detailedOrder?.items && detailedOrder.items.length > 0) {
       orderItems = detailedOrder.items;
     } else if (backendOrder.products && Array.isArray(backendOrder.products) && backendOrder.products.length > 0) {
-      // Si el backend tiene products, mapearlos a items
       const firstProduct = backendOrder.products[0];
       if (typeof firstProduct === 'object' && 'name' in firstProduct) {
-        // Es un array de ProductOrderItem
         orderItems = (backendOrder.products as any[]).map((product: any) => {
           const selectedOptions = product.adds ? product.adds.map((add: any) => ({
             id: add.addId || '',
@@ -789,7 +720,6 @@ private loadUserProfile() {
           };
         });
       } else if (typeof firstProduct === 'string') {
-        // Es un array de IDs (legacy) - crear items básicos
         orderItems = (backendOrder.products as string[]).map((productId: string, index: number) => ({
           id: productId,
           name: `Producto #${productId.substring(0, 8)}`,
@@ -821,7 +751,6 @@ private loadUserProfile() {
       orderDate = detailedOrder?.date ? new Date(detailedOrder.date) : new Date();
     }
 
-    // Calcular subtotal si no existe
     let subtotal = detailedOrder?.subtotal;
     if (subtotal === undefined || subtotal === null) {
       const items = detailedOrder?.items || orderItems;
@@ -833,25 +762,21 @@ private loadUserProfile() {
       }, 0);
     }
 
-    // Calcular additionalFees si no existe
     let additionalFees = detailedOrder?.additionalFees;
     if (additionalFees === undefined || additionalFees === null) {
       additionalFees = 0;
     }
 
-    // Determinar orderType si no existe
     let orderType = detailedOrder?.orderType;
     if (!orderType) {
       orderType = detailedOrder?.deliveryAddress ? 'delivery' : 'pickup';
     }
 
-    // Generar trackingCode si no existe
     let trackingCode = detailedOrder?.trackingCode;
     if (!trackingCode) {
       trackingCode = orderId.substring(0, 8).toUpperCase();
     }
 
-    // Asegurar que siempre haya items
     const finalItems = (detailedOrder?.items && detailedOrder.items.length > 0)
       ? detailedOrder.items
       : (orderItems.length > 0 ? orderItems : []);
@@ -893,7 +818,6 @@ private loadUserProfile() {
         }
         return;
       }
-      // Usar setTimeout para evitar ExpressionChangedAfterItHasBeenCheckedError
       setTimeout(() => {
         this.cdr.markForCheck();
       }, 0);
@@ -912,26 +836,21 @@ private loadUserProfile() {
     const currentStatusIndex = statusOrder.indexOf(order.status);
     if (currentStatusIndex === -1) return 0;
 
-    // Si el estado fue cambiado por el admin, completar la barra al 100% del estado actual
     if (order.statusChangedByAdmin && order.lastStatusChangeTime) {
       const now = new Date();
       const statusChangeTime = new Date(order.lastStatusChangeTime);
       const timeSinceStatusChange = (now.getTime() - statusChangeTime.getTime()) / 1000;
       
-      // Si pasaron más de 5 segundos desde el cambio de estado, completar al 100%
       if (timeSinceStatusChange > 5) {
-        // Calcular el progreso base del estado actual (100% del estado)
-        const baseProgress = (currentStatusIndex + 1) * 25; // 25% por estado
+        const baseProgress = (currentStatusIndex + 1) * 25;
         return Math.min(baseProgress, 100);
       } else {
-        // Animación suave durante los primeros 5 segundos
-        const animationProgress = (timeSinceStatusChange / 5) * 25; // Animación de 0% a 25% adicional
+        const animationProgress = (timeSinceStatusChange / 5) * 25;
         const baseProgress = (currentStatusIndex + 1) * 25;
         return Math.min(baseProgress + animationProgress, 100);
       }
     }
 
-    // Progreso automático: solo llega al 50% entre estados
     const now = new Date();
     const orderDate = new Date(order.date);
     const timeElapsed = now.getTime() - orderDate.getTime();
@@ -939,16 +858,12 @@ private loadUserProfile() {
     const secondsPerState = 120;
     const totalSeconds = secondsPerState * 3;
     
-    // Calcular progreso basado en tiempo
     let totalProgress = (secondsElapsed / totalSeconds) * 100;
     
-    // Limitar el progreso al 50% entre estados (no completa el estado actual)
-    // Cada estado tiene 25% de progreso total, pero solo llegamos al 50% del siguiente
-    const stateProgress = 25; // 25% por estado
-    const maxProgressForState = (currentStatusIndex * stateProgress) + (stateProgress * 0.5); // 50% del siguiente estado
+    const stateProgress = 25;
+    const maxProgressForState = (currentStatusIndex * stateProgress) + (stateProgress * 0.5);
     totalProgress = Math.min(totalProgress, maxProgressForState);
     
-    // Mínimo: inicio del estado actual
     const minProgressForState = currentStatusIndex * stateProgress;
     totalProgress = Math.max(totalProgress, minProgressForState);
 
@@ -965,8 +880,6 @@ private loadUserProfile() {
       error: (error) => {
         console.error('Error al cargar direcciones:', error);
         this.addresses = [];
-        // No mostrar error al usuario si es solo un problema de carga
-        // El servicio ya maneja el fallback a localStorage
       }
     });
   }
@@ -1004,7 +917,6 @@ private loadUserProfile() {
     this.submitted = true;
     const formValue = this.paymentMethodForm.value;
 
-    // Validar campos de tarjeta
     if (!this.paymentMethodForm.get('cardNumber')?.valid ||
         !this.paymentMethodForm.get('cardHolder')?.valid ||
         !this.paymentMethodForm.get('expiryMonth')?.valid ||
@@ -1018,7 +930,6 @@ private loadUserProfile() {
       const isPrimary = formValue.isDefault || this.paymentMethods.length === 0;
 
       if (this.editingPaymentMethod) {
-        // Actualizar tarjeta existente
         const cardIndex = this.paymentMethods.findIndex(m => m.id === this.editingPaymentMethod?.id);
         if (cardIndex !== -1) {
           this.userService.updatePaymentCard(cardIndex, {
@@ -1041,7 +952,6 @@ private loadUserProfile() {
           });
         }
       } else {
-        // Agregar nueva tarjeta
         this.userService.addPaymentCard({
           cardholder_name: formValue.cardHolder,
           cardNumber: formValue.cardNumber,
@@ -1070,9 +980,7 @@ private loadUserProfile() {
   editPaymentMethod(method: PaymentMethod) {
     this.editingPaymentMethod = method;
     this.showPaymentMethodModal = true;
-    
-    // Parsear fecha de expiración si existe
-    let expiryMonth = '';
+        let expiryMonth = '';
     let expiryYear = '';
     if (method.expiry_date) {
       const parts = method.expiry_date.split('/');
@@ -1081,7 +989,7 @@ private loadUserProfile() {
         expiryYear = parts[1];
       }
     }
-    
+
     this.paymentMethodForm.patchValue({
       type: method.type === 'cash' ? 'credit' : method.type, // Si es cash, mostrar como credit por defecto
       cardNumber: method.last_four_digits ? '**** **** **** ' + method.last_four_digits : '',
@@ -1098,16 +1006,13 @@ private loadUserProfile() {
       event.stopPropagation();
       event.preventDefault();
     }
-    
     console.log('🗑️ deletePaymentMethod llamado para:', method);
-    
     if (!method.id) {
       console.error('❌ El método no tiene ID');
       this.notificationService.showError('Error: La tarjeta no tiene un ID válido.');
       return;
     }
 
-    // Construir mensaje de confirmación con información de la tarjeta
     const cardInfo = method.type === 'cash' 
       ? 'este método de pago' 
       : `${method.brand} •••• ${method.last_four_digits}`;
@@ -1126,7 +1031,6 @@ private loadUserProfile() {
 
     console.log('📋 Mostrando diálogo de confirmación personalizado...');
     
-    // Usar el diálogo de confirmación personalizado
     this.notificationService.confirm(
       'Eliminar Tarjeta de Pago',
       warningMessage,
@@ -1204,7 +1108,6 @@ private loadUserProfile() {
     if (this.profileForm.valid) {
       this.userService.updateUserProfile(this.profileForm.value).subscribe({
         next: (updatedProfile: UserProfile) => {
-          // Actualizar el perfil local inmediatamente
           this.userProfile = updatedProfile;
           this.profileForm.patchValue({
             fullName: updatedProfile.fullName,
@@ -1212,14 +1115,12 @@ private loadUserProfile() {
             phone: updatedProfile.phone
           });
 
-          // Forzar detección de cambios
           this.cdr.detectChanges();
 
           this.notificationService.showSuccess('Perfil actualizado correctamente');
           this.submitted = false;
           this.showProfileModal = false;
 
-          // Recargar el perfil para asegurar que todo esté sincronizado
           setTimeout(() => {
             this.loadUserProfile();
           }, 100);
@@ -1244,7 +1145,6 @@ private loadUserProfile() {
 
       this.userService.getAddresses().subscribe(addresses => {
         if (this.editingAddress) {
-          // Encontrar el índice de la dirección que se está editando
           const addressIndex = addresses.findIndex(addr =>
             addr.id === this.editingAddress?.id ||
             addr.title === this.editingAddress?.title
@@ -1255,25 +1155,22 @@ private loadUserProfile() {
             return;
           }
 
-          // Preparar la dirección actualizada
           const updatedAddress: Address = {
             ...this.editingAddress,
             title: formValue.title,
-            name: formValue.title, // El backend usa 'name'
+            name: formValue.title,
             address: formValue.address,
             neighborhood: formValue.neighborhood,
             city: formValue.city,
             postalCode: formValue.postalCode,
-            postal_code: formValue.postalCode, // El backend usa 'postal_code'
+            postal_code: formValue.postalCode,
             isDefault: isDefault,
-            is_primary: isDefault // El backend usa 'is_primary'
+            is_primary: isDefault
           };
 
-          // Si se marca como principal, usar el método específico del backend
           if (isDefault) {
             this.userService.setPrimaryAddress(addressIndex).subscribe({
               next: () => {
-                // Luego actualizar los demás campos si es necesario
                 this.userService.updateAddress(updatedAddress, addressIndex).subscribe({
                   next: () => {
                     this.loadAddresses();
@@ -1289,7 +1186,6 @@ private loadUserProfile() {
               },
               error: (error) => {
                 console.error('Error al marcar dirección como principal:', error);
-                // Intentar actualizar de todas formas
                 this.userService.updateAddress(updatedAddress, addressIndex).subscribe({
                   next: () => {
                     this.loadAddresses();
@@ -1304,7 +1200,6 @@ private loadUserProfile() {
               }
             });
           } else {
-            // Solo actualizar sin cambiar el estado principal
             this.userService.updateAddress(updatedAddress, addressIndex).subscribe({
               next: () => {
                 this.loadAddresses();
@@ -1319,23 +1214,21 @@ private loadUserProfile() {
             });
           }
         } else {
-          // Crear nueva dirección
           const newAddress: Address = {
             title: formValue.title,
-            name: formValue.title, // El backend usa 'name'
+            name: formValue.title,
             address: formValue.address,
             neighborhood: formValue.neighborhood,
             city: formValue.city,
             postalCode: formValue.postalCode,
-            postal_code: formValue.postalCode, // El backend usa 'postal_code'
+            postal_code: formValue.postalCode,
             isDefault: isDefault || addresses.length === 0,
-            is_primary: isDefault || addresses.length === 0 // El backend usa 'is_primary'
+            is_primary: isDefault || addresses.length === 0
           };
 
           this.userService.addAddress(newAddress).subscribe({
             next: (savedAddress) => {
               console.log('Dirección guardada exitosamente:', savedAddress);
-              // Recargar direcciones después de un pequeño delay para asegurar que el backend procesó
               setTimeout(() => {
                 this.loadAddresses();
               }, 200);
@@ -1418,7 +1311,6 @@ private loadUserProfile() {
   }
 
   setDefaultAddress(address: Address) {
-    // Encontrar el índice de la dirección
     const addressIndex = this.addresses.findIndex(addr =>
       addr.id === address.id ||
       addr.title === address.title ||
@@ -1450,7 +1342,6 @@ private loadUserProfile() {
     );
 
     if (confirmed) {
-      // Encontrar el índice de la dirección
       const addressIndex = this.addresses.findIndex(addr =>
         addr.id === address.id ||
         addr.title === address.title ||
@@ -1599,7 +1490,6 @@ private loadUserProfile() {
       'Cancelar'
     ).then(confirmed => {
       if (confirmed) {
-        // Usar el nuevo endpoint específico para actualizar el estado a "entregado"
         const statusForEndpoint = this.orderService.mapFrontendStatusToStatusEndpoint('delivered');
         this.orderService.updateStatus(order.id, statusForEndpoint).pipe(
           takeUntil(this.destroy$),
@@ -1610,14 +1500,11 @@ private loadUserProfile() {
           })
         ).subscribe(response => {
           if (response) {
-            // Actualizar el estado local del pedido
             const orderIndex = this.orders.findIndex(o => o.id === order.id);
             if (orderIndex !== -1) {
               this.orders[orderIndex].status = 'delivered';
               this.orders[orderIndex].statusChangedByAdmin = true;
               this.orders[orderIndex].lastStatusChangeTime = new Date();
-              
-              // Agregar al historial de estados
               if (!this.orders[orderIndex].statusHistory) {
                 this.orders[orderIndex].statusHistory = [];
               }
@@ -1626,14 +1513,11 @@ private loadUserProfile() {
                 timestamp: new Date(),
                 message: 'Recepción confirmada por el usuario'
               });
-              
-              // Detener el progreso automático
               if (this.progressIntervals.has(order.id)) {
                 clearInterval(this.progressIntervals.get(order.id));
                 this.progressIntervals.delete(order.id);
               }
             }
-            
             this.notificationService.showSuccess('¡Recepción confirmada! Gracias por tu compra.', 'Pedido Recibido');
             this.cdr.detectChanges();
           }
@@ -1648,7 +1532,6 @@ private loadUserProfile() {
       return;
     }
 
-    // Filtrar items que tengan al menos nombre y precio (mínimo requerido)
     const validItems = order.items.filter(item => {
       return item && item.name && item.price !== undefined && item.price !== null && item.quantity > 0;
     });
@@ -1658,7 +1541,6 @@ private loadUserProfile() {
       return;
     }
 
-    // Separar items con ID válido de los que no lo tienen
     const itemsWithId = validItems.filter(item => {
       if (item.id === null || item.id === undefined) return false;
       const idStr = String(item.id);
@@ -1674,7 +1556,6 @@ private loadUserProfile() {
     let totalItemsAdded = 0;
     let hasErrors = false;
 
-    // Procesar items con ID válido (intentar obtener del menú)
     if (itemsWithId.length > 0) {
       const productObservables = itemsWithId.map(item =>
         this.menuService.getItemById(item.id).pipe(
@@ -1689,14 +1570,12 @@ private loadUserProfile() {
           const product = products[index];
 
           if (product) {
-            // Producto encontrado, usar datos del producto
             const cartOptions = (item.selectedOptions || []).map((opt: OrderItemOption, index: number) => ({
               id: opt.id || `opt_${item.id}_${index}`,
               name: opt.name,
               price: opt.price
             }));
 
-            // Agregar cada unidad al carrito
             for (let i = 0; i < item.quantity; i++) {
               this.cartService.addItem({
                 productId: product.id,
@@ -1710,25 +1589,21 @@ private loadUserProfile() {
               totalItemsAdded++;
             }
           } else {
-            // Producto no encontrado, usar datos del pedido como fallback
             this.addItemToCartFromOrder(item);
             totalItemsAdded += item.quantity;
             hasErrors = true;
           }
         });
 
-        // Procesar items sin ID válido (usar datos del pedido directamente)
         itemsWithoutId.forEach(item => {
           this.addItemToCartFromOrder(item);
           totalItemsAdded += item.quantity;
           hasErrors = true;
         });
 
-        // Mostrar mensaje y navegar
         this.finishReorder(totalItemsAdded, hasErrors);
       });
     } else {
-      // Todos los items no tienen ID válido, usar datos del pedido directamente
       itemsWithoutId.forEach(item => {
         this.addItemToCartFromOrder(item);
         totalItemsAdded += item.quantity;
@@ -1745,7 +1620,6 @@ private loadUserProfile() {
       price: opt.price
     }));
 
-    // Usar el ID del item o generar uno temporal
     const productId = (item.id && item.id !== 0) ? item.id : `temp_${Date.now()}_${Math.random()}`;
 
     for (let i = 0; i < item.quantity; i++) {
@@ -1806,10 +1680,7 @@ private loadUserProfile() {
   }
 
   getOrderProgress(order: Order): number {
-    // Cachear el progreso para evitar ExpressionChangedAfterItHasBeenCheckedError
-    // El progreso se actualiza mediante los intervalos configurados
     const progress = this.calculateTimeBasedProgress(order);
-    // Redondear para evitar cambios mínimos que causen el error
     return Math.round(progress * 100) / 100;
   }
 
@@ -1851,10 +1722,6 @@ private loadUserProfile() {
       this.authService.logout();
       this.router.navigate(['/']);
     }
-  }
-
-  getInitials(name: string): string {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   }
 
   getAvatarImage(): string {
@@ -1944,7 +1811,6 @@ private loadUserProfile() {
     return methods[method] || method;
   }
 
-  // Métodos para Reservas
   loadReservations(): void {
     this.reservationsService.findMyReservations().subscribe({
       next: (reservations) => {
@@ -2008,7 +1874,6 @@ private loadUserProfile() {
 
     this.editingReservation = reservation;
 
-    // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para el input
     let formattedDate = '';
     try {
       const dateParts = reservation.date.split('/');
@@ -2024,7 +1889,6 @@ private loadUserProfile() {
       formattedDate = today;
     }
 
-    // Convertir hora de HH:mm a. m./p. m. a HH:mm para el input
     let formattedTime = '';
     try {
       const timeMatch = reservation.time.match(/(\d+):(\d+)\s+(a\.\s*m\.|p\.\s*m\.)/i);
@@ -2041,7 +1905,6 @@ private loadUserProfile() {
 
         formattedTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
       } else {
-        // Si ya está en formato HH:mm, usarlo directamente
         formattedTime = reservation.time;
       }
     } catch (error) {
@@ -2074,7 +1937,6 @@ private loadUserProfile() {
 
     const formValue = this.reservationForm.value;
 
-    // Transformar los datos al formato que espera el backend
     const updateReservationDto = {
       date: this.formatDateToDDMMYYYY(formValue.date),
       time: this.formatTimeToAMPM(formValue.time),

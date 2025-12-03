@@ -18,14 +18,12 @@ export class NotificationComponent implements OnInit, OnDestroy {
   constructor(private notificationService: NotificationService) {}
 
   ngOnInit() {
-    // Suscribirse a las notificaciones
     this.notificationService.notifications$
       .pipe(takeUntil(this.destroy$))
       .subscribe(notifications => {
         this.notifications = notifications;
       });
 
-    // Suscribirse a los diálogos de confirmación
     this.notificationService.confirmDialog$
       .pipe(takeUntil(this.destroy$))
       .subscribe(dialog => {

@@ -78,7 +78,6 @@ export class NavbarComponent implements OnInit {
       this.updateAuthStatus();
     });
     
-    // Escuchar actualizaciones del perfil
     window.addEventListener('userInfoUpdated', () => {
       const userInfo = this.authService.getUserInfo();
       if (userInfo) {

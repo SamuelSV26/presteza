@@ -1,5 +1,4 @@
 <section class="perfil-page">
-  <!-- Hero Section -->
   <div class="hero-section">
     <div class="hero-content-wrapper">
       <div class="profile-avatar-large">
@@ -28,20 +27,15 @@
     </div>
   </div>
 
-  <!-- Contenido Principal -->
   <div class="container py-5">
-    <!-- Botón Hamburguesa para Móvil/Tablet -->
     <button class="sidebar-toggle-btn" (click)="toggleSidebar()" [class.active]="sidebarOpen">
       <i class="bi bi-list"></i>
     </button>
     
-    <!-- Overlay para cerrar sidebar -->
     <div class="sidebar-overlay" *ngIf="sidebarOpen" (click)="closeSidebar()"></div>
     
     <div class="profile-container-wrapper">
-      <!-- Sidebar de Navegación -->
       <div class="profile-sidebar" [class.open]="sidebarOpen">
-        <!-- Tabs de Navegación -->
         <div class="profile-tabs">
       <button
         class="tab-btn"
@@ -96,11 +90,8 @@
         </div>
       </div>
 
-      <!-- Contenido de las Tabs -->
       <div class="profile-content">
-      <!-- Tab: Mi Perfil -->
       <div *ngIf="activeTab === 'profile'" class="tab-content">
-        <!-- Resumen Rápido -->
         <div class="profile-card">
           <div class="card-header">
             <div>
@@ -116,10 +107,8 @@
             </button>
           </div>
           
-          <!-- Información del Usuario -->
           <div class="profile-info-section" *ngIf="userProfile">
             <div class="profile-info-grid">
-              <!-- Tarjeta de Nombre -->
               <div class="profile-info-card">
                 <div class="profile-info-icon-wrapper name-icon">
                   <i class="bi bi-person-fill"></i>
@@ -130,7 +119,6 @@
                 </div>
               </div>
               
-              <!-- Tarjeta de Email -->
               <div class="profile-info-card">
                 <div class="profile-info-icon-wrapper email-icon">
                   <i class="bi bi-envelope-fill"></i>
@@ -141,7 +129,6 @@
                 </div>
               </div>
               
-              <!-- Tarjeta de Teléfono -->
               <div class="profile-info-card">
                 <div class="profile-info-icon-wrapper phone-icon">
                   <i class="bi bi-telephone-fill"></i>
@@ -156,7 +143,6 @@
           </div>
         </div>
 
-        <!-- Mis Direcciones -->
         <div class="profile-card mt-4">
           <div class="card-header">
             <h2 class="card-title">
@@ -177,7 +163,6 @@
               Agregar Primera Dirección
             </button>
           </div>
-          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
             <div class="addresses-scroll-content">
               <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
@@ -226,7 +211,6 @@
           </div>
         </div>
 
-        <!-- Platos Recomendados -->
         <div class="profile-card mt-4">
           <div class="card-header">
             <h2 class="card-title">
@@ -238,7 +222,6 @@
               <i class="bi bi-arrow-right ms-2"></i>
             </button>
           </div>
-          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div class="dishes-scroll-wrapper">
             <div class="dishes-scroll-content">
               <div *ngFor="let dish of recommendedDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
@@ -269,7 +252,6 @@
           </div>
         </div>
 
-        <!-- Tus Platos Favoritos -->
         <div class="profile-card mt-4">
           <div class="card-header">
             <h2 class="card-title">
@@ -281,7 +263,6 @@
               <i class="bi bi-arrow-right ms-2"></i>
             </button>
           </div>
-          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div class="dishes-scroll-wrapper">
             <div class="dishes-scroll-content">
               <div *ngFor="let dish of favoriteDishes; let i = index" class="dish-card" [style.animation-delay]="i * 0.1 + 's'" (click)="navigateToProductDetail(dish.id, dish.categoryId)">
@@ -321,7 +302,6 @@
         </div>
       </div>
 
-      <!-- Tab: Mis Pedidos -->
       <div *ngIf="activeTab === 'orders'" class="tab-content">
         <div class="profile-card">
           <div class="card-header">
@@ -383,7 +363,6 @@
                 </span>
               </div>
 
-              <!-- Tracking Timeline -->
               <div class="order-tracking" *ngIf="order.status !== 'cancelled' && (orderViewMode === 'list' || orderViewMode === 'grid')">
                 <div class="tracking-steps" [style.--progress]="getOrderProgress(order) + '%'">
                   <div *ngFor="let step of getOrderStatusSteps(order)" class="tracking-step"
@@ -397,7 +376,6 @@
                 </div>
               </div>
 
-              <!-- Vista de Lista - Items completos -->
               <div class="order-items" *ngIf="orderViewMode === 'list'">
                 <div *ngFor="let item of order.items" class="order-item" [class.item-unavailable]="item.unavailable">
                   <div class="item-main">
@@ -421,7 +399,6 @@
                 </div>
               </div>
 
-              <!-- Vista de Cuadrícula - Resumen compacto -->
               <div class="order-items-compact" *ngIf="orderViewMode === 'grid'">
                 <div class="items-summary">
                   <div class="items-count-badge">
@@ -435,14 +412,12 @@
                 </div>
               </div>
 
-              <!-- Order Details (Expandible) -->
               <div class="order-details-toggle" (click)="expandOrderDetails(order)">
                 <i class="bi" [ngClass]="isOrderExpanded(order) ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
                 <span>{{ isOrderExpanded(order) ? 'Ocultar' : 'Ver' }} detalles</span>
               </div>
 
               <div class="order-details" *ngIf="isOrderExpanded(order)">
-                <!-- Items del pedido - SIEMPRE mostrar -->
                 <div class="details-section-title" *ngIf="order.items && order.items.length > 0">
                   <h4>Productos pedidos:</h4>
                 </div>
@@ -469,7 +444,6 @@
                   </div>
                 </div>
                 
-                <!-- Información del pedido -->
                 <div class="details-section-title">
                   <h4>Información del pedido:</h4>
                 </div>
@@ -547,7 +521,6 @@
         </div>
       </div>
 
-      <!-- Tab: Direcciones -->
       <div *ngIf="activeTab === 'addresses'" class="tab-content">
         <div class="profile-card">
           <div class="card-header">
@@ -565,7 +538,6 @@
             <h3>No tienes direcciones guardadas</h3>
             <p>Agrega una dirección para facilitar tus pedidos</p>
           </div>
-          <!-- Scroll Horizontal (siempre visible, scrollbar oculto) -->
           <div *ngIf="addresses.length > 0" class="addresses-scroll-wrapper">
             <div class="addresses-scroll-content">
               <div *ngFor="let address of addresses; let i = index" class="address-card" [class.is-default]="address.isDefault" [style.animation-delay]="i * 0.1 + 's'">
@@ -615,7 +587,6 @@
         </div>
       </div>
 
-      <!-- Tab: Métodos de Pago -->
       <div *ngIf="activeTab === 'payment'" class="tab-content">
         <div class="profile-card">
           <div class="card-header">
@@ -673,7 +644,6 @@
         </div>
       </div>
 
-      <!-- Modal: Agregar/Editar Método de Pago -->
       <div *ngIf="showPaymentMethodModal" class="modal-overlay" (click)="closePaymentMethodModal()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
@@ -799,7 +769,6 @@
         </div>
       </div>
 
-      <!-- Tab: Mis Reservas -->
       <div *ngIf="activeTab === 'reservations'" class="tab-content">
         <div class="profile-card">
           <div class="card-header">
@@ -823,7 +792,6 @@
           </div>
           <div *ngIf="reservations.length > 0" class="reservations-container">
             <div *ngFor="let reservation of reservations" class="reservation-card">
-              <!-- Badge destacado para reservas confirmadas -->
               <div *ngIf="reservation.status === 'confirmed'" class="reservation-confirmed-banner">
                 <i class="bi bi-check-circle-fill me-2"></i>
                 <strong>¡Reserva Confirmada!</strong> Tu mesa está lista para ti.
@@ -863,13 +831,11 @@
                 </div>
               </div>
 
-              <!-- Mensaje especial para reservas canceladas -->
               <div *ngIf="reservation.status === 'cancelled'" class="reservation-cancelled-notice">
                 <i class="bi bi-exclamation-triangle me-2"></i>
                 <span>Esta reserva ha sido cancelada. Si tienes preguntas, contáctanos.</span>
               </div>
 
-              <!-- Acciones de Reserva -->
               <div class="reservation-actions" *ngIf="canEditReservation(reservation) || canDeleteReservation(reservation)">
                 <button
                   class="btn-edit-reservation"
@@ -893,7 +859,6 @@
         </div>
       </div>
 
-      <!-- Modal: Editar Reserva -->
       <div *ngIf="showEditReservationModal && editingReservation" class="modal-overlay" (click)="closeEditReservationModal()">
         <div class="modal-content modal-large" (click)="$event.stopPropagation()">
           <div class="modal-header">
@@ -984,9 +949,7 @@
         </div>
       </div>
 
-      <!-- Tab: Configuración -->
       <div *ngIf="activeTab === 'settings'" class="tab-content">
-        <!-- Información Personal -->
         <div class="profile-card">
           <div class="card-header">
             <h2 class="card-title">
@@ -1061,7 +1024,6 @@
           </form>
         </div>
 
-        <!-- Configuración de Cuenta -->
         <div class="profile-card mt-4">
           <div class="card-header">
             <h2 class="card-title">
@@ -1122,7 +1084,6 @@
     </div>
   </div>
 
-  <!-- Modal: Agregar/Editar Dirección -->
   <div *ngIf="showAddressModal || showEditAddressModal" class="modal-overlay" (click)="closeAddressModal()">
     <div class="modal-content" (click)="$event.stopPropagation()">
       <div class="modal-header">
@@ -1202,7 +1163,6 @@
     </div>
   </div>
 
-  <!-- Modal: Editar Perfil -->
   <div *ngIf="showProfileModal" class="modal-overlay" (click)="closeProfileEdit()">
     <div class="modal-content modal-large" (click)="$event.stopPropagation()">
       <div class="modal-header">
@@ -1249,7 +1209,6 @@
     </div>
   </div>
 
-  <!-- Modal: Cambiar Contraseña -->
   <div *ngIf="showPasswordModal" class="modal-overlay" (click)="showPasswordModal = false">
     <div class="modal-content" (click)="$event.stopPropagation()">
       <div class="modal-header">

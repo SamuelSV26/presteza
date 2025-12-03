@@ -15,11 +15,10 @@ import { OrderFromBackend } from '../../core/models/OrderResponse';
 import { SupplyService } from '../../core/services/supply.service';
 import { Supply, CreateSupplyDto, UpdateSupplyDto } from '../../core/models/Supply';
 import { ReservationsService } from '../../core/services/reservations.service';
-import { ReservationFromBackend, Reservation } from '../../core/models/ReservationResponse';
-import { ExtrasAvailabilityService, ExtraAvailability } from '../../core/services/extras-availability.service';
+import { Reservation } from '../../core/models/ReservationResponse';
 import { AddsService, Add } from '../../core/services/adds.service';
 import { ContactService } from '../../core/services/contact.service';
-import { ContactMessageFromBackend, ContactMessage } from '../../core/models/ContactMessage';
+import { ContactMessage } from '../../core/models/ContactMessage';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Meta, Title } from '@angular/platform-browser';
@@ -81,11 +80,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   selectedReservation: Reservation | null = null;
   showCancelReservationModal = false;
   cancelReason = '';
-  availableExtras: ExtraAvailability[] = [];
-  showExtrasModal = false;
-  selectedExtra: ExtraAvailability | null = null;
-  extraForm: FormGroup;
-  showExtraFormModal = false;
 
   adds: Add[] = [];
   selectedAdd: Add | null = null;
@@ -130,7 +124,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     private title: Title,
     private meta: Meta,
     private menuService: MenuService,
-    private extrasAvailabilityService: ExtrasAvailabilityService,
     private addsService: AddsService,
     private userService: UserService,
     private orderService: OrderService,
@@ -175,12 +168,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       name: ['', [Validators.required, Validators.minLength(2)]],
       description: ['', [Validators.required, Validators.minLength(5)]],
       imageUrl: ['']
-    });
-
-    this.extraForm = this.fb.group({
-      name: ['', [Validators.required, Validators.minLength(2)]],
-      price: [0, [Validators.required, Validators.min(0)]],
-      available: [true]
     });
 
     this.addForm = this.fb.group({
@@ -1319,7 +1306,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   loadExtras(): void {
-    this.availableExtras = this.extrasAvailabilityService.getAllExtras();
     this.loadAdds();
   }
 
@@ -1333,122 +1319,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.notificationService.showError('Error al cargar los adicionales del servidor');
       }
     });
-  }
-
-  openExtrasModal(): void {
-    this.loadExtras();
-    this.showExtrasModal = true;
-  }
-
-  closeExtrasModal(): void {
-    this.showExtrasModal = false;
-  }
-
-  toggleExtraAvailability(extra: ExtraAvailability): void {
-    const newAvailability = !extra.available;
-    this.extrasAvailabilityService.updateExtraAvailability(extra.id, newAvailability);
-    this.loadExtras();
-    this.notificationService.showSuccess(`${extra.name} ${newAvailability ? 'habilitado' : 'deshabilitado'}`);
-    window.dispatchEvent(new CustomEvent('extrasUpdated'));
-  }
-
-  resetExtrasToDefaults(): void {
-    this.extrasAvailabilityService.resetToDefaults();
-    this.loadExtras();
-    this.notificationService.showSuccess('Adicionales restaurados a valores por defecto');
-    window.dispatchEvent(new CustomEvent('extrasUpdated'));
-  }
-
-  openExtraFormModal(extra?: ExtraAvailability): void {
-    if (extra) {
-      this.selectedExtra = { ...extra };
-      this.extraForm.enable();
-      this.extraForm.patchValue({
-        name: extra.name,
-        price: extra.price,
-        available: extra.available
-      });
-    } else {
-      this.selectedExtra = null;
-      this.extraForm.enable();
-      this.extraForm.reset({
-        name: '',
-        price: 0,
-        available: true
-      });
-    }
-
-    this.showExtraFormModal = true;
-    this.cdr.markForCheck();
-    setTimeout(() => {
-      this.cdr.detectChanges();
-    }, 10);
-  }
-
-  closeExtraFormModal(): void {
-    this.showExtraFormModal = false;
-    this.selectedExtra = null;
-    this.extraForm.reset();
-    this.extraForm.enable();
-  }
-
-  saveExtra(): void {
-    if (this.extraForm.valid) {
-      const formValue = this.extraForm.value;
-
-      if (this.selectedExtra) {
-        this.extrasAvailabilityService.updateExtra(this.selectedExtra.id, {
-          name: formValue.name.trim(),
-          price: Number(formValue.price),
-          available: formValue.available
-        });
-        this.notificationService.showSuccess('Adicional actualizado correctamente');
-      } else {
-        this.extrasAvailabilityService.createExtra({
-          name: formValue.name.trim(),
-          price: Number(formValue.price),
-          available: formValue.available
-        });
-        this.notificationService.showSuccess('Adicional creado correctamente');
-      }
-
-      this.loadExtras();
-      this.closeExtraFormModal();
-      window.dispatchEvent(new CustomEvent('extrasUpdated'));
-    }
-  }
-
-  async deleteExtra(extra: ExtraAvailability): Promise<void> {
-    const confirmed = await this.notificationService.confirm(
-      'Eliminar Adicional',
-      `¿Estás seguro de que deseas eliminar "${extra.name}"?`
-    );
-
-    if (confirmed) {
-      this.extrasAvailabilityService.deleteExtra(extra.id);
-      this.loadExtras();
-      this.notificationService.showSuccess('Adicional eliminado correctamente');
-      window.dispatchEvent(new CustomEvent('extrasUpdated'));
-    }
-  }
-
-  viewExtra(extra: ExtraAvailability): void {
-    this.selectedExtra = { ...extra };
-    this.extraForm.patchValue({
-      name: extra.name,
-      price: extra.price,
-      available: extra.available
-    });
-    this.extraForm.disable();
-    this.showExtraFormModal = true;
-    this.cdr.markForCheck();
-    setTimeout(() => {
-      this.cdr.detectChanges();
-    }, 10);
-  }
-
-  trackByExtraId(index: number, extra: ExtraAvailability): string {
-    return extra.id;
   }
 
   openAddModal(add?: Add): void {

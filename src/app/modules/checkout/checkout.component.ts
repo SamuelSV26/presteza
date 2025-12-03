@@ -29,7 +29,6 @@ export type PaymentMethod = 'card' | 'cash' | 'nequi' | 'daviplata' | 'transfer'
 })
 export class CheckoutComponent implements OnInit, OnDestroy {
   cartItems$!: Observable<CartItem[]>;
-  subtotal$!: Observable<number>;
   private destroy$ = new Subject<void>();
 
   orderType: OrderType = 'pickup';
@@ -42,7 +41,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   deliveryForm: FormGroup;
   paymentForm: FormGroup;
   isLoading = false;
-  showPaymentModal = false;
   paymentLink = '';
   paymentCode = '';
   paymentReference = '';
@@ -106,7 +104,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         }, 1000);
       }
     });
-    this.subtotal$ = this.cartService.getTotalPrice();
     combineLatest([
       this.cartService.getTotalPrice(),
       this.cartItems$
@@ -130,12 +127,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   }
 
   loadSavedPaymentMethods(): void {
-    console.log('🔄 Cargando tarjetas guardadas...');
     this.userService.getPaymentMethods().pipe(takeUntil(this.destroy$)).subscribe({
       next: (methods) => {
-        console.log('📋 Métodos obtenidos:', methods);
         this.savedPaymentMethods = methods.filter(m => m.type === 'credit' || m.type === 'debit');
-        console.log(`💳 Tarjetas filtradas: ${this.savedPaymentMethods.length}`);
         
         this.savedPaymentMethods.sort((a, b) => {
           const aIsPrimary = a.is_primary || a.isDefault || false;
@@ -147,26 +141,22 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         
         const defaultMethod = this.savedPaymentMethods.find(m => m.is_primary || m.isDefault);
         if (defaultMethod && defaultMethod.id) {
-          console.log('⭐ Usando tarjeta principal:', defaultMethod);
           this.selectedSavedMethod = defaultMethod.id;
           this.useSavedCard = true;
           this.paymentMethod = 'card';
           this.loadSavedCardData(defaultMethod);
         } else if (this.savedPaymentMethods.length > 0 && this.savedPaymentMethods[0].id) {
-          console.log('📌 Usando primera tarjeta disponible:', this.savedPaymentMethods[0]);
           this.selectedSavedMethod = this.savedPaymentMethods[0].id;
           this.useSavedCard = true;
           this.paymentMethod = 'card';
           this.loadSavedCardData(this.savedPaymentMethods[0]);
         } else {
-          console.log('💰 No hay tarjetas, usando efectivo por defecto');
           this.paymentMethod = 'cash';
           this.useSavedCard = false;
           this.selectedSavedMethod = null;
         }
       },
-      error: (error) => {
-        console.error('❌ Error al cargar métodos de pago:', error);
+      error: () => {
         this.paymentMethod = 'cash';
         this.useSavedCard = false;
         this.selectedSavedMethod = null;
@@ -567,7 +557,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
         dishData.forEach(({ item, dish, dishId }) => {
           if (!dishId || dishId === 'undefined' || dishId === 'null' || dishId === '') {
-            console.error('ProductId inválido:', item.productId, 'del item:', item);
             return;
           }
 
@@ -598,11 +587,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
                   }
 
                   if (!shouldInclude) {
-                    console.warn(`El adicional "${option.name}" no está disponible para el producto "${item.productName}". Se omitirá.`);
                     return;
                   }
                 } else {
-                  console.warn(`El adicional "${option.name}" no se encontró en los adicionales disponibles. Se omitirá.`);
                   return;
                 }
 
@@ -617,7 +604,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
           }
 
           if (!dishId || !item.productName || !item.basePrice) {
-            console.error('Producto con datos incompletos:', { dishId, name: item.productName, price: item.basePrice });
             return;
           }
 
@@ -625,7 +611,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
           const unitPrice = Number(item.basePrice);
           
           if (isNaN(quantity) || quantity <= 0 || isNaN(unitPrice) || unitPrice <= 0) {
-            console.error('Producto con valores numéricos inválidos:', { quantity, unitPrice });
             return;
           }
 
@@ -649,8 +634,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
           if (productItem.dishId && productItem.name && productItem.quantity > 0 && productItem.unit_price > 0) {
             productItems.push(productItem);
-          } else {
-            console.error('Producto inválido omitido:', productItem);
           }
         });
 
@@ -678,7 +661,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.isLoading = false;
-        console.error('Error al mapear IDs de adicionales:', error);
         this.continueWithoutMapping(items, userInfo, userId);
       }
     });
@@ -742,43 +724,32 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     }
 
     const paymentMethodBackend = this.orderService.mapPaymentMethodToBackend(this.paymentMethod);
-
-    if (!paymentMethodBackend || paymentMethodBackend === this.paymentMethod) {
-      console.warn('No se pudo mapear el método de pago, usando el original:', this.paymentMethod);
-    }
-
     const finalPaymentMethod = paymentMethodBackend || this.paymentMethod || 'cash';
 
     const validatedProducts: ProductOrderItem[] = productItems
       .filter(item => {
         if (!item || typeof item !== 'object' || Array.isArray(item)) {
-          console.error('Producto inválido (no es objeto):', item, typeof item);
           return false;
         }
         
         if (!item.dishId || typeof item.dishId !== 'string' || item.dishId.trim() === '') {
-          console.error('Producto con dishId inválido:', item);
           return false;
         }
         
         if (!item.name || typeof item.name !== 'string' || item.name.trim() === '') {
-          console.error('Producto con name inválido:', item);
           return false;
         }
         
         if (typeof item.quantity !== 'number' || item.quantity <= 0 || isNaN(item.quantity)) {
-          console.error('Producto con quantity inválido:', item);
           return false;
         }
         
         if (typeof item.unit_price !== 'number' || item.unit_price <= 0 || isNaN(item.unit_price)) {
-          console.error('Producto con unit_price inválido:', item);
           return false;
         }
         
         if (item.adds !== undefined && item.adds !== null) {
           if (!Array.isArray(item.adds)) {
-            console.error('Producto con adds que no es array:', item);
             return false;
           }
         }
@@ -817,7 +788,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         }
 
         if (typeof product !== 'object' || Array.isArray(product)) {
-          console.error('Error: producto no es un objeto válido:', product);
           return null;
         }
 
@@ -833,25 +803,21 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       });
     }
 
-    const finalProducts = validatedProducts.filter((product, index) => {
+    const finalProducts = validatedProducts.filter((product) => {
       if (!product || typeof product !== 'object' || Array.isArray(product)) {
-        console.error(`Producto en índice ${index} no es un objeto válido:`, product);
         return false;
       }
       
       if (!product.dishId || !product.name || typeof product.quantity !== 'number' || typeof product.unit_price !== 'number') {
-        console.error(`Producto en índice ${index} tiene propiedades inválidas:`, product);
         return false;
       }
       
       if (product.adds !== undefined) {
         if (!Array.isArray(product.adds)) {
-          console.error(`Producto en índice ${index} tiene adds que no es array:`, product);
           return false;
         }
         for (const add of product.adds) {
           if (!add || typeof add !== 'object' || Array.isArray(add)) {
-            console.error(`Add inválido en producto ${index}:`, add);
             return false;
           }
         }
@@ -930,10 +896,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     };
 
     const cleanedDto = cleanObject(createOrderDto);
-
-    const plainProducts = cleanedDto.products.map((product: any, index: number) => {
+    
+    const plainProducts = cleanedDto.products.map((product: any) => {
       if (!product || typeof product !== 'object' || Array.isArray(product)) {
-        console.error(`ERROR: Producto en índice ${index} no es un objeto válido:`, product, typeof product);
         return null;
       }
 
@@ -944,7 +909,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       const description = String(product.description || '').trim();
 
       if (!dishId || !name || quantity <= 0 || unitPrice <= 0) {
-        console.error(`ERROR: Producto en índice ${index} tiene campos inválidos:`, { dishId, name, quantity, unitPrice });
         return null;
       }
 
@@ -991,26 +955,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       });
     }
 
-    const createPlainObject = (obj: any): any => {
-      if (obj === null || obj === undefined) {
-        return obj;
-      }
-      if (Array.isArray(obj)) {
-        return obj.map(item => createPlainObject(item));
-      }
-      if (typeof obj === 'object') {
-        const plain: any = {};
-        for (const key in obj) {
-          if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
-            plain[key] = createPlainObject(obj[key]);
-          }
-        }
-        return plain;
-      }
-      return obj;
-    };
-
-    const finalDto: any = createPlainObject({
+    const finalDto: any = cleanObject({
       usuarioId: String(cleanedDto.usuarioId || userId).trim(),
       total: Number(cleanedDto.total || this.total.toFixed(2)),
       payment_method: String(cleanedDto.payment_method || finalPaymentMethod).trim(),
@@ -1046,7 +991,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     });
 
     if (!Array.isArray(finalDto.products)) {
-      console.error('ERROR CRÍTICO: products no es un array:', finalDto.products, typeof finalDto.products);
       this.isLoading = false;
       this.notificationService.showError('Error en la estructura de productos. Por favor, intenta nuevamente.', 'Error en Productos');
       return new Observable(observer => {
@@ -1058,7 +1002,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       const product = finalDto.products[i];
       
       if (!product || typeof product !== 'object' || Array.isArray(product)) {
-        console.error(`ERROR CRÍTICO: Producto ${i} no es un objeto válido:`, product, typeof product, Array.isArray(product));
         this.isLoading = false;
         this.notificationService.showError(`Error en el producto ${i + 1}. Por favor, intenta nuevamente.`, 'Error en Productos');
         return new Observable(observer => {
@@ -1071,7 +1014,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
           typeof product.quantity !== 'number' || isNaN(product.quantity) ||
           typeof product.unit_price !== 'number' || isNaN(product.unit_price) ||
           typeof product.description !== 'string') {
-        console.error(`ERROR CRÍTICO: Producto ${i} tiene propiedades inválidas:`, product);
         this.isLoading = false;
         this.notificationService.showError(`Error en el producto ${i + 1}. Por favor, intenta nuevamente.`, 'Error en Productos');
         return new Observable(observer => {
@@ -1081,7 +1023,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       
       if (product.adds !== undefined) {
         if (!Array.isArray(product.adds)) {
-          console.error(`ERROR CRÍTICO: Producto ${i} tiene adds que no es array:`, product.adds);
           this.isLoading = false;
           this.notificationService.showError(`Error en los adicionales del producto ${i + 1}. Por favor, intenta nuevamente.`, 'Error en Productos');
           return new Observable(observer => {
@@ -1092,7 +1033,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         for (let j = 0; j < product.adds.length; j++) {
           const add = product.adds[j];
           if (!add || typeof add !== 'object' || Array.isArray(add)) {
-            console.error(`ERROR CRÍTICO: Add ${j} del producto ${i} no es un objeto válido:`, add);
             this.isLoading = false;
             this.notificationService.showError(`Error en los adicionales del producto ${i + 1}. Por favor, intenta nuevamente.`, 'Error en Productos');
             return new Observable(observer => {
@@ -1103,38 +1043,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       }
     }
 
-    console.log('=== DATOS DEL PEDIDO ===');
-    console.log('Items del carrito:', items);
-    console.log('Items detalle:', items.map(item => ({
-      productId: item.productId,
-      productIdType: typeof item.productId,
-      quantity: item.quantity,
-      productName: item.productName
-    })));
-    console.log('UserInfo:', userInfo);
-    console.log('ProductItems (array):', productItems);
-    console.log('ProductItems (detalle):', productItems.map((item, index) => ({ index, dishId: item.dishId, quantity: item.quantity })));
-    console.log('Total:', this.total, 'Tipo:', typeof this.total);
-    console.log('Payment Method:', paymentMethodBackend);
-    console.log('UsuarioId:', userId, 'Tipo:', typeof userId);
-    console.log('CreateOrderDto completo:', finalDto);
-    console.log('CreateOrderDto (JSON):', JSON.stringify(finalDto, null, 2));
-    console.log('Products array expandido:', JSON.stringify(finalDto.products, null, 2));
-    console.log('Products array tipo:', Array.isArray(finalDto.products));
-    console.log('Products array length:', finalDto.products.length);
-    finalDto.products.forEach((p: any, i: number) => {
-      console.log(`Producto ${i}:`, p, 'tipo:', typeof p, 'es objeto:', typeof p === 'object' && !Array.isArray(p));
-      console.log(`Producto ${i} keys:`, Object.keys(p));
-      console.log(`Producto ${i} constructor:`, p.constructor?.name);
-      console.log(`Producto ${i} es instancia de Object:`, p instanceof Object);
-      console.log(`Producto ${i} Object.getPrototypeOf:`, Object.getPrototypeOf(p));
-      console.log(`Producto ${i} JSON.stringify:`, JSON.stringify(p));
-    });
-
     const serializedDto = JSON.parse(JSON.stringify(finalDto)) as CreateOrderDto;
     
     if (!Array.isArray(serializedDto.products)) {
-      console.error('ERROR DESPUÉS DE SERIALIZACIÓN: products no es un array');
       this.isLoading = false;
       this.notificationService.showError('Error en la estructura de productos. Por favor, intenta nuevamente.', 'Error en Productos');
       return new Observable(observer => {
@@ -1145,7 +1056,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     for (let i = 0; i < serializedDto.products.length; i++) {
       const product = serializedDto.products[i];
       if (!product || typeof product !== 'object' || Array.isArray(product)) {
-        console.error(`ERROR DESPUÉS DE SERIALIZACIÓN: Producto ${i} no es un objeto válido:`, product);
         this.isLoading = false;
         this.notificationService.showError(`Error en el producto ${i + 1}. Por favor, intenta nuevamente.`, 'Error en Productos');
         return new Observable(observer => {
@@ -1153,15 +1063,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         });
       }
     }
-    
-    console.log('DTO después de serialización:', serializedDto);
-    console.log('Products después de serialización:', serializedDto.products);
-    console.log('JSON final que se enviará:', JSON.stringify(serializedDto, null, 2));
 
     return this.orderService.createOrder(serializedDto).pipe(
       takeUntil(this.destroy$),
       map(response => {
-        console.log('Pedido creado exitosamente:', response);
         this.saveOrderLocally(items, paymentInfo, response.order);
         let successMessage = '';
         let successTitle = '';
@@ -1191,16 +1096,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       }),
       catchError((error) => {
         this.isLoading = false;
-        console.error('=== ERROR AL CREAR PEDIDO ===');
-        console.error('Error completo:', error);
-        console.error('Error status:', error.status);
-        console.error('Error statusText:', error.statusText);
-        console.error('Error error (objeto):', error.error);
-        console.error('Error error (JSON):', JSON.stringify(error.error, null, 2));
-        console.error('Error message:', error.message);
-        console.error('Error url:', error.url);
-        console.error('Datos enviados:', finalDto);
-        console.error('Datos enviados (JSON):', JSON.stringify(finalDto, null, 2));
 
         let errorMessage = 'Hubo un error al procesar tu pedido. Por favor, intenta nuevamente.';
 
@@ -1260,7 +1155,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       }
 
       if (!item.productName || !item.basePrice) {
-        console.error('Item con datos incompletos:', item);
         return;
       }
 
@@ -1268,7 +1162,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       const unitPrice = Number(item.basePrice);
       
       if (isNaN(quantity) || quantity <= 0 || isNaN(unitPrice) || unitPrice <= 0) {
-        console.error('Item con valores numéricos inválidos:', { quantity, unitPrice });
         return;
       }
 
@@ -1305,8 +1198,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
       if (productItem.dishId && productItem.name && productItem.quantity > 0 && productItem.unit_price > 0) {
         productItems.push(productItem);
-      } else {
-        console.error('Producto inválido omitido:', productItem);
       }
     });
 

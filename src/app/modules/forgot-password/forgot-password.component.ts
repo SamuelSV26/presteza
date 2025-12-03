@@ -47,21 +47,12 @@ export class ForgotPasswordComponent {
 
     this.authService.forgotPassword(this.email.trim()).subscribe({
       next: (response) => {
-        console.log('Respuesta del servidor:', response);
-        console.log('Email enviado a:', this.email.trim());
         this.isLoading = false;
         this.success = true;
         const message = response?.message || 'Se ha enviado un enlace de recuperación a tu correo electrónico. Por favor revisa tu bandeja de entrada y también la carpeta de spam.';
         this.notificationService.showSuccess(message);
-
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          console.warn('⚠️ MODO DESARROLLO: Si no recibes el correo, verifica que el backend tenga configurado el servicio de envío de correos (SMTP).');
-        }
       },
       error: (error) => {
-        console.error('Error completo en forgotPassword:', error);
-        console.error('Error original:', error?.originalError);
-        console.error('Error data:', error?.error);
         this.isLoading = false;
 
         let errorMessage = 'Error al solicitar recuperación de contraseña.';
