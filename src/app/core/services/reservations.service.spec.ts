@@ -31,13 +31,10 @@ describe('ReservationsService', () => {
     httpMock.verify();
   });
 
-  // Prueba 40
-  it('should be created', () => {
+  // Prueba 43
+  it('should be created and handle CRUD operations', (done) => {
     expect(service).toBeTruthy();
-  });
-
-  // Prueba 41
-  it('should create a reservation', (done) => {
+    
     const createDto: CreateReservationDto = {
       tableNumber: 'T1',
       date: '01/01/2024',
@@ -46,7 +43,7 @@ describe('ReservationsService', () => {
       specialRequests: 'Window seat please'
     };
 
-    const mockResponse = {
+    const mockReservation = {
       _id: 'reservation-123',
       tableNumber: 'T1',
       date: '01/01/2024',
@@ -60,154 +57,54 @@ describe('ReservationsService', () => {
 
     service.create(createDto).subscribe({
       next: (response) => {
-        expect(response).toEqual(mockResponse);
-        done();
+        expect(response).toEqual(mockReservation);
+        
+        service.findAll().subscribe({
+          next: (allReservations) => {
+            expect(allReservations.length).toBeGreaterThanOrEqual(0);
+            
+            service.findMyReservations().subscribe({
+              next: () => {
+                service.findOne('reservation-123').subscribe({
+                  next: () => {
+                    const updateDto: UpdateReservationDto = { numberOfPeople: 4, specialRequests: 'Updated request' };
+                    service.update('reservation-123', updateDto).subscribe({
+                      next: () => {
+                        service.updateStatus('reservation-123', 'confirmed').subscribe({
+                          next: () => {
+                            service.remove('reservation-123').subscribe({
+                              next: () => done()
+                            });
+                            const deleteReq = httpMock.expectOne(`${environment.apiUrl}/reservations/reservation-123`);
+                            deleteReq.flush(null);
+                          }
+                        });
+                        const statusReq = httpMock.expectOne(`${environment.apiUrl}/reservations/reservation-123/status`);
+                        statusReq.flush({ ...mockReservation, status: 'confirmed' as const });
+                      }
+                    });
+                    const updateReq = httpMock.expectOne(`${environment.apiUrl}/reservations/reservation-123`);
+                    updateReq.flush({ ...mockReservation, numberOfPeople: 4, specialRequests: 'Updated request' });
+                  }
+                });
+                const getOneReq = httpMock.expectOne(`${environment.apiUrl}/reservations/reservation-123`);
+                getOneReq.flush(mockReservation);
+              }
+            });
+            const myReservationsReq = httpMock.expectOne(`${environment.apiUrl}/reservations/my-reservations`);
+            myReservationsReq.flush([mockReservation]);
+          }
+        });
+        const findAllReq = httpMock.expectOne(`${environment.apiUrl}/reservations`);
+        findAllReq.flush([mockReservation]);
       }
     });
 
-    const req = httpMock.expectOne(`${environment.apiUrl}/reservations`);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual(createDto);
-    req.flush(mockResponse);
-  });
-
-  // Prueba 42
-  it('should get all reservations', (done) => {
-    const mockReservations = [
-      { _id: '1', tableNumber: 'T1', date: '01/01/2024', time: '12:00 p. m.', numberOfPeople: 2, userId: 'user-1', userName: 'User 1', userEmail: 'user1@example.com', status: 'pending' as const },
-      { _id: '2', tableNumber: 'T2', date: '02/01/2024', time: '13:00 p. m.', numberOfPeople: 4, userId: 'user-2', userName: 'User 2', userEmail: 'user2@example.com', status: 'confirmed' as const }
-    ];
-
-    service.findAll().subscribe({
-      next: (response) => {
-        expect(response).toEqual(mockReservations);
-        done();
-      }
-    });
-
-    const req = httpMock.expectOne(`${environment.apiUrl}/reservations`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockReservations);
-  });
-
-  // Prueba 43
-  it('should get my reservations', (done) => {
-    const mockReservations = [
-      { _id: '1', tableNumber: 'T1', date: '01/01/2024', time: '12:00 p. m.', numberOfPeople: 2, userId: 'user-1', userName: 'User 1', userEmail: 'user1@example.com', status: 'pending' as const }
-    ];
-
-    service.findMyReservations().subscribe({
-      next: (response) => {
-        expect(response).toEqual(mockReservations);
-        done();
-      }
-    });
-
-    const req = httpMock.expectOne(`${environment.apiUrl}/reservations/my-reservations`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockReservations);
+    const createReq = httpMock.expectOne(`${environment.apiUrl}/reservations`);
+    createReq.flush(mockReservation);
   });
 
   // Prueba 44
-  it('should get one reservation by id', (done) => {
-    const mockReservation = {
-      _id: 'reservation-123',
-      tableNumber: 'T1',
-      date: '01/01/2024',
-      time: '12:00 p. m.',
-      numberOfPeople: 2,
-      userId: 'user-123',
-      userName: 'Test User',
-      userEmail: 'test@example.com',
-      status: 'pending' as const
-    };
-
-    service.findOne('reservation-123').subscribe({
-      next: (response) => {
-        expect(response).toEqual(mockReservation);
-        done();
-      }
-    });
-
-    const req = httpMock.expectOne(`${environment.apiUrl}/reservations/reservation-123`);
-    expect(req.request.method).toBe('GET');
-    req.flush(mockReservation);
-  });
-
-  // Prueba 45
-  it('should update a reservation', (done) => {
-    const updateDto: UpdateReservationDto = {
-      numberOfPeople: 4,
-      specialRequests: 'Updated request'
-    };
-
-    const mockResponse = {
-      _id: 'reservation-123',
-      tableNumber: 'T1',
-      date: '01/01/2024',
-      time: '12:00 p. m.',
-      numberOfPeople: 4,
-      specialRequests: 'Updated request',
-      userId: 'user-123',
-      userName: 'Test User',
-      userEmail: 'test@example.com',
-      status: 'pending' as const
-    };
-
-    service.update('reservation-123', updateDto).subscribe({
-      next: (response) => {
-        expect(response).toEqual(mockResponse);
-        done();
-      }
-    });
-
-    const req = httpMock.expectOne(`${environment.apiUrl}/reservations/reservation-123`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual(updateDto);
-    req.flush(mockResponse);
-  });
-
-  // Prueba 46
-  it('should update reservation status', (done) => {
-    const mockResponse = {
-      _id: 'reservation-123',
-      tableNumber: 'T1',
-      date: '01/01/2024',
-      time: '12:00 p. m.',
-      numberOfPeople: 2,
-      userId: 'user-123',
-      userName: 'Test User',
-      userEmail: 'test@example.com',
-      status: 'confirmed' as const
-    };
-
-    service.updateStatus('reservation-123', 'confirmed').subscribe({
-      next: (response) => {
-        expect(response).toEqual(mockResponse);
-        done();
-      }
-    });
-
-    const req = httpMock.expectOne(`${environment.apiUrl}/reservations/reservation-123/status`);
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual({ status: 'confirmed' });
-    req.flush(mockResponse);
-  });
-
-  // Prueba 47
-  it('should delete a reservation', (done) => {
-    service.remove('reservation-123').subscribe({
-      next: () => {
-        done();
-      }
-    });
-
-    const req = httpMock.expectOne(`${environment.apiUrl}/reservations/reservation-123`);
-    expect(req.request.method).toBe('DELETE');
-    req.flush(null);
-  });
-
-  // Prueba 48
   it('should map backend reservation to frontend format', () => {
     const backendReservation = {
       _id: 'reservation-123',

@@ -38,12 +38,12 @@ describe('MenuComponent', () => {
     authService = TestBed.inject(AuthService) as jasmine.SpyObj<AuthService>;
   });
 
-  // Prueba 98
+  // Prueba 55
   it('should create', () => {
     expect(component).toBeTruthy();
   });
 
-  // Prueba 99
+  // Prueba 56
   it('should load categories on init', (done) => {
     const mockCategories: MenuCategory[] = [
       { id: '1', name: 'Bebidas', description: 'Bebidas frías y calientes', icon: '', imageUrl: '' },
@@ -62,7 +62,7 @@ describe('MenuComponent', () => {
     });
   });
 
-  // Prueba 100
+  // Prueba 57
   it('should handle error when loading categories', (done) => {
     menuService.getCategories.and.returnValue(throwError(() => new Error('Network error')));
     authService.isAuthenticated.and.returnValue(false);
@@ -77,7 +77,7 @@ describe('MenuComponent', () => {
     });
   });
 
-  // Prueba 101
+  // Prueba 58
   it('should filter categories by search term', (done) => {
     const mockCategories: MenuCategory[] = [
       { id: '1', name: 'Bebidas', description: 'Bebidas frías', icon: '', imageUrl: '' },
@@ -98,7 +98,7 @@ describe('MenuComponent', () => {
     });
   });
 
-  // Prueba 102
+  // Prueba 59
   it('should clear search and reset filtered categories', (done) => {
     const mockCategories: MenuCategory[] = [
       { id: '1', name: 'Bebidas', description: 'Bebidas frías', icon: '', imageUrl: '' }
@@ -118,7 +118,7 @@ describe('MenuComponent', () => {
     });
   });
 
-  // Prueba 103
+  // Prueba 60
   it('should navigate to category', () => {
     const mockCategories: MenuCategory[] = [];
     menuService.getCategories.and.returnValue(of(mockCategories));
@@ -130,7 +130,7 @@ describe('MenuComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/menu', 'category-1']);
   });
 
-  // Prueba 104
+  // Prueba 61
   it('should not navigate if category id is empty', () => {
     const mockCategories: MenuCategory[] = [];
     menuService.getCategories.and.returnValue(of(mockCategories));
@@ -142,7 +142,7 @@ describe('MenuComponent', () => {
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
-  // Prueba 105
+  // Prueba 62
   it('should get category background image with imageUrl', () => {
     const mockCategories: MenuCategory[] = [];
     menuService.getCategories.and.returnValue(of(mockCategories));
@@ -161,7 +161,7 @@ describe('MenuComponent', () => {
     expect(background).toContain('https://example.com/image.jpg');
   });
 
-  // Prueba 106
+  // Prueba 63
   it('should get default category background image when imageUrl is not provided', () => {
     const mockCategories: MenuCategory[] = [];
     menuService.getCategories.and.returnValue(of(mockCategories));
@@ -180,7 +180,7 @@ describe('MenuComponent', () => {
     expect(background).toContain('linear-gradient');
   });
 
-  // Prueba 107
+  // Prueba 64
   it('should initialize authentication status', () => {
     const mockCategories: MenuCategory[] = [];
     menuService.getCategories.and.returnValue(of(mockCategories));

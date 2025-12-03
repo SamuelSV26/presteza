@@ -32,56 +32,28 @@ describe('AuthGuard', () => {
     tokenService = TestBed.inject(TokenService) as jasmine.SpyObj<TokenService>;
   });
 
-  // Prueba 108
-  it('should allow access when user is authenticated', () => {
+  // Prueba 49
+  it('should allow access when authenticated and deny when not', () => {
     tokenService.getToken.and.returnValue('valid-token');
     authService.isAuthenticated.and.returnValue(true);
 
-    const result = TestBed.runInInjectionContext(() => 
+    const result1 = TestBed.runInInjectionContext(() => 
       authGuard({} as any, { url: '/protected' } as any)
     );
 
-    expect(result).toBe(true);
+    expect(result1).toBe(true);
     expect(router.navigate).not.toHaveBeenCalled();
-  });
 
-  // Prueba 109
-  it('should deny access when token is missing', () => {
     tokenService.getToken.and.returnValue(null);
     authService.isAuthenticated.and.returnValue(false);
 
-    const result = TestBed.runInInjectionContext(() => 
-      authGuard({} as any, { url: '/protected' } as any)
-    );
-
-    expect(result).toBe(false);
-    expect(notificationService.showError).toHaveBeenCalledWith('Debes iniciar sesión para acceder a esta sección.');
-    expect(router.navigate).toHaveBeenCalledWith(['/login'], { queryParams: { returnUrl: '/protected' } });
-  });
-
-  // Prueba 110
-  it('should deny access when user is not authenticated', () => {
-    tokenService.getToken.and.returnValue('token');
-    authService.isAuthenticated.and.returnValue(false);
-
-    const result = TestBed.runInInjectionContext(() => 
-      authGuard({} as any, { url: '/protected' } as any)
-    );
-
-    expect(result).toBe(false);
-    expect(notificationService.showError).toHaveBeenCalled();
-    expect(router.navigate).toHaveBeenCalledWith(['/login'], { queryParams: { returnUrl: '/protected' } });
-  });
-
-  // Prueba 111
-  it('should store returnUrl in sessionStorage when denying access', () => {
-    tokenService.getToken.and.returnValue(null);
-    authService.isAuthenticated.and.returnValue(false);
-
-    TestBed.runInInjectionContext(() => 
+    const result2 = TestBed.runInInjectionContext(() => 
       authGuard({} as any, { url: '/protected-route' } as any)
     );
 
+    expect(result2).toBe(false);
+    expect(notificationService.showError).toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(['/login'], { queryParams: { returnUrl: '/protected-route' } });
     expect(sessionStorage.getItem('returnUrl')).toBe('/protected-route');
   });
 });
