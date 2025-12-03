@@ -20,11 +20,9 @@ export class UserService {
   userProfile$ = this.userProfileSubject.asObservable();
   private apiUrl = `${environment.apiUrl}/users`;
 
-  // Obtener todos los usuarios (solo para admins)
   getAllUsers(): Observable<any> {
     return this.http.get<any>(this.apiUrl).pipe(
       map((response: any) => {
-        // Manejar diferentes formatos de respuesta del backend
         if (Array.isArray(response)) {
           return response;
         } else if (response && Array.isArray(response.users)) {
@@ -100,15 +98,11 @@ export class UserService {
             }
           }
 
-          // Asegurar que el teléfono esté presente (buscar en userPhone si no está en el perfil)
-          // Priorizar el teléfono del token sobre el del perfil guardado
           const phoneFromStorage = localStorage.getItem('userPhone');
           if (phoneFromStorage && (!storedProfile.phone || storedProfile.phone === '' || storedProfile.phone === 'No especificado')) {
             storedProfile.phone = phoneFromStorage;
-            // Guardar el perfil actualizado con el teléfono
             localStorage.setItem(`userProfile_${userId}`, JSON.stringify(storedProfile));
           } else if (phoneFromStorage && storedProfile.phone !== phoneFromStorage) {
-            // Si el teléfono del token es diferente, actualizarlo (el token es la fuente de verdad)
             storedProfile.phone = phoneFromStorage;
             localStorage.setItem(`userProfile_${userId}`, JSON.stringify(storedProfile));
           }
@@ -118,24 +112,18 @@ export class UserService {
         }
       }
 
-      // Obtener la fecha de registro: usar la fecha guardada si existe, nunca crear una nueva
-      // La fecha de registro debe venir del backend (createdAt) cuando se obtiene el perfil
       let registrationDate: Date | null = null;
       if (storedProfile?.memberSince) {
         try {
           const parsedDate = new Date(storedProfile.memberSince);
           if (!isNaN(parsedDate.getTime())) {
-            registrationDate = parsedDate; // Usar la fecha guardada si es válida
+            registrationDate = parsedDate;
           }
         } catch (e) {
           console.error('Error al parsear fecha de registro:', e);
         }
       }
 
-      // Si no hay fecha guardada, será null y se establecerá cuando se obtenga del backend
-      // o cuando se cree el perfil por primera vez
-
-      // Obtener el teléfono del token (prioridad sobre cualquier otro valor)
       const phoneFromToken = localStorage.getItem('userPhone') || '';
       
       const defaultProfile: UserProfile = {
@@ -143,7 +131,7 @@ export class UserService {
         fullName: userInfo.name || 'Usuario',
         email: userInfo.email || '',
         phone: phoneFromToken,
-        memberSince: registrationDate || new Date(), // Usar fecha guardada o fecha actual (solo para usuarios nuevos)
+        memberSince: registrationDate || new Date(),
         preferences: {
           notifications: true,
           emailNotifications: true,
@@ -173,49 +161,36 @@ export class UserService {
         return this.userProfile$;
       }
 
-      // Intentar obtener el perfil del backend usando el ID del usuario
       return this.http.get<any>(`${this.apiUrl}/${userId}`).pipe(
         map((response: any) => {
-          // Obtener la fecha de registro: SIEMPRE usar createdAt del backend (fecha de registro real)
-          // El backend debe tener createdAt con la fecha exacta de cuando se registró el usuario
           let registrationDate: Date;
           const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
 
           if (response.createdAt) {
-            // PRIORIDAD 1: Usar la fecha de creación del backend (fecha exacta de registro)
             registrationDate = new Date(response.createdAt);
             if (isNaN(registrationDate.getTime())) {
-              // Si la fecha del backend es inválida, intentar con la guardada
               if (storedProfile?.memberSince) {
                 registrationDate = new Date(storedProfile.memberSince);
                 if (isNaN(registrationDate.getTime())) {
-                  registrationDate = new Date(); // Solo como último recurso
+                  registrationDate = new Date();
                 }
               } else {
-                registrationDate = new Date(); // Solo como último recurso
+                registrationDate = new Date();
               }
             }
           } else if (storedProfile?.memberSince) {
-            // PRIORIDAD 2: Usar la fecha guardada en localStorage (si el backend no tiene createdAt)
             registrationDate = new Date(storedProfile.memberSince);
             if (isNaN(registrationDate.getTime())) {
               registrationDate = new Date(); // Solo como último recurso
             }
           } else {
-            // PRIORIDAD 3: Solo usar fecha actual si es un usuario completamente nuevo sin fecha previa
-            // Esto solo debería pasar en casos excepcionales
             registrationDate = new Date();
           }
 
-          // Mapear la respuesta del backend al formato UserProfile
-          // Obtener el teléfono del backend con múltiples posibles campos
           const backendPhone = response.phone_number || response.phone || response.phoneNumber || response.telefono || '';
-          // Si el backend no tiene teléfono, intentar obtenerlo de localStorage
           const phoneFromStorage = localStorage.getItem('userPhone') || '';
-          // Priorizar el teléfono del backend, pero usar el de localStorage si el backend no lo tiene
           const finalPhone = backendPhone || phoneFromStorage;
-          
-          // SIEMPRE guardar el teléfono en localStorage si existe (para persistencia)
+
           if (finalPhone) {
             localStorage.setItem('userPhone', finalPhone);
           }
@@ -225,7 +200,7 @@ export class UserService {
             fullName: response.complete_name || response.fullName || response.name || userInfo.name || 'Usuario',
             email: response.email || userInfo.email || '',
             phone: finalPhone,
-            memberSince: registrationDate, // SIEMPRE usar la fecha de registro original
+            memberSince: registrationDate,
             preferences: {
               notifications: response.preferences?.notifications ?? true,
               emailNotifications: response.preferences?.emailNotifications ?? true,
@@ -234,33 +209,26 @@ export class UserService {
             }
           };
 
-          // Guardar en localStorage y actualizar el subject
           this.saveUserProfile(backendProfile);
           this.userProfileSubject.next(backendProfile);
           return backendProfile;
         }),
         catchError((error: HttpErrorResponse) => {
-          // Si falla, usar el perfil del localStorage
           console.warn('No se pudo obtener el perfil del backend, usando perfil local:', error);
 
-          // Obtener perfil del localStorage como fallback
           const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
           if (storedProfile && (storedProfile.email === userInfo.email || storedProfile.id === userId)) {
-            // Preservar la fecha de registro original
             if (storedProfile.memberSince) {
               const savedDate = new Date(storedProfile.memberSince);
               storedProfile.memberSince = isNaN(savedDate.getTime()) ? new Date() : savedDate;
             } else {
-              // Si no hay fecha guardada, usar la fecha actual (solo para usuarios nuevos)
               storedProfile.memberSince = new Date();
             }
             
-            // Asegurar que el teléfono esté presente (buscar en userPhone si no está en el perfil)
             if (!storedProfile.phone || storedProfile.phone === '') {
               const phoneFromStorage = localStorage.getItem('userPhone');
               if (phoneFromStorage) {
                 storedProfile.phone = phoneFromStorage;
-                // Guardar el perfil actualizado con el teléfono
                 localStorage.setItem(`userProfile_${userId}`, JSON.stringify(storedProfile));
               }
             }
@@ -269,19 +237,17 @@ export class UserService {
             return of(storedProfile);
           }
 
-          // Si no hay perfil guardado, usar el del subject o crear uno por defecto
           const currentProfile = this.userProfileSubject.value;
           if (currentProfile) {
             return of(currentProfile);
           }
 
-          // Crear perfil por defecto (solo para usuarios nuevos sin perfil)
           const defaultProfile: UserProfile = {
             id: userId,
             fullName: userInfo.name || 'Usuario',
             email: userInfo.email || '',
             phone: localStorage.getItem('userPhone') || '',
-            memberSince: new Date(), // Fecha de creación del perfil
+            memberSince: new Date(),
             preferences: {
               notifications: true,
               emailNotifications: true,
@@ -363,38 +329,29 @@ export class UserService {
         return throwError(() => new Error('ID de usuario no encontrado'));
       }
 
-      // Preparar los datos para enviar al backend
       const updateData: any = {};
       if (updates.fullName) updateData.complete_name = updates.fullName;
       if (updates.email) updateData.email = updates.email;
-      // IMPORTANTE: Siempre enviar phone_number si existe, incluso si es una cadena vacía
       if (updates.phone !== undefined && updates.phone !== null) {
         updateData.phone_number = updates.phone;
       }
       if (updates.preferences) updateData.preferences = updates.preferences;
-      
-      // Guardar el teléfono en localStorage ANTES de enviar al backend (para tenerlo disponible)
       if (updates.phone) {
         localStorage.setItem('userPhone', updates.phone);
       }
 
-      // Hacer la petición al backend usando el ID del usuario
       return this.http.patch<any>(`${this.apiUrl}/${userId}`, updateData).pipe(
         map((response: any) => {
-          // Mapear la respuesta del backend al formato UserProfile
           let currentProfile = this.userProfileSubject.value;
 
-          // PRESERVAR SIEMPRE la fecha de registro original
           let registrationDate: Date;
           const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
 
-          // Prioridad: 1) Fecha del perfil actual, 2) Fecha guardada en localStorage, 3) createdAt del backend, 4) Fecha actual (solo si es nuevo usuario)
           if (currentProfile?.memberSince) {
             registrationDate = new Date(currentProfile.memberSince);
           } else if (storedProfile?.memberSince) {
             registrationDate = new Date(storedProfile.memberSince);
             if (isNaN(registrationDate.getTime())) {
-              // Si la fecha guardada es inválida, intentar usar createdAt del backend
               registrationDate = response.createdAt ? new Date(response.createdAt) : new Date();
             }
           } else if (response.createdAt) {
@@ -403,8 +360,6 @@ export class UserService {
             registrationDate = new Date();
           }
 
-          // Obtener el teléfono con prioridad: actualización > respuesta del backend > perfil actual > localStorage
-          // IMPORTANTE: Si el usuario está actualizando, priorizar el teléfono que está enviando
           const updatePhone = updates.phone || '';
           const backendPhone = response.phone_number || response.phone || response.phoneNumber || response.telefono || '';
           const currentPhone = currentProfile?.phone || '';
@@ -436,16 +391,13 @@ export class UserService {
             }
           };
 
-          // Actualizar localStorage y el subject
           this.saveUserProfile(updatedProfile);
           this.userProfileSubject.next(updatedProfile);
 
-          // Guardar el teléfono en localStorage siempre que se actualice
           if (updatedProfile.phone) {
             localStorage.setItem('userPhone', updatedProfile.phone);
           }
 
-          // Actualizar userInfo en localStorage si cambió el nombre, email o teléfono
           const userInfoStr = localStorage.getItem('userInfo');
           if (userInfoStr) {
             try {
@@ -470,14 +422,11 @@ export class UserService {
               console.error('Error al actualizar userInfo:', e);
             }
           }
-          
-          // Disparar evento para actualizar la UI
           window.dispatchEvent(new CustomEvent('userInfoUpdated'));
 
           return updatedProfile;
         }),
         catchError((error: HttpErrorResponse) => {
-          // Si falla la petición al backend, actualizar solo en localStorage como fallback
           console.warn('Error al actualizar perfil en el backend, actualizando solo en localStorage:', error);
 
           let currentProfile = this.userProfileSubject.value;
@@ -498,7 +447,6 @@ export class UserService {
             };
           }
 
-          // PRESERVAR SIEMPRE la fecha de registro original
           let preservedDate: Date;
           if (currentProfile?.memberSince) {
             preservedDate = new Date(currentProfile.memberSince);
@@ -506,7 +454,6 @@ export class UserService {
               preservedDate = new Date();
             }
           } else {
-            // Si no hay fecha en el perfil actual, intentar obtenerla del localStorage
             const storedProfile = JSON.parse(localStorage.getItem(`userProfile_${userId}`) || 'null');
             if (storedProfile?.memberSince) {
               preservedDate = new Date(storedProfile.memberSince);
@@ -521,15 +468,13 @@ export class UserService {
           const updatedProfile = {
             ...currentProfile,
             ...updates,
-            memberSince: preservedDate // NUNCA cambiar la fecha de registro
+            memberSince: preservedDate
           };
           this.saveUserProfile(updatedProfile);
           this.userProfileSubject.next(updatedProfile);
 
-          // Guardar el teléfono en localStorage también en el fallback
           if (updatedProfile.phone) {
             localStorage.setItem('userPhone', updatedProfile.phone);
-            // También actualizar en userInfo si existe
             const userInfoStr = localStorage.getItem('userInfo');
             if (userInfoStr) {
               try {
@@ -545,7 +490,6 @@ export class UserService {
             }
           }
 
-          // Disparar evento para actualizar la UI
           window.dispatchEvent(new CustomEvent('userInfoUpdated'));
 
           return throwError(() => this.errorHandler.handleHttpError(error));
@@ -571,16 +515,13 @@ export class UserService {
     }
 
     if (userId) {
-      // Guardar perfil asociado al userId del usuario actual
       localStorage.setItem(`userProfile_${userId}`, JSON.stringify(profile));
     } else {
-      // Fallback: guardar sin userId (compatibilidad)
       localStorage.setItem('userProfile', JSON.stringify(profile));
     }
   }
 
   getOrders(): Observable<Order[]> {
-    // Obtener el userId del usuario actual
     const userInfoStr = localStorage.getItem('userInfo');
     if (!userInfoStr) {
       return of([]);
@@ -604,9 +545,7 @@ export class UserService {
             });
           }
 
-          // Valores por defecto para pedidos antiguos que no tienen estas propiedades
           if (order.subtotal === undefined) {
-            // Calcular subtotal desde los items si no existe
             order.subtotal = order.items.reduce((sum: number, item: OrderItem) =>
               sum + (item.price * item.quantity), 0);
           }
@@ -614,14 +553,12 @@ export class UserService {
             order.additionalFees = 0;
           }
           if (order.orderType === undefined) {
-            // Si tiene dirección, asumimos que es delivery, sino pickup
             order.orderType = order.deliveryAddress ? 'delivery' : 'pickup';
           }
           if (order.paymentMethod === undefined) {
-            order.paymentMethod = 'cash'; // Valor por defecto
+            order.paymentMethod = 'cash';
           }
 
-          // Verificar si puede cancelarse (primeros 5 minutos)
           if (order.canCancel !== undefined && order.date) {
             const now = new Date();
             const orderTime = new Date(order.date);
@@ -669,7 +606,6 @@ export class UserService {
           const order = orders[orderIndex];
           order.status = newStatus;
 
-          // Agregar al historial
           if (!order.statusHistory) {
             order.statusHistory = [];
           }
@@ -679,7 +615,6 @@ export class UserService {
             message: message
           });
 
-          // Actualizar canCancel
           if (newStatus !== 'pending' && newStatus !== 'cancelled') {
             order.canCancel = false;
           }
@@ -742,36 +677,27 @@ export class UserService {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
 
-      // Obtener direcciones del backend (el apiUrl ya incluye /users)
       return this.http.get<any>(`${this.apiUrl}/${userId}`).pipe(
         map(response => {
-          // El backend puede devolver diferentes formatos
           let backendAddresses: any[] = [];
 
           if (Array.isArray(response)) {
-            // Si la respuesta es directamente un array (no debería pasar, pero por si acaso)
             backendAddresses = response;
           } else if (response.addresses && Array.isArray(response.addresses)) {
-            // Formato: { addresses: [...] }
             backendAddresses = response.addresses;
           } else if (response.data?.addresses && Array.isArray(response.data.addresses)) {
-            // Formato: { data: { addresses: [...] } }
             backendAddresses = response.data.addresses;
           } else if (response.user?.addresses && Array.isArray(response.user.addresses)) {
-            // Formato: { user: { addresses: [...] } }
             backendAddresses = response.user.addresses;
           } else {
             console.warn('Formato de respuesta inesperado al obtener direcciones:', response);
             backendAddresses = [];
           }
-          
-          // Mapear direcciones del backend al formato del frontend
           const mappedAddresses = backendAddresses.map((addr: any, index: number) => {
             try {
               return this.mapBackendAddressToFrontend(addr, index);
             } catch (error) {
               console.error(`Error al mapear dirección en índice ${index}:`, error, addr);
-              // Retornar una dirección por defecto para evitar romper la lista
               return {
                 id: `${index}`,
                 title: `Dirección ${index + 1}`,
@@ -787,7 +713,6 @@ export class UserService {
             }
           });
 
-          // Guardar en localStorage como caché
           try {
             localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(mappedAddresses));
           } catch (e) {
@@ -798,7 +723,6 @@ export class UserService {
         }),
         catchError((error: HttpErrorResponse) => {
           console.error('Error al obtener direcciones del backend:', error);
-          // Fallback: intentar obtener de localStorage
           const storedAddresses = localStorage.getItem(`userAddresses_${userId}`);
           if (storedAddresses) {
             try {
@@ -819,10 +743,9 @@ export class UserService {
     }
   }
 
-  // Mapear dirección del backend al formato del frontend
   private mapBackendAddressToFrontend(backendAddr: any, index: number): Address {
     return {
-      id: `${index}`, // Usar índice como ID temporal
+      id: `${index}`,
       title: backendAddr.name || backendAddr.title || `Dirección ${index + 1}`,
       name: backendAddr.name,
       address: backendAddr.address || '',
@@ -835,7 +758,6 @@ export class UserService {
     };
   }
 
-  // Mapear dirección del frontend al formato del backend
   private mapFrontendAddressToBackend(frontendAddr: Address): any {
     return {
       name: frontendAddr.name || frontendAddr.title || 'Dirección',
@@ -857,49 +779,34 @@ export class UserService {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
 
-      // Mapear al formato del backend
       const addressDto = this.mapFrontendAddressToBackend(address);
 
       return this.http.post<any>(`${this.apiUrl}/${userId}/addresses`, addressDto).pipe(
         switchMap(response => {
-          // El backend puede devolver diferentes formatos:
-          // 1. El usuario completo con addresses
-          // 2. Solo la dirección nueva
-          // 3. Un objeto con data.addresses
           let addresses: any[] = [];
           let newAddress: any = null;
 
           if (response.addresses && Array.isArray(response.addresses)) {
-            // Formato: { addresses: [...] }
             addresses = response.addresses;
             newAddress = addresses[addresses.length - 1];
           } else if (response.data?.addresses && Array.isArray(response.data.addresses)) {
-            // Formato: { data: { addresses: [...] } }
             addresses = response.data.addresses;
             newAddress = addresses[addresses.length - 1];
           } else if (response.name || response.address) {
-            // El backend devolvió directamente la dirección nueva
             newAddress = response;
-            // Necesitamos obtener todas las direcciones para saber el índice
-            // Por ahora usamos índice 0 temporalmente
             addresses = [newAddress];
           } else {
             console.warn('Formato de respuesta inesperado del backend:', response);
-            // Intentar obtener direcciones del usuario completo
             if (response._id || response.id) {
-              // Es el usuario completo, buscar addresses
               addresses = response.addresses || [];
               newAddress = addresses[addresses.length - 1];
             }
           }
 
-          // Si no se pudo parsear la respuesta, intentar obtener las direcciones del servidor
-          // para verificar si la operación fue exitosa
           if (!newAddress) {
             console.warn('No se pudo parsear la respuesta, verificando en el servidor...');
             return this.getAddresses().pipe(
               map(allAddresses => {
-                // Buscar la dirección recién creada comparando los campos
                 const foundAddress = allAddresses.find(addr => 
                   addr.address === address.address &&
                   addr.neighborhood === address.neighborhood &&
@@ -907,14 +814,11 @@ export class UserService {
                 );
                 
                 if (foundAddress) {
-                  // La operación fue exitosa, retornar la dirección encontrada
                   return foundAddress;
                 } else {
-                  // Si no se encuentra, usar la última dirección (probablemente la nueva)
                   if (allAddresses.length > 0) {
                     return allAddresses[allAddresses.length - 1];
                   }
-                  // Si no hay direcciones, crear una dirección temporal con los datos enviados
                   return this.mapBackendAddressToFrontend({
                     name: address.name || address.title || 'Dirección',
                     address: address.address,
@@ -928,11 +832,9 @@ export class UserService {
             );
           }
 
-          // Mapear y retornar
           const addressIndex = addresses.length - 1;
           const mappedAddress = this.mapBackendAddressToFrontend(newAddress, addressIndex);
           
-          // Actualizar localStorage como caché - recargar todas las direcciones
           setTimeout(() => {
             this.getAddresses().subscribe({
               next: (addrs) => {
@@ -958,7 +860,6 @@ export class UserService {
     }
   }
 
-  // Mantener compatibilidad con código existente
   saveAddress(address: Address): void {
     this.addAddress(address).subscribe({
       next: () => {},
@@ -978,12 +879,10 @@ export class UserService {
       const userInfo = JSON.parse(userInfoStr);
       const userId = userInfo.userId || userInfo.email;
 
-      // Mapear al formato del backend
       const addressDto = this.mapFrontendAddressToBackend(address);
 
       return this.http.patch<any>(`${this.apiUrl}/${userId}/addresses/${addressIndex}`, addressDto).pipe(
         switchMap(response => {
-          // El backend puede devolver diferentes formatos
           let addresses: any[] = [];
           let updatedAddress: any = null;
 
@@ -994,7 +893,6 @@ export class UserService {
             addresses = response.data.addresses;
             updatedAddress = addresses[addressIndex];
           } else if (response.name || response.address) {
-            // El backend devolvió directamente la dirección actualizada
             updatedAddress = response;
             addresses = [updatedAddress];
           } else {
@@ -1005,18 +903,13 @@ export class UserService {
             }
           }
 
-          // Si no se pudo parsear la respuesta, intentar obtener las direcciones del servidor
-          // para verificar si la operación fue exitosa
           if (!updatedAddress) {
             console.warn('No se pudo parsear la respuesta, verificando en el servidor...');
             return this.getAddresses().pipe(
               map(allAddresses => {
-                // Verificar que el índice sea válido
                 if (addressIndex >= 0 && addressIndex < allAddresses.length) {
-                  // La operación fue exitosa, retornar la dirección actualizada
                   return allAddresses[addressIndex];
                 } else {
-                  // Si el índice no es válido, buscar la dirección por sus campos
                   const foundAddress = allAddresses.find(addr => 
                     addr.address === address.address &&
                     addr.neighborhood === address.neighborhood &&
@@ -1027,12 +920,10 @@ export class UserService {
                     return foundAddress;
                   }
                   
-                  // Si no se encuentra, usar la dirección en el índice original si existe
                   if (allAddresses.length > 0 && addressIndex < allAddresses.length) {
                     return allAddresses[addressIndex];
                   }
                   
-                  // Último recurso: crear una dirección temporal con los datos enviados
                   return this.mapBackendAddressToFrontend({
                     name: address.name || address.title || 'Dirección',
                     address: address.address,
@@ -1046,10 +937,8 @@ export class UserService {
             );
           }
 
-          // Mapear y retornar
           const mappedAddress = this.mapBackendAddressToFrontend(updatedAddress, addressIndex);
           
-          // Actualizar localStorage como caché - recargar todas las direcciones
           setTimeout(() => {
             this.getAddresses().subscribe({
               next: (addrs) => {
@@ -1087,7 +976,6 @@ export class UserService {
 
       return this.http.delete<void>(`${this.apiUrl}/${userId}/addresses/${addressIndex}`).pipe(
         tap(() => {
-          // Actualizar localStorage como caché
           this.getAddresses().subscribe(addrs => {
             localStorage.setItem(`userAddresses_${userId}`, JSON.stringify(addrs));
           });
@@ -1115,40 +1003,31 @@ export class UserService {
 
       return this.http.patch<any>(`${this.apiUrl}/${userId}/addresses/${addressIndex}/primary`, {}).pipe(
         switchMap(response => {
-          // El backend devuelve el usuario actualizado
           const addresses = response.addresses || response.data?.addresses || [];
           const primaryAddress = addresses[addressIndex];
           
-          // Si no se pudo obtener la dirección principal de la respuesta, intentar obtener del servidor
           if (!primaryAddress) {
             console.warn('No se pudo parsear la respuesta, verificando en el servidor...');
             return this.getAddresses().pipe(
               map(allAddresses => {
-                // Verificar que el índice sea válido
                 if (addressIndex >= 0 && addressIndex < allAddresses.length) {
-                  // La operación fue exitosa, retornar la dirección en el índice
                   return allAddresses[addressIndex];
                 } else {
-                  // Si el índice no es válido, buscar la dirección principal
                   const foundPrimary = allAddresses.find(addr => addr.isDefault || addr.is_primary);
                   if (foundPrimary) {
                     return foundPrimary;
                   }
-                  // Último recurso: retornar la primera dirección si existe
                   if (allAddresses.length > 0) {
                     return allAddresses[0];
                   }
-                  // Si no hay direcciones, lanzar error
                   throw new Error('No se encontró la dirección principal');
                 }
               })
             );
           }
           
-          // Mapear y retornar
           const mappedAddress = this.mapBackendAddressToFrontend(primaryAddress, addressIndex);
           
-          // Actualizar localStorage como caché
           setTimeout(() => {
             this.getAddresses().subscribe({
               next: (addrs) => {
@@ -1188,7 +1067,6 @@ export class UserService {
         return of([]);
       }
 
-      // Llamar al endpoint específico del backend para obtener tarjetas de pago
       const url = `${this.apiUrl}/${userId}/payment-cards`;
       console.log(`📥 Obteniendo tarjetas de pago desde: ${url}`);
       
@@ -1197,7 +1075,6 @@ export class UserService {
           console.log('📦 Respuesta completa del backend (tarjetas):', response);
         }),
         map((response: any) => {
-          // El backend devuelve { message, paymentCards, count }
           const paymentCards = response.paymentCards || response.payment_cards || [];
           if (!Array.isArray(paymentCards)) {
             console.warn('⚠️ La respuesta no contiene un array de tarjetas:', response);
@@ -1206,19 +1083,18 @@ export class UserService {
 
           console.log(`✅ Se encontraron ${paymentCards.length} tarjetas`);
 
-          // Mapear las tarjetas del backend al formato PaymentMethod
           const mappedCards = paymentCards.map((card: any, index: number) => {
             const mapped: PaymentMethod = {
-              id: `card_${index}`, // ID temporal basado en índice
+              id: `card_${index}`,
               name: card.name || `${card.brand} ${card.type}`,
               cardholder_name: card.cardholder_name || card.cardholderName || '',
               last_four_digits: card.last_four_digits || card.lastFourDigits || '',
-              last4: card.last_four_digits || card.lastFourDigits || '', // Alias para compatibilidad
+              last4: card.last_four_digits || card.lastFourDigits || '', 
               type: card.type === 'debit' || card.type === 'credit' ? card.type : 'credit',
               brand: card.brand || 'visa',
               expiry_date: card.expiry_date || card.expiryDate || '',
               is_primary: card.is_primary || card.isPrimary || false,
-              isDefault: card.is_primary || card.isPrimary || false // Alias para compatibilidad
+              isDefault: card.is_primary || card.isPrimary || false
             };
             console.log(`💳 Tarjeta ${index} mapeada:`, mapped);
             return mapped;
@@ -1229,7 +1105,6 @@ export class UserService {
         catchError((error: HttpErrorResponse) => {
           console.error('Error al obtener tarjetas de pago del backend:', error);
           console.error('URL:', `${this.apiUrl}/${userId}/payment-cards`);
-          // Fallback: intentar obtener de localStorage
           const storedMethods = localStorage.getItem(`userPaymentMethods_${userId}`);
           if (storedMethods) {
             try {
@@ -1270,14 +1145,11 @@ export class UserService {
         return throwError(() => new Error('ID de usuario no encontrado'));
       }
 
-      // Extraer últimos 4 dígitos del número de tarjeta
       const cardNumber = cardData.cardNumber.replace(/\s/g, '');
       const lastFourDigits = cardNumber.slice(-4);
 
-      // Formatear fecha de expiración como MM/YY
       const expiryDate = `${cardData.expiryMonth}/${cardData.expiryYear}`;
 
-      // Preparar datos para el backend
       const cardDto = {
         name: cardData.name || `${cardData.brand} ${cardData.type}`,
         cardholder_name: cardData.cardholder_name,
@@ -1290,15 +1162,12 @@ export class UserService {
 
       console.log('Agregando tarjeta de pago:', cardDto);
 
-      // Llamar al endpoint del backend
       return this.http.post<any>(`${this.apiUrl}/${userId}/payment-cards`, cardDto).pipe(
         switchMap(() => {
-          // Después de agregar, obtener la lista actualizada
           return this.getPaymentMethods();
         }),
         tap((cards) => {
           console.log('Tarjetas actualizadas:', cards);
-          // Disparar evento para notificar cambios
           window.dispatchEvent(new CustomEvent('paymentMethodsChanged'));
         }),
         catchError((error: HttpErrorResponse) => {
@@ -1313,14 +1182,11 @@ export class UserService {
     }
   }
 
-  // Método de compatibilidad con código existente
   savePaymentMethod(method: PaymentMethod): Observable<PaymentMethod[]> {
-    // Si es efectivo, no se puede guardar como tarjeta
     if (method.type === 'cash') {
       return of([]);
     }
 
-    // Convertir PaymentMethod al formato esperado por addPaymentCard
     if (!method.cardNumber || !method.expiryMonth || !method.expiryYear) {
       return throwError(() => new Error('Datos de tarjeta incompletos'));
     }
@@ -1359,7 +1225,6 @@ export class UserService {
         return throwError(() => new Error('ID de usuario no encontrado'));
       }
 
-      // Preparar datos para actualizar (solo enviar campos que se actualizan)
       const updateDto: any = {};
       if (cardData.name !== undefined) updateDto.name = cardData.name;
       if (cardData.cardholder_name !== undefined) updateDto.cardholder_name = cardData.cardholder_name;
@@ -1372,10 +1237,8 @@ export class UserService {
 
       console.log(`Actualizando tarjeta en índice ${cardIndex}:`, updateDto);
 
-      // Llamar al endpoint del backend
       return this.http.patch<any>(`${this.apiUrl}/${userId}/payment-cards/${cardIndex}`, updateDto).pipe(
         switchMap(() => {
-          // Después de actualizar, obtener la lista actualizada
           return this.getPaymentMethods();
         }),
         tap((cards) => {
@@ -1394,9 +1257,7 @@ export class UserService {
     }
   }
 
-  // Método de compatibilidad
   updatePaymentMethod(method: PaymentMethod): Observable<PaymentMethod[]> {
-    // Obtener el índice de la tarjeta
     return this.getPaymentMethods().pipe(
       switchMap((methods) => {
         const index = methods.findIndex(m => m.id === method.id);
@@ -1435,13 +1296,11 @@ export class UserService {
       const url = `${this.apiUrl}/${userId}/payment-cards/${cardIndex}`;
       console.log(`   URL: ${url}`);
 
-      // Llamar al endpoint del backend
       return this.http.delete<any>(url).pipe(
         tap((response) => {
           console.log('📦 Respuesta del backend al eliminar:', response);
         }),
         switchMap(() => {
-          // Después de eliminar, obtener la lista actualizada
           return this.getPaymentMethods();
         }),
         tap((cards) => {
@@ -1476,10 +1335,8 @@ export class UserService {
 
       console.log(`Estableciendo tarjeta principal en índice ${cardIndex}`);
 
-      // Llamar al endpoint del backend
       return this.http.patch<any>(`${this.apiUrl}/${userId}/payment-cards/${cardIndex}/primary`, {}).pipe(
         switchMap(() => {
-          // Después de establecer como principal, obtener la lista actualizada
           return this.getPaymentMethods();
         }),
         tap((cards) => {
@@ -1498,9 +1355,7 @@ export class UserService {
     }
   }
 
-  // Método de compatibilidad
   deletePaymentMethod(methodId: string): Observable<PaymentMethod[]> {
-    // Obtener el índice de la tarjeta
     return this.getPaymentMethods().pipe(
       switchMap((methods) => {
         const index = methods.findIndex(m => m.id === methodId);
@@ -1517,7 +1372,6 @@ export class UserService {
   }
 
   getFavoriteDishes(): Observable<MenuItem[]> {
-    // Obtener el userId del usuario actual desde localStorage
     const userInfoStr = localStorage.getItem('userInfo');
     if (!userInfoStr) {
       return of([]);
@@ -1531,7 +1385,6 @@ export class UserService {
         return of([]);
       }
 
-      // Llamar al endpoint del backend para obtener favoritos con detalles
       const url = `${this.apiUrl}/${userId}/favorites`;
       console.log(`📥 Obteniendo favoritos desde: ${url}`);
       
@@ -1540,8 +1393,6 @@ export class UserService {
           console.log('📦 Respuesta completa del backend:', response);
         }),
         map((response: any) => {
-          // El backend devuelve los platos completos
-          // Puede venir como: { favorites: [...] }, { dishes: [...] }, o directamente como array
           const dishes = response.favorites || response.dishes || (Array.isArray(response) ? response : []) || [];
           console.log('🍽️ Platos extraídos:', dishes);
           if (!Array.isArray(dishes)) {
@@ -1549,7 +1400,6 @@ export class UserService {
             return [];
           }
 
-          // Mapear los platos del backend al formato MenuItem
           const menuItems = dishes
             .map((dish: any) => {
               try {
@@ -1565,12 +1415,10 @@ export class UserService {
         }),
         catchError((error: HttpErrorResponse) => {
           console.error('Error al obtener favoritos del backend:', error);
-          // Fallback: intentar obtener de localStorage (solo IDs)
           const storedFavorites = localStorage.getItem(`userFavoriteDishes_${userId}`);
           if (storedFavorites) {
             try {
               const favoriteIds = JSON.parse(storedFavorites);
-              // Si hay IDs guardados, devolver array vacío (no podemos obtener detalles sin backend)
               return of([]);
             } catch (e) {
               return of([]);
@@ -1585,7 +1433,6 @@ export class UserService {
     }
   }
 
-  // Método auxiliar para mapear platos (similar al de MenuService)
   private mapDishToMenuItem(dish: any): MenuItem {
     if (!dish || typeof dish !== 'object') {
       throw new Error('Dish data is invalid');
@@ -1614,7 +1461,6 @@ export class UserService {
       categoryId = String(dish.categoriaId);
     }
     
-    // Mapear opciones
     let options: any[] = [];
     if (Array.isArray(dish.options)) {
       options = dish.options;
@@ -1628,7 +1474,6 @@ export class UserService {
       type: opt.type || opt.tipo || 'extra'
     }));
     
-    // Mapear supplies si existen
     let supplies: any[] | undefined;
     if (dish.supplies && Array.isArray(dish.supplies)) {
       supplies = dish.supplies.map((s: any) => ({
@@ -1670,7 +1515,6 @@ export class UserService {
       const dishIdString = typeof dishId === 'string' ? dishId : dishId.toString();
       const url = `${this.apiUrl}/${userId}/favorites/${dishIdString}`;
 
-      // Llamar al endpoint del backend para agregar favorito
       console.log(`➕ Agregando favorito:`);
       console.log(`   - userId: ${userId}`);
       console.log(`   - dishId: ${dishIdString}`);
@@ -1682,12 +1526,10 @@ export class UserService {
           console.log('Respuesta al agregar favorito:', response);
         }),
         switchMap(() => {
-          // Después de agregar, obtener la lista actualizada de favoritos
           return this.getFavoriteDishes();
         }),
         tap((favorites) => {
           console.log('Favoritos actualizados después de agregar:', favorites);
-          // Disparar evento personalizado para notificar cambios
           window.dispatchEvent(new CustomEvent('favoritesChanged'));
         }),
         catchError((error: HttpErrorResponse) => {
@@ -1721,7 +1563,6 @@ export class UserService {
       const dishIdString = typeof dishId === 'string' ? dishId : dishId.toString();
       const url = `${this.apiUrl}/${userId}/favorites/${dishIdString}`;
 
-      // Llamar al endpoint del backend para eliminar favorito
       console.log(`➖ Eliminando favorito:`);
       console.log(`   - userId: ${userId}`);
       console.log(`   - dishId: ${dishIdString}`);
@@ -1732,12 +1573,10 @@ export class UserService {
           console.log('Respuesta al eliminar favorito:', response);
         }),
         switchMap(() => {
-          // Después de eliminar, obtener la lista actualizada de favoritos
           return this.getFavoriteDishes();
         }),
         tap((favorites) => {
           console.log('Favoritos actualizados después de eliminar:', favorites);
-          // Disparar evento personalizado para notificar cambios
           window.dispatchEvent(new CustomEvent('favoritesChanged'));
         }),
         catchError((error: HttpErrorResponse) => {
@@ -1770,17 +1609,14 @@ export class UserService {
 
       const dishIdString = typeof dishId === 'string' ? dishId : dishId.toString();
 
-      // Llamar al endpoint del backend para verificar si es favorito
       return this.http.get<{ isFavorite: boolean }>(`${this.apiUrl}/${userId}/favorites/${dishIdString}/check`).pipe(
         map((response: any) => {
-          // El backend puede devolver { isFavorite: true/false } o directamente true/false
           if (typeof response === 'boolean') {
             return response;
           }
           return response.isFavorite === true || response.favorite === true;
         }),
         catchError((error: HttpErrorResponse) => {
-          // Si falla, intentar verificar localmente como fallback
           console.warn('Error al verificar favorito en backend, usando fallback:', error);
           return this.getFavoriteDishes().pipe(
             map((favorites: MenuItem[]) => favorites.some(fav => String(fav.id) === dishIdString))
@@ -1794,7 +1630,6 @@ export class UserService {
   }
 
   toggleFavorite(dishId: number | string): Observable<MenuItem[]> {
-    // Primero verificar si es favorito
     return this.isFavorite(dishId).pipe(
       switchMap((isFav: boolean) => {
         if (isFav) {

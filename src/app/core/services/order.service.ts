@@ -74,11 +74,6 @@ export class OrderService {
     );
   }
 
-  /**
-   * Actualiza solo el estado de una orden usando el endpoint específico /orders/:id/status
-   * @param id ID de la orden
-   * @param status Nuevo estado (pendiente, Preparando, listo, entregado, cancelado)
-   */
   updateStatus(id: string, status: string): Observable<OrderResponse> {
     return this.http.patch<OrderResponse>(`${this.apiUrl}/${id}/status`, { status }).pipe(
       catchError((error: HttpErrorResponse) => {
@@ -114,15 +109,15 @@ export class OrderService {
     const statusMap: Record<string, Order['status']> = {
       'pendiente': 'pending',
       'Preparando': 'preparing',
-      'preparando': 'preparing', // Por si viene en minúsculas
-      'en_proceso': 'preparing', // Compatibilidad con formato anterior
+      'preparando': 'preparing',
+      'en_proceso': 'preparing',
       'listo': 'ready',
-      'Listo': 'ready', // Por si viene con mayúscula
-      'completado': 'ready', // Compatibilidad con formato anterior
+      'Listo': 'ready',
+      'completado': 'ready',
       'entregado': 'delivered',
-      'Entregado': 'delivered', // Por si viene con mayúscula
+      'Entregado': 'delivered',
       'cancelado': 'cancelled',
-      'Cancelado': 'cancelled' // Por si viene con mayúscula
+      'Cancelado': 'cancelled'
     };
     return statusMap[backendStatus] || 'pending';
   }
@@ -138,10 +133,6 @@ export class OrderService {
     return statusMap[frontendStatus] || 'pendiente';
   }
 
-  /**
-   * Mapea el estado del frontend al formato que espera el endpoint /orders/:id/status
-   * Estados válidos: pendiente, Preparando, listo, entregado, cancelado
-   */
   mapFrontendStatusToStatusEndpoint(frontendStatus: Order['status']): string {
     const statusMap: Record<Order['status'], string> = {
       'pending': 'pendiente',

@@ -27,7 +27,6 @@ export class ErrorHandlerService {
           errorMessage = 'No se pudo conectar con el servidor. Verifique su conexión a internet.';
           break;
         case 400:
-          // Intentar obtener el mensaje específico del backend
           if (error.error?.message) {
             errorMessage = error.error.message;
           } else if (error.error?.error) {
@@ -111,7 +110,6 @@ export class ErrorHandlerService {
             this.notificationService.showError(errorMessage);
             break;
           case 400:
-            // Intentar obtener el mensaje del backend de diferentes formas
             errorMessage = error.error?.message || 
                           error.error?.error?.message || 
                           (Array.isArray(error.error?.message) ? error.error.message.join(', ') : error.error?.message) ||
@@ -129,7 +127,6 @@ export class ErrorHandlerService {
         }
       }
     }
-    // Crear un error con el mensaje y también incluir el error original
     const customError: any = new Error(errorMessage);
     customError.originalError = error;
     customError.error = error.error;

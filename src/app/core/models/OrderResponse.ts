@@ -19,7 +19,7 @@ export interface OrderFromBackend {
   usuarioId: string;
   total: number;
   payment_method: string;
-  products: ProductOrderItem[] | string[]; // Puede ser array de ProductOrderItem o array de IDs (legacy)
+  products: ProductOrderItem[] | string[];
   status: 'pendiente' | 'en_proceso' | 'completado' | 'cancelado';
   user_name: string;
   createdAt?: string;

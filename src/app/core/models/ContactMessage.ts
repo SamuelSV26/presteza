@@ -7,7 +7,6 @@ export interface CreateContactMessageDto {
   message: string;
 }
 
-// DTO para enviar al backend (mapea los campos del frontend a los del backend)
 export interface CreateCommentDto {
   user_name: string;
   user_email: string;
@@ -16,7 +15,6 @@ export interface CreateCommentDto {
   user_comment: string;
 }
 
-// Respuesta del backend (schema Comment)
 export interface CommentFromBackend {
   _id?: string;
   id?: string;
@@ -29,7 +27,6 @@ export interface CommentFromBackend {
   updatedAt?: string;
 }
 
-// Mantener compatibilidad con el código existente
 export interface ContactMessageFromBackend {
   _id?: string;
   id?: string;

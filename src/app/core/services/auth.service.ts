@@ -53,7 +53,6 @@ constructor(
       password
     }).pipe(
       tap(response => {
-        // Obtener el userId y email del token antes de limpiar (si existe)
         let oldUserId: string | null = null;
         let oldEmail: string | null = null;
         const oldUserInfoStr = localStorage.getItem('userInfo');
@@ -63,11 +62,9 @@ constructor(
             oldUserId = oldUserInfo.userId || oldUserInfo.email;
             oldEmail = oldUserInfo.email;
           } catch (e) {
-            // Ignorar error
           }
         }
 
-        // Preservar datos del usuario antes de limpiar (buscar con userId y email)
         let preservedData: any = {};
         if (oldUserId) {
           preservedData.userProfile = localStorage.getItem(`userProfile_${oldUserId}`);
@@ -76,8 +73,7 @@ constructor(
           preservedData.userFavoriteDishes = localStorage.getItem(`userFavoriteDishes_${oldUserId}`);
           preservedData.userOrders = localStorage.getItem(`userOrders_${oldUserId}`);
           preservedData.userPhone = localStorage.getItem('userPhone');
-          
-          // También buscar con email como clave (por si acaso)
+
           if (oldEmail && oldEmail !== oldUserId) {
             if (!preservedData.userProfile) {
               preservedData.userProfile = localStorage.getItem(`userProfile_${oldEmail}`);
@@ -97,9 +93,8 @@ constructor(
           }
         }
 
-        // Limpiar todo
         localStorage.clear();
-        
+
         let token: string | undefined;
         if (response.token) {
           token = response.token;
@@ -117,19 +112,17 @@ constructor(
         const payload = this.decodeToken(token);
         const userRole = payload?.role || payload?.userRole || payload?.rol || payload?.type || 'client';
         this.decodeAndStoreUserInfo(token);
-        
-        // Obtener el nuevo userId después de decodificar el token
+
         const newUserInfo = this.getUserInfo();
         const newUserId = newUserInfo?.userId || newUserInfo?.email;
         const newEmail = newUserInfo?.email;
-        
-        // Restaurar datos del usuario si es el mismo usuario (comparar por email o userId)
+
         const isSameUser = newUserId && oldUserId && (
           newUserId === oldUserId || 
           newEmail === oldEmail ||
           (newUserInfo?.email && newUserInfo.email === oldEmail)
         );
-        
+
         if (isSameUser && newUserId) {
           if (preservedData.userProfile) {
             localStorage.setItem(`userProfile_${newUserId}`, preservedData.userProfile);
@@ -150,7 +143,7 @@ constructor(
             localStorage.setItem('userPhone', preservedData.userPhone);
           }
         }
-        
+
         this.tokenSubject.next(token);
         this.userInfoSubject.next(this.getUserInfo());
         const event = new CustomEvent('userLoggedIn', {
@@ -179,15 +172,11 @@ constructor(
   }
 
   logout(): void {
-    // Obtener el userId y email antes de limpiar
     const userInfo = this.getUserInfo();
     const userId = userInfo?.userId || userInfo?.email;
     const email = userInfo?.email;
-    
-    // Guardar datos del usuario antes de limpiar (para preservarlos)
-    // Buscar con userId y también con email por si acaso
     let preservedData: any = {};
-    
+
     if (userId) {
       preservedData.userProfile = localStorage.getItem(`userProfile_${userId}`);
       preservedData.userAddresses = localStorage.getItem(`userAddresses_${userId}`);
@@ -195,8 +184,7 @@ constructor(
       preservedData.userFavoriteDishes = localStorage.getItem(`userFavoriteDishes_${userId}`);
       preservedData.userOrders = localStorage.getItem(`userOrders_${userId}`);
       preservedData.userPhone = localStorage.getItem('userPhone');
-      
-      // También buscar con email si es diferente
+
       if (email && email !== userId) {
         if (!preservedData.userProfile) {
           preservedData.userProfile = localStorage.getItem(`userProfile_${email}`);
@@ -216,12 +204,9 @@ constructor(
       }
     }
     
-    // Limpiar todo
     localStorage.clear();
     sessionStorage.clear();
     
-    // Restaurar datos del usuario (sin información de autenticación)
-    // Usar userId o email, el que esté disponible
     const restoreKey = userId || email;
     if (restoreKey) {
       if (preservedData.userProfile) {
@@ -375,11 +360,9 @@ constructor(
       }
       localStorage.setItem('userInfo', JSON.stringify(userInfo));
       
-      // Guardar el teléfono del token (priorizar phone_number que es lo que envía el backend)
       const phoneNumber = payload.phone_number || payload.phone;
       if (phoneNumber) {
         localStorage.setItem('userPhone', phoneNumber);
-        // También actualizar el perfil si ya existe
         if (newUserId) {
           const existingProfileStr = localStorage.getItem(`userProfile_${newUserId}`);
           if (existingProfileStr) {

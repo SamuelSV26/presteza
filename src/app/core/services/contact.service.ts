@@ -23,7 +23,6 @@ export class ContactService {
     private errorHandler: ErrorHandlerService
   ) {}
 
-  // Mapear DTO del frontend al formato del backend
   private mapToBackendDto(dto: CreateContactMessageDto): CreateCommentDto {
     return {
       user_name: dto.name,
@@ -34,9 +33,7 @@ export class ContactService {
     };
   }
 
-  // Mapear respuesta del backend al formato del frontend
   private mapCommentToContactMessage(comment: CommentFromBackend): ContactMessageFromBackend {
-    // Validar que el comentario tenga los campos necesarios
     if (!comment) {
       console.error('Comentario nulo o indefinido recibido del backend');
       throw new Error('Comentario inválido recibido del backend');
@@ -50,7 +47,7 @@ export class ContactService {
       phone: comment.user_phone || '',
       subject: comment.user_title || '',
       message: comment.user_comment || '',
-      read: false, // El backend no tiene este campo, se maneja en el frontend si es necesario
+      read: false,
       createdAt: comment.createdAt || new Date().toISOString(),
       updatedAt: comment.updatedAt || comment.createdAt || new Date().toISOString()
     };
@@ -71,24 +68,19 @@ export class ContactService {
   findAll(): Observable<ContactMessageFromBackend[]> {
     return this.http.get<any>(this.apiUrl).pipe(
       map(response => {
-        // Manejar diferentes formatos de respuesta del backend
         let comments: CommentFromBackend[] = [];
         
         if (Array.isArray(response)) {
-          // Si la respuesta es directamente un array
           comments = response;
         } else if (response.comments && Array.isArray(response.comments)) {
-          // Si la respuesta está dentro de un objeto con propiedad 'comments'
           comments = response.comments;
         } else if (response.data && Array.isArray(response.data)) {
-          // Si la respuesta está dentro de un objeto con propiedad 'data'
           comments = response.data;
         } else {
           console.warn('Formato de respuesta inesperado del backend:', response);
           comments = [];
         }
         
-        // Mapear comentarios con manejo de errores individual
         const mappedMessages: ContactMessageFromBackend[] = [];
         comments.forEach((comment, index) => {
           try {
@@ -96,7 +88,6 @@ export class ContactService {
             mappedMessages.push(mapped);
           } catch (error) {
             console.error(`Error al mapear comentario en índice ${index}:`, error, comment);
-            // Continuar con los demás comentarios aunque uno falle
           }
         });
         
@@ -121,8 +112,6 @@ export class ContactService {
   }
 
   markAsRead(id: string): Observable<ContactMessageFromBackend> {
-    // El backend no tiene un campo "read", pero podemos mantener esta funcionalidad
-    // en el frontend si es necesario. Por ahora, solo retornamos el mensaje.
     return this.findOne(id);
   }
 
@@ -138,7 +127,6 @@ export class ContactService {
   mapBackendMessageToFrontend(backendMessage: ContactMessageFromBackend): ContactMessage {
     const messageId = backendMessage._id || backendMessage.id || '';
     
-    // Función helper para convertir fechas de forma segura
     const parseDate = (dateValue: string | Date | undefined): Date | undefined => {
       if (!dateValue) return undefined;
       if (dateValue instanceof Date) return dateValue;

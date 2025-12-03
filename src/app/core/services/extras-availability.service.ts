@@ -127,8 +127,6 @@ export class ExtrasAvailabilityService {
   }
 
   private getDefaultExtras(): ExtraAvailability[] {
-    // Los adicionales ahora se gestionan desde el backend (AddsService)
-    // Retornar array vacío para evitar conflictos
     return [];
   }
 }

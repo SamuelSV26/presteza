@@ -1,10 +1,8 @@
 <section class="admin-dashboard">
   <div class="admin-container-wrapper">
-    <!-- Overlay para móvil -->
     <div class="sidebar-overlay" [class.active]="sidebarOpen && isMobile()" (click)="toggleSidebar()"></div>
     
     <div class="container-fluid admin-container">
-    <!-- Navegación Lateral -->
     <div class="admin-sidebar" [class.sidebar-open]="sidebarOpen">
       <nav class="admin-nav">
         <button
@@ -91,9 +89,7 @@
       </div>
     </div>
 
-    <!-- Contenido Principal -->
     <div class="admin-content">
-      <!-- Botón para abrir/cerrar sidebar en móvil -->
       <button 
         class="mobile-sidebar-toggle" 
         *ngIf="isMobile()" 
@@ -102,7 +98,6 @@
         <i class="bi" [ngClass]="sidebarOpen ? 'bi-x-lg' : 'bi-list'"></i>
       </button>
       
-      <!-- Mensaje de Bienvenida -->
       <div class="welcome-section">
         <h1 class="welcome-title">
           <i class="bi bi-hand-thumbs-up"></i>
@@ -111,11 +106,8 @@
         <p class="welcome-subtitle">Gestiona tu restaurante desde aquí</p>
       </div>
 
-      <!-- Tab: Dashboard -->
       <div *ngIf="activeTab === 'dashboard'" class="tab-content">
         <h2 class="section-title">Resumen General</h2>
-
-        <!-- Tarjetas de Estadísticas -->
         <div class="stats-grid">
           <div class="stat-card stat-primary">
             <div class="stat-icon">
@@ -198,7 +190,6 @@
           </div>
         </div>
 
-        <!-- Pedidos Recientes -->
         <div class="recent-orders-card">
           <div class="card-header">
             <h3 class="card-title">Pedidos Recientes</h3>
@@ -239,7 +230,6 @@
         </div>
       </div>
 
-      <!-- Tab: Productos -->
       <div *ngIf="activeTab === 'products'" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">Gestión de Productos</h2>
@@ -267,7 +257,6 @@
           </div>
         </div>
 
-        <!-- Filtros y Búsqueda -->
         <div class="filters-section">
           <input
             type="text"
@@ -285,7 +274,6 @@
           </select>
         </div>
 
-        <!-- Vista de Lista -->
         <div *ngIf="productViewMode === 'list'" class="products-table-card">
           <table class="admin-table">
             <thead>
@@ -331,7 +319,6 @@
           </table>
         </div>
 
-        <!-- Vista de Grid -->
         <div *ngIf="productViewMode === 'grid'" class="products-grid-view">
           <div class="products-grid">
             <div *ngFor="let product of getFilteredProducts()" class="product-card-grid">
@@ -377,13 +364,11 @@
         </div>
       </div>
 
-      <!-- Tab: Pedidos -->
       <div *ngIf="activeTab === 'orders'" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">Gestión de Pedidos</h2>
         </div>
 
-        <!-- Filtros y Controles -->
         <div class="filters-section">
           <div class="filters-top-row">
             <div class="filter-tabs">
@@ -436,7 +421,6 @@
           </div>
         </div>
 
-        <!-- Lista de Pedidos -->
         <div class="orders-container-admin" [ngClass]="'view-' + orderViewMode">
           <div *ngFor="let order of getFilteredOrders(); trackBy: trackByOrderId"
                class="order-card-admin"
@@ -507,7 +491,6 @@
               </div>
             </div>
 
-            <!-- Vista compacta para cuadrícula -->
             <div class="order-items-compact" *ngIf="orderViewMode === 'grid'">
               <div class="items-count-badge">
                 <i class="bi bi-bag-check me-1"></i>
@@ -562,7 +545,6 @@
           </div>
         </div>
 
-        <!-- Modal de Detalles del Pedido -->
         <div class="modal-overlay" *ngIf="showOrderDetailsModal && selectedOrder" (click)="closeOrderDetailsModal()">
           <div class="modal-content order-details-modal" (click)="$event.stopPropagation()">
             <div class="modal-header">
@@ -650,7 +632,6 @@
           </div>
         </div>
 
-        <!-- Modal para Manejar Producto No Disponible -->
         <div class="modal-overlay" *ngIf="showUnavailableModal" (click)="closeUnavailableModal()">
           <div class="modal-content unavailable-modal" (click)="$event.stopPropagation()">
             <div class="modal-header">
@@ -699,7 +680,6 @@
         </div>
       </div>
 
-      <!-- Tab: Categorías -->
       <div *ngIf="activeTab === 'categories'" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">Gestión de Categorías</h2>
@@ -730,7 +710,6 @@
         </div>
       </div>
 
-      <!-- Tab: Inventario -->
       <div *ngIf="activeTab === 'inventory'" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">Gestión de Inventario</h2>
@@ -740,7 +719,6 @@
           </button>
         </div>
 
-        <!-- Filtros -->
         <div class="filters-section">
           <div class="filter-tabs">
             <button class="filter-tab" [class.active]="supplyFilter === 'all'" (click)="supplyFilter = 'all'; loadSupplies()">
@@ -755,7 +733,6 @@
           </div>
         </div>
 
-        <!-- Lista de Insumos -->
         <div class="supplies-list">
           <div *ngFor="let supply of supplies" class="supply-card">
             <div class="supply-header">
@@ -807,13 +784,11 @@
         </div>
       </div>
 
-      <!-- Tab: Reservas -->
       <div *ngIf="activeTab === 'reservations'" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">Gestión de Reservas</h2>
         </div>
 
-        <!-- Filtros y Controles -->
         <div class="filters-section">
           <div class="filters-top-row">
             <div class="filter-tabs">
@@ -843,7 +818,6 @@
           </div>
         </div>
 
-        <!-- Lista de Reservas -->
         <div class="reservations-container-admin">
           <div *ngFor="let reservation of getFilteredReservations()" class="reservation-card-admin">
             <div class="reservation-header-admin">
@@ -919,7 +893,6 @@
         </div>
       </div>
 
-      <!-- Tab: Adicionales -->
       <div *ngIf="activeTab === 'extras'" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">
@@ -941,7 +914,6 @@
           También puedes combinar ambos métodos.
         </div>
 
-        <!-- Buscador -->
         <div class="search-section mb-3">
           <input
             type="text"
@@ -950,7 +922,6 @@
             [(ngModel)]="addSearchTerm">
         </div>
 
-        <!-- Grid de Adicionales -->
         <div class="extras-grid" *ngIf="filteredAdds.length > 0">
           <div *ngFor="let add of filteredAdds" class="extra-card" [class.unavailable]="!add.available">
             <div class="extra-card-header">
@@ -1029,7 +1000,6 @@
         </div>
       </div>
 
-      <!-- Modal para Crear/Editar Adicional -->
       <div *ngIf="showAddModal" class="modal-overlay" (click)="closeAddModal()">
         <div class="modal-content modal-large" (click)="$event.stopPropagation()">
           <div class="modal-header">
@@ -1068,7 +1038,6 @@
                 </div>
               </div>
 
-              <!-- Selector de modo: Categorías o Productos Específicos -->
               <div class="form-group">
                 <label class="form-label">Disponibilidad del Adicional *</label>
                 <div class="selection-mode-tabs mb-3">
@@ -1096,7 +1065,6 @@
                 </div>
               </div>
 
-              <!-- Selección por Categorías -->
               <div class="form-group" *ngIf="addSelectionMode === 'categories' || addSelectionMode === 'both'">
                 <label class="form-label">
                   Categorías
@@ -1130,7 +1098,6 @@
                 </div>
               </div>
 
-              <!-- Selección por Productos Específicos -->
               <div class="form-group" *ngIf="addSelectionMode === 'products' || addSelectionMode === 'both'">
                 <label class="form-label">
                   Productos Específicos
@@ -1186,7 +1153,6 @@
         </div>
       </div>
 
-      <!-- Tab: Mensajes de Contacto -->
       <div *ngIf="activeTab === 'messages'" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">
@@ -1195,7 +1161,6 @@
           </h2>
         </div>
 
-        <!-- Filtros -->
         <div class="filters-section">
           <div class="filters-top-row">
             <div class="filter-tabs">
@@ -1212,7 +1177,6 @@
           </div>
         </div>
 
-        <!-- Lista de Mensajes -->
         <div class="messages-container-admin">
           <div *ngFor="let message of getFilteredMessages()" class="message-card-admin" [class.unread]="!message.read">
             <div class="message-header-admin">
@@ -1278,7 +1242,6 @@
         </div>
       </div>
 
-      <!-- Modal de Mensaje -->
       <div *ngIf="showMessageModal && selectedMessage" class="modal-overlay" (click)="closeMessageModal()">
         <div class="modal-content modal-large" (click)="$event.stopPropagation()">
           <div class="modal-header">
@@ -1329,7 +1292,6 @@
         </div>
       </div>
 
-      <!-- Tab: Clientes -->
       <div *ngIf="activeTab === 'customers'" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">
@@ -1356,7 +1318,6 @@
           </div>
         </div>
 
-        <!-- Filtros y Búsqueda -->
         <div class="customer-filter-section">
           <div class="customer-filter-tabs">
             <button class="customer-filter-tab" [class.active]="customerFilter === 'all'" (click)="customerFilter = 'all'">
@@ -1382,7 +1343,6 @@
           </div>
         </div>
 
-        <!-- Vista de Lista -->
         <div *ngIf="customerViewMode === 'list'" class="customers-container-admin">
           <div *ngFor="let customer of getFilteredCustomers()" class="customer-card-admin" [class.active]="customer.status === 'active'">
             <div class="customer-header-admin">
@@ -1454,7 +1414,6 @@
           </div>
         </div>
 
-        <!-- Vista de Grid -->
         <div *ngIf="customerViewMode === 'grid'" class="customers-grid-view">
           <div *ngFor="let customer of getFilteredCustomers()" class="customer-card-compact" [class.active]="customer.status === 'active'">
             <div class="customer-card-compact-header">
@@ -1502,7 +1461,6 @@
         </div>
       </div>
 
-      <!-- Modal de Detalles de Cliente -->
       <div *ngIf="showCustomerModal && selectedCustomer" class="modal-overlay" (click)="closeCustomerModal()">
         <div class="modal-content customer-details-modal" (click)="$event.stopPropagation()">
           <div class="modal-header">
@@ -1625,7 +1583,6 @@
               </div>
             </div>
 
-            <!-- Formulario de Edición -->
             <div *ngIf="isEditingCustomer" class="customer-edit-form">
               <h4 class="customer-details-section-title">
                 <i class="bi bi-pencil"></i>
@@ -1681,7 +1638,6 @@
         </div>
       </div>
 
-      <!-- Modal para Crear Admin -->
       <div *ngIf="showAdminModal" class="modal-overlay" (click)="closeAdminModal()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
@@ -1746,12 +1702,10 @@
         </div>
       </div>
 
-      <!-- Tab: Configuración -->
       <div *ngIf="activeTab === 'settings'" class="tab-content">
         <h2 class="section-title">Configuración</h2>
 
         <form [formGroup]="settingsForm" (ngSubmit)="onSettingsSubmit()" class="settings-form">
-          <!-- Información General -->
           <div class="settings-section">
             <h3 class="settings-section-title">
               <i class="bi bi-info-circle"></i>
@@ -1777,7 +1731,6 @@
             </div>
           </div>
 
-          <!-- Horarios -->
           <div class="settings-section">
             <h3 class="settings-section-title">
               <i class="bi bi-clock"></i>
@@ -1795,7 +1748,6 @@
             </div>
           </div>
 
-          <!-- Opciones de Servicio -->
           <div class="settings-section">
             <h3 class="settings-section-title">
               <i class="bi bi-truck"></i>
@@ -1817,7 +1769,6 @@
             </div>
           </div>
 
-          <!-- Configuración de Pedidos -->
           <div class="settings-section">
             <h3 class="settings-section-title">
               <i class="bi bi-gear"></i>
@@ -1852,7 +1803,6 @@
         </form>
       </div>
 
-      <!-- Modal de Producto -->
       <div *ngIf="showProductModal" class="modal-overlay" (click)="closeProductModal()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
@@ -1926,7 +1876,6 @@
         </div>
       </div>
 
-      <!-- Modal de Categoría -->
       <div *ngIf="showCategoryModal" class="modal-overlay" (click)="closeCategoryModal()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
@@ -1969,7 +1918,6 @@
         </div>
       </div>
 
-      <!-- Modal de Inventario/Insumo -->
       <div *ngIf="showSupplyModal" class="modal-overlay" (click)="closeSupplyModal()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">

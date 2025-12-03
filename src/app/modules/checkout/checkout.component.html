@@ -12,7 +12,6 @@
             <h2 class="checkout-title">Finalizar Pedido</h2>
           </div>
 
-          <!-- Tipo de Pedido -->
           <div class="checkout-section">
             <h3 class="section-title">
               <i class="bi bi-truck me-2"></i>
@@ -42,14 +41,12 @@
             </div>
           </div>
 
-          <!-- Información de Entrega (solo si es a domicilio) -->
           <div class="checkout-section" *ngIf="orderType === 'delivery'">
             <h3 class="section-title">
               <i class="bi bi-geo-alt me-2"></i>
               Información de Entrega
             </h3>
 
-            <!-- Direcciones Guardadas (si hay) -->
             <div *ngIf="savedAddresses.length > 0" class="saved-addresses mb-4">
               <label class="section-subtitle">Direcciones Guardadas</label>
               <div class="saved-addresses-list">
@@ -85,7 +82,6 @@
               </div>
             </div>
 
-            <!-- Indicador de Dirección Guardada -->
             <div *ngIf="useSavedAddress && selectedSavedAddress" class="saved-address-indicator mb-4">
               <div class="saved-address-info-display">
                 <i class="bi bi-check-circle-fill"></i>
@@ -127,15 +123,12 @@
             </form>
           </div>
 
-          <!-- Método de Pago -->
           <div class="checkout-section">
             <h3 class="section-title">
               <i class="bi bi-wallet2 me-2"></i>
               Método de Pago
             </h3>
 
-            <!-- Métodos de Pago Guardados (si hay) -->
-            <!-- Tarjetas Guardadas -->
             <div *ngIf="savedPaymentMethods.length > 0" class="saved-payment-methods mb-4">
               <label class="section-subtitle">
                 <i class="bi bi-credit-card-2-front me-2"></i>
@@ -219,7 +212,6 @@
               </label>
             </div>
 
-            <!-- Indicador de Tarjeta Guardada -->
             <div *ngIf="paymentMethod === 'card' && useSavedCard && selectedSavedMethod" class="saved-card-indicator mt-4">
               <div class="saved-card-info">
                 <i class="bi bi-check-circle-fill"></i>
@@ -227,7 +219,6 @@
               </div>
             </div>
 
-            <!-- Formulario de Tarjeta (solo si es tarjeta y no usa tarjeta guardada) -->
             <div *ngIf="paymentMethod === 'card' && !useSavedCard" class="card-form mt-4">
               <form [formGroup]="paymentForm" class="payment-form">
                 <div class="form-group">
@@ -255,7 +246,6 @@
               </form>
             </div>
 
-            <!-- Información de pago digital (Nequi/Daviplata) -->
             <div *ngIf="paymentMethod === 'nequi' || paymentMethod === 'daviplata'" class="digital-payment-info mt-4">
               <div class="payment-info-card" *ngIf="showPaymentInfo; else paymentInfoPending">
                 <div class="payment-info-header">
@@ -317,7 +307,6 @@
               </ng-template>
             </div>
 
-            <!-- Información de transferencia -->
             <div *ngIf="paymentMethod === 'transfer'" class="transfer-info mt-4">
               <div class="payment-info-card" *ngIf="showPaymentInfo; else transferInfoPending">
                 <div class="payment-info-header">
@@ -384,12 +373,10 @@
         </div>
       </div>
 
-      <!-- Columna Derecha: Resumen del Pedido -->
       <div class="col-lg-5">
         <div class="checkout-summary">
           <h3 class="summary-title">Resumen del Pedido</h3>
 
-          <!-- Items del Carrito -->
           <div class="summary-items">
             <div *ngFor="let item of cartItems$ | async" class="summary-item">
               <div class="item-info">
@@ -402,7 +389,6 @@
             </div>
           </div>
 
-          <!-- Totales -->
           <div class="summary-totals">
             <div class="total-row">
               <span>Subtotal:</span>
@@ -421,7 +407,6 @@
             </div>
           </div>
 
-          <!-- Botón de Confirmar -->
           <button
             class="btn-confirm-order"
             (click)="proceedToPayment()"

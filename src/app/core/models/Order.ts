@@ -24,10 +24,10 @@ export interface Order {
   deliveryPhone?: string;
   deliveryInstructions?: string;
   paymentMethod?: string;
-  paymentInfo?: any; // Información adicional del pago (puede variar según el método)
+  paymentInfo?: any; 
   subtotal?: number;
   additionalFees?: number;
-  userName?: string; // Nombre del usuario que hizo el pedido
-  statusChangedByAdmin?: boolean; // Indica si el estado fue cambiado por el admin (para completar la barra de progreso)
-  lastStatusChangeTime?: Date; // Fecha del último cambio de estado
+  userName?: string;
+  statusChangedByAdmin?: boolean;
+  lastStatusChangeTime?: Date;
 }

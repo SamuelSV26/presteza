@@ -87,7 +87,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   extraForm: FormGroup;
   showExtraFormModal = false;
 
-  // Adicionales del backend
   adds: Add[] = [];
   selectedAdd: Add | null = null;
   showAddModal = false;
@@ -100,7 +99,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   showMessageModal = false;
   messageFilter: 'all' | 'unread' | 'read' = 'all';
 
-  // Clientes
   customers: any[] = [];
   selectedCustomer: any | null = null;
   showCustomerModal = false;
@@ -110,7 +108,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   customerForm: FormGroup;
   isEditingCustomer = false;
 
-  // Admins
   showAdminModal = false;
   adminForm: FormGroup;
   get pendingOrdersCount(): number {
@@ -186,12 +183,11 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       available: [true]
     });
 
-    // Formulario para adicionales del backend (con categorías y productos)
     this.addForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       price: [0, [Validators.required, Validators.min(1)]],
       categoryIds: [[]],
-      dishIds: [[]], // IDs de productos específicos
+      dishIds: [[]],
       available: [true]
     });
 
@@ -209,7 +205,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       address: ['']
     });
 
-    // Formulario para crear nuevos admins
     this.adminForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       email: ['', [Validators.required, Validators.email]],
@@ -221,7 +216,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Verificación de seguridad adicional en el componente (doble capa de protección)
     if (!this.authService.isAuthenticated()) {
       this.notificationService.showError('⚠ No tienes permisos de administrador. Debes iniciar sesión como administrador para acceder a esta sección.');
       this.router.navigate(['/login']);
@@ -234,10 +228,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Inicializar sidebar según el tamaño de pantalla
     this.sidebarOpen = !this.isMobile();
 
-    // Listener para cambios de tamaño de ventana
     this.resizeListener = () => {
       if (!this.isMobile()) {
         this.sidebarOpen = true;
@@ -257,13 +249,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.loadReservations();
     this.loadExtras();
     this.loadCustomers();
-    // Los mensajes se cargan solo cuando el usuario accede a la pestaña
-    // Limpiar intervalo anterior si existe
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
     }
     this.refreshInterval = setInterval(() => {
-      // Verificar autenticación antes de cargar datos
       if (!this.authService.isAuthenticated() || !this.authService.isAdmin()) {
         if (this.refreshInterval) {
           clearInterval(this.refreshInterval);
@@ -320,7 +309,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   openProductModal(product?: MenuItem): void {
     this.isViewingProduct = false;
     this.selectedProduct = product || null;
-    this.productForm.enable(); // Asegurar que el formulario esté habilitado para editar
+    this.productForm.enable();
     if (product) {
       this.productForm.patchValue({
         name: product.name,
@@ -349,7 +338,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       imageUrl: product.imageUrl || '',
       available: product.available
     });
-    this.productForm.disable(); // Deshabilitar el formulario para solo ver
+    this.productForm.disable();
     this.showProductModal = true;
   }
 
@@ -358,7 +347,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.selectedProduct = null;
     this.isViewingProduct = false;
     this.productForm.reset();
-    this.productForm.enable(); // Habilitar el formulario al cerrar
+    this.productForm.enable();
   }
 
   saveProduct(): void {
@@ -372,7 +361,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
       const productName = formValue.name.trim();
 
-      // Validar duplicados (solo al crear, no al editar)
       if (!this.selectedProduct) {
         const duplicateProduct = this.products.find(
           p => p.name.toLowerCase().trim() === productName.toLowerCase().trim()
@@ -385,7 +373,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           return;
         }
       } else {
-        // Al editar, verificar que no haya otro producto con el mismo nombre (excluyendo el actual)
         const duplicateProduct = this.products.find(
           p => p.id !== this.selectedProduct?.id &&
             p.name.toLowerCase().trim() === productName.toLowerCase().trim()
@@ -543,15 +530,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.orderService.findAll().subscribe({
       next: (response) => {
         this.orders = response.orders.map(backendOrder => this.mapBackendOrderToFrontend(backendOrder));
-        // Ordenar por fecha/hora de creación descendente (más recientes primero)
         this.orders.sort((a, b) => {
           const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
           const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
-          // Ordenar por fecha descendente (más recientes primero)
           return dateB - dateA;
         });
         this.calculateStats();
-        // Actualizar clientes cuando se cargan pedidos
         if (this.activeTab === 'customers') {
           this.loadCustomers();
         }
@@ -568,7 +552,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             return String(b.id).localeCompare(String(a.id));
           });
           this.calculateStats();
-          // Actualizar clientes cuando se cargan pedidos
           if (this.activeTab === 'customers') {
             this.loadCustomers();
           }
@@ -594,7 +577,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           this.orderService.remove(order.id).pipe(
             catchError(error => {
               console.error(`Error al eliminar pedido ${order.id}:`, error);
-              // Continuar aunque falle uno
               return of(null);
             })
           )
@@ -605,7 +587,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             const successCount = results.filter(r => r !== null).length;
             const failCount = results.length - successCount;
 
-            // Limpiar también el localStorage
             try {
               for (let i = localStorage.length - 1; i >= 0; i--) {
                 const key = localStorage.key(i);
@@ -621,7 +602,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
               this.notificationService.showSuccess(
                 `Se eliminaron ${successCount} pedido(s)${failCount > 0 ? `. ${failCount} pedido(s) no se pudieron eliminar.` : ''}`
               );
-              this.loadOrders(); // Recargar pedidos
+              this.loadOrders();
             } else {
               this.notificationService.showError('No se pudo eliminar ningún pedido. Por favor, intenta nuevamente.');
             }
@@ -638,16 +619,11 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private mapBackendOrderToFrontend(backendOrder: OrderFromBackend): Order {
     const orderId = backendOrder._id || backendOrder.id || '';
     let detailedOrder: Order | null = null;
-    // NO buscar en localStorage para evitar mostrar pedidos duplicados o antiguos
-    // Los pedidos deben venir únicamente del backend
-    // detailedOrder siempre será null ahora, ya que no buscamos en localStorage
     let orderItems: any[] = [];
     if (orderItems.length === 0) {
-      // Verificar si products es un array de ProductOrderItem o de strings (IDs)
       if (backendOrder.products && backendOrder.products.length > 0) {
         const firstProduct = backendOrder.products[0];
         if (typeof firstProduct === 'object' && 'name' in firstProduct) {
-          // Es un array de ProductOrderItem
           orderItems = (backendOrder.products as any[]).map((product: any) => {
             const selectedOptions = product.adds ? product.adds.map((add: any) => ({
               id: add.addId || '',
@@ -665,7 +641,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             };
           });
         } else {
-          // Es un array de strings (IDs) - legacy
           orderItems = (backendOrder.products as string[]).map(productId => {
             const product = this.products.find(p => String(p.id) === String(productId));
             const productIdNumber = typeof product?.id === 'number'
@@ -686,7 +661,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     const mappedStatus = this.mapBackendStatusToFrontend(backendOrder.status);
     const orderTotal = backendOrder.total || 0;
 
-    // Usar createdAt del backend para la fecha exacta
     const orderDate = backendOrder.createdAt
       ? new Date(backendOrder.createdAt)
       : new Date();
@@ -725,22 +699,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       'pending': 'pendiente',
       'preparing': 'en_proceso',
       'ready': 'completado',
-      'delivered': 'completado', // El backend no tiene 'entregado', se mapea a 'completado'
+      'delivered': 'completado',
       'cancelled': 'cancelado'
     };
     return statusMap[frontendStatus] || 'pendiente';
   }
 
   updateOrderStatus(order: Order, newStatus: Order['status']): void {
-    // Usar el nuevo endpoint específico para actualizar el estado
     const statusForEndpoint = this.orderService.mapFrontendStatusToStatusEndpoint(newStatus);
     
     this.orderService.updateStatus(order.id, statusForEndpoint).subscribe({
       next: (response) => {
-        // Actualizar el estado local del pedido
         order.status = newStatus;
         
-        // Marcar que el estado fue cambiado por el admin (para la barra de progreso)
         order.statusChangedByAdmin = true;
         order.lastStatusChangeTime = new Date();
         
@@ -951,14 +922,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       const formValue = this.categoryForm.value;
       const categoryName = formValue.name.trim();
       
-      // El backend solo acepta name y description, no imageUrl
       const categoryData = {
         name: categoryName,
         description: formValue.description.trim()
       };
 
       if (this.selectedCategory) {
-        // Al editar, verificar si el nuevo nombre ya existe en otra categoría
         const existingCategory = this.categories.find(
           cat => cat.id !== this.selectedCategory!.id && 
           cat.name.toLowerCase().trim() === categoryName.toLowerCase()
@@ -985,7 +954,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           }
         });
       } else {
-        // Al crear, verificar si ya existe una categoría con el mismo nombre
         const existingCategory = this.categories.find(
           cat => cat.name.toLowerCase().trim() === categoryName.toLowerCase()
         );
@@ -1114,7 +1082,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       };
 
       if (this.selectedSupply) {
-        // Al editar, verificar si el nuevo nombre ya existe en otro insumo
         const existingSupply = this.supplies.find(
           sup => (sup._id || sup.id) !== (this.selectedSupply!._id || this.selectedSupply!.id) && 
           sup.name.toLowerCase().trim() === supplyName.toLowerCase()
@@ -1136,7 +1103,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           }
         });
       } else {
-        // Al crear, verificar si ya existe un insumo con el mismo nombre
         const existingSupply = this.supplies.find(
           sup => sup.name.toLowerCase().trim() === supplyName.toLowerCase()
         );
@@ -1193,9 +1159,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return 'Disponible';
   }
 
-  // Métodos para Reservas
   loadReservations(): void {
-    // Verificar autenticación antes de cargar
     if (!this.authService.isAuthenticated() || !this.authService.isAdmin()) {
       this.reservations = [];
       this.calculateReservationStats();
@@ -1211,27 +1175,21 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           return dateB - dateA;
         });
         this.calculateReservationStats();
-        // Actualizar clientes cuando se cargan reservas
         if (this.activeTab === 'customers') {
           this.loadCustomers();
         }
       },
       error: (error) => {
-        // No mostrar error si el usuario no está autenticado (401, 403) o si es un error de conexión (0)
-        // Tampoco mostrar si es 404 (no hay reservas)
         if (error?.status === 401 || error?.status === 403 || error?.status === 0 || error?.status === 404) {
-          // Silenciar estos errores ya que son esperados cuando el usuario no está autenticado
           this.reservations = [];
           this.calculateReservationStats();
           return;
         }
 
         console.error('Error loading reservations:', error);
-        // Solo mostrar notificación para errores reales del servidor
         if (error?.status && error.status >= 500) {
           this.notificationService.showError('Error al cargar las reservas');
         }
-        // Inicializar con array vacío si hay error
         this.reservations = [];
         this.calculateReservationStats();
       }
@@ -1298,7 +1256,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.calculateReservationStats();
         this.notificationService.showSuccess(`Reserva ${this.selectedReservation!.tableNumber} cancelada exitosamente`);
 
-        // Notificar al cliente
         const clientMessage = `Su reserva para la mesa ${this.selectedReservation!.tableNumber} el ${this.selectedReservation!.date} a las ${this.selectedReservation!.time} ha sido cancelada. ${reason}`;
         this.notificationService.showInfo(`Cliente notificado: ${clientMessage}`);
 
@@ -1363,7 +1320,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   loadExtras(): void {
     this.availableExtras = this.extrasAvailabilityService.getAllExtras();
-    // También cargar adicionales del backend
     this.loadAdds();
   }
 
@@ -1391,7 +1347,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   toggleExtraAvailability(extra: ExtraAvailability): void {
     const newAvailability = !extra.available;
     this.extrasAvailabilityService.updateExtraAvailability(extra.id, newAvailability);
-    // Recargar los extras para reflejar el cambio en la vista
     this.loadExtras();
     this.notificationService.showSuccess(`${extra.name} ${newAvailability ? 'habilitado' : 'deshabilitado'}`);
     window.dispatchEvent(new CustomEvent('extrasUpdated'));
@@ -1496,12 +1451,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return extra.id;
   }
 
-  // ========== MÉTODOS PARA ADICIONALES DEL BACKEND ==========
-
   openAddModal(add?: Add): void {
     this.selectedAdd = add || null;
     if (add) {
-      // Modo edición
       this.addForm.patchValue({
         name: add.name,
         price: add.price,
@@ -1510,14 +1462,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         available: add.available !== false
       });
       this.selectedProductsForAdd = add.dishIds || [];
-      // Determinar modo de selección
       if (add.dishIds && add.dishIds.length > 0) {
         this.addSelectionMode = add.categoryIds && add.categoryIds.length > 0 ? 'both' : 'products';
       } else {
         this.addSelectionMode = 'categories';
       }
     } else {
-      // Modo creación
       this.addForm.reset({
         name: '',
         price: 0,
@@ -1556,7 +1506,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
 
     if (this.addForm.invalid) {
-      // Marcar todos los campos como touched para mostrar errores
       Object.keys(this.addForm.controls).forEach(key => {
         this.addForm.get(key)?.markAsTouched();
       });
@@ -1569,7 +1518,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     const dishIds = Array.isArray(formValue.dishIds) ? formValue.dishIds : [];
     const addName = formValue.name.trim();
 
-    // Validar duplicados (solo al crear, no al editar)
     if (!this.selectedAdd) {
       const duplicateAdd = this.adds.find(
         a => a.name.toLowerCase().trim() === addName.toLowerCase().trim()
@@ -1582,7 +1530,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         return;
       }
     } else {
-      // Al editar, verificar que no haya otro adicional con el mismo nombre (excluyendo el actual)
       const currentAddId = this.selectedAdd._id || this.selectedAdd.id;
       const duplicateAdd = this.adds.find(
         a => (a._id || a.id) !== currentAddId &&
@@ -1597,7 +1544,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Validar según el modo de selección
     if (this.addSelectionMode === 'categories' && categoryIds.length === 0) {
       this.notificationService.showError('Debes seleccionar al menos una categoría');
       return;
@@ -1620,16 +1566,13 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       available: formValue.available !== false
     };
 
-    // Incluir dishIds si hay productos seleccionados
     if (dishIds.length > 0) {
       addData.dishIds = dishIds;
     } else if (this.addSelectionMode === 'products') {
-      // Si el modo es solo productos y no hay productos seleccionados, no debería llegar aquí por la validación
       addData.dishIds = [];
     }
 
     if (this.selectedAdd) {
-      // Actualizar
       const addId = this.selectedAdd._id || this.selectedAdd.id;
       if (!addId) {
         this.notificationService.showError('Error: ID del adicional no válido');
@@ -1652,7 +1595,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         }
       });
     } else {
-      // Crear
       this.addsService.create(addData).subscribe({
         next: () => {
           this.notificationService.showSuccess('Adicional creado correctamente');
@@ -1805,13 +1747,11 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   toggleCategorySelection(categoryId: string): void {
     const currentIds = this.addForm.get('categoryIds')?.value || [];
-    const index = currentIds.indexOf(categoryId);
+      const index = currentIds.indexOf(categoryId);
 
     if (index > -1) {
-      // Remover
       currentIds.splice(index, 1);
     } else {
-      // Agregar
       currentIds.push(categoryId);
     }
 
@@ -1843,11 +1783,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     );
   }
 
-  // Métodos para Mensajes de Contacto
   loadContactMessages(): void {
     this.contactService.findAll().subscribe({
       next: (messages) => {
-        // El servicio ya devuelve ContactMessageFromBackend[], solo necesitamos mapear a ContactMessage
         this.contactMessages = messages.map(m => this.contactService.mapBackendMessageToFrontend(m));
         this.contactMessages.sort((a, b) => {
           const dateA = a.createdAt ? (a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime()) : 0;
@@ -1858,7 +1796,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error loading contact messages:', error);
-        // Solo mostrar error si no es un error de conexión o 404 (no hay mensajes)
         if (error?.status !== 404 && error?.status !== 0) {
           this.notificationService.showError('Error al cargar los mensajes de contacto');
         }
@@ -1889,7 +1826,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.selectedMessage = message;
     this.showMessageModal = true;
 
-    // Marcar como leído si no lo está
     if (!message.read) {
       this.contactService.markAsRead(message.id).subscribe({
         next: () => {
@@ -1954,7 +1890,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return this.contactMessages.filter(m => !m.read).length;
   }
 
-  // Métodos para controlar el sidebar en móvil y tablet
   isMobile(): boolean {
     return window.innerWidth <= 1200;
   }
@@ -1967,9 +1902,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.sidebarOpen = false;
   }
 
-  // Cerrar sidebar al cambiar de tab en móvil
   setActiveTab(tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'settings' | 'inventory' | 'reservations' | 'extras' | 'messages' | 'customers'): void {
-    // Cerrar sidebar en móvil al cambiar de tab
     if (this.isMobile()) {
       this.sidebarOpen = false;
     }
@@ -1998,12 +1931,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Métodos para Clientes
   loadCustomers(): void {
-    // Cargar clientes desde el backend
     this.userService.getAllUsers().subscribe({
       next: (response) => {
-        // El backend puede devolver los usuarios directamente o dentro de un objeto
         let users: any[] = [];
         if (Array.isArray(response)) {
           users = response;
@@ -2019,7 +1949,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
         console.log('Usuarios cargados del backend:', users.length);
 
-        // Mapear usuarios del backend y enriquecer con datos de pedidos y reservas
         const customersMap = new Map<string, any>();
 
         users.forEach(user => {
@@ -2030,7 +1959,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             return;
           }
           
-          // Calcular estadísticas desde pedidos y reservas
           const customerOrders = this.orders.filter(o => 
             o.userName === user.complete_name || 
             o.userName === user.name ||
@@ -2046,16 +1974,13 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
           const totalSpent = customerOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
           
-          // Calcular la última actividad real: considerar pedidos y reservas
           let lastActivityDate: Date | null = null;
           
-          // Obtener la fecha del último pedido
           if (customerOrders.length > 0) {
             const lastOrder = customerOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
             lastActivityDate = new Date(lastOrder.date);
           }
           
-          // Obtener la fecha de la última reserva y comparar
           if (customerReservations.length > 0) {
             const lastReservation = customerReservations.sort((a, b) => {
               const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -2065,14 +1990,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             
             const reservationDate = lastReservation.createdAt ? new Date(lastReservation.createdAt) : null;
             if (reservationDate) {
-              // Usar la fecha más reciente entre pedidos y reservas
               if (!lastActivityDate || reservationDate > lastActivityDate) {
                 lastActivityDate = reservationDate;
               }
             }
           }
           
-          // Si no hay actividad, usar la fecha de creación del usuario
           const lastOrderDate = lastActivityDate || (user.createdAt ? new Date(user.createdAt) : null);
 
           customersMap.set(userId, {
@@ -2084,7 +2007,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             totalOrders: customerOrders.length,
             totalReservations: customerReservations.length,
             totalSpent: totalSpent,
-            lastOrderDate: lastOrderDate, // Puede ser null si no hay actividad
+            lastOrderDate: lastOrderDate,
             status: user.status || 'active',
             role: user.role || 'customer',
             createdAt: user.createdAt
@@ -2098,17 +2021,14 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       error: (error) => {
         console.error('Error al cargar clientes desde el backend:', error);
         this.notificationService.showError('Error al cargar clientes desde el backend. Usando datos locales.');
-        // Fallback: extraer clientes de pedidos y reservas si falla el backend
         this.loadCustomersFromOrders();
       }
     });
   }
 
-  // Método de respaldo: cargar clientes desde pedidos y reservas
   private loadCustomersFromOrders(): void {
     const customersMap = new Map<string, any>();
 
-    // De pedidos
     this.orders.forEach(order => {
       const customerKey = order.userName || order.deliveryPhone || order.id;
       if (customerKey && !customersMap.has(customerKey)) {
@@ -2132,7 +2052,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       }
     });
 
-    // De reservas
     this.reservations.forEach(reservation => {
       const customerKey = reservation.userEmail || reservation.userName;
       if (customerKey) {
@@ -2225,7 +2144,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // Actualizar usando HttpClient directamente
       this.http.patch<any>(`${environment.apiUrl}/users/${customerId}`, updateData).subscribe({
         next: () => {
           this.notificationService.showSuccess('Cliente actualizado correctamente');
@@ -2243,7 +2161,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Validator para el formulario de admin
   adminPasswordMatchValidator(form: FormGroup) {
     const password = form.get('password');
     const confirmPassword = form.get('confirmPassword');
@@ -2254,7 +2171,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  // Métodos para crear nuevos admins
   openAdminModal(): void {
     this.showAdminModal = true;
     this.adminForm.reset();
@@ -2280,7 +2196,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         next: () => {
           this.notificationService.showSuccess('Administrador creado correctamente');
           this.closeAdminModal();
-          this.loadCustomers(); // Recargar para mostrar el nuevo admin en la lista
+          this.loadCustomers();
         },
         error: (error) => {
           let errorMessage = 'Error al crear el administrador. Por favor, intenta nuevamente.';
@@ -2306,7 +2222,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // Eliminar usando HttpClient directamente
       this.http.delete<any>(`${environment.apiUrl}/users/${customerId}`).subscribe({
         next: () => {
           this.notificationService.showSuccess('Cliente eliminado correctamente');
@@ -2346,12 +2261,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Limpiar el intervalo cuando el componente se destruye
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
       this.refreshInterval = null;
     }
-    // Remover listener de resize
     if (this.resizeListener) {
       window.removeEventListener('resize', this.resizeListener);
     }

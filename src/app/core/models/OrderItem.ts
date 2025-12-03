@@ -12,7 +12,7 @@ export interface OrderItem {
   price: number;
   selectedOptions?: OrderItemOption[];
   notes?: string;
-  unavailable?: boolean; // Indica si el producto no está disponible
-  unavailableReason?: string; // Razón por la que no está disponible
-  replacedWith?: number; // ID del producto que lo reemplaza (si aplica)
+  unavailable?: boolean;
+  unavailableReason?: string;
+  replacedWith?: number;
 }

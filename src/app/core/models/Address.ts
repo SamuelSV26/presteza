@@ -11,7 +11,6 @@ export interface Address {
   is_primary?: boolean;
 }
 
-// DTOs para el backend
 export interface AddAddressDto {
   name: string;
   address: string;
