@@ -51,11 +51,9 @@ export class ForgotPasswordComponent {
         console.log('Email enviado a:', this.email.trim());
         this.isLoading = false;
         this.success = true;
-        // Mostrar mensaje más detallado
         const message = response?.message || 'Se ha enviado un enlace de recuperación a tu correo electrónico. Por favor revisa tu bandeja de entrada y también la carpeta de spam.';
         this.notificationService.showSuccess(message);
 
-        // Advertencia en desarrollo
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
           console.warn('⚠️ MODO DESARROLLO: Si no recibes el correo, verifica que el backend tenga configurado el servicio de envío de correos (SMTP).');
         }
@@ -66,7 +64,6 @@ export class ForgotPasswordComponent {
         console.error('Error data:', error?.error);
         this.isLoading = false;
 
-        // Manejo más detallado de errores
         let errorMessage = 'Error al solicitar recuperación de contraseña.';
 
         if (error?.originalError) {

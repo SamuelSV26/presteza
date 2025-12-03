@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { NotificationService } from '../../core/services/notification.service';
 import { filter, take } from 'rxjs/operators';
 import { timeout } from 'rxjs';
 import { TokenService } from '../../core/services/token.service';
@@ -21,16 +20,11 @@ export class LoginComponent implements OnInit {
   loginPassword = '';
   loginError: string | null = null;
   isLoading = false;
-  showForgotPasswordModal = false;
-  forgotPasswordEmail = '';
-  forgotPasswordError: string | null = null;
-  isSendingReset = false;
 
   constructor(
     private authService: AuthService,
     private router: Router,
     private route: ActivatedRoute,
-    private notificationService: NotificationService,
     private tokenService: TokenService,
     private title: Title,
     private meta: Meta
@@ -147,8 +141,7 @@ export class LoginComponent implements OnInit {
       error: (error) => {
         this.isLoading = false;
         this.loginError = error.message || 'Error al iniciar sesión. Verifica tus credenciales.';
-      },
-      complete: () => {}
+      }
     });
   }
 
@@ -156,44 +149,9 @@ export class LoginComponent implements OnInit {
     this.router.navigate(['/registro']);
   }
 
-  goBack() {
-    this.router.navigate(['/']);
-  }
-
   onForgotPassword(event: Event) {
     event.preventDefault();
     event.stopPropagation();
     this.router.navigateByUrl('/forgot-password');
-  }
-
-  closeForgotPasswordModal() {
-    this.showForgotPasswordModal = false;
-    this.forgotPasswordEmail = '';
-    this.forgotPasswordError = null;
-  }
-
-  onSubmitForgotPassword() {
-    if (!this.forgotPasswordEmail || !this.forgotPasswordEmail.trim()) {
-      this.forgotPasswordError = 'Por favor ingresa tu correo electrónico';
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(this.forgotPasswordEmail)) {
-      this.forgotPasswordError = 'Por favor ingresa un correo electrónico válido';
-      return;
-    }
-    this.isSendingReset = true;
-    this.forgotPasswordError = null;
-    this.authService.forgotPassword(this.forgotPasswordEmail.trim()).subscribe({
-      next: (response) => {
-        this.isSendingReset = false;
-        this.notificationService.showSuccess('Se ha enviado un enlace de recuperación a tu correo electrónico. Por favor revisa tu bandeja de entrada.');
-        this.closeForgotPasswordModal();
-      },
-      error: (error) => {
-        this.isSendingReset = false;
-        this.forgotPasswordError = error.message || 'Error al solicitar recuperación de contraseña. Verifica tu correo electrónico o intenta nuevamente.';
-      }
-    });
   }
 }

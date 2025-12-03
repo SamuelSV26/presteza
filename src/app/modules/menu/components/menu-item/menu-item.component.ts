@@ -43,13 +43,11 @@ export class MenuItemComponent implements OnInit, OnChanges, OnDestroy {
     this.checkLoginStatus();
     this.updateFavoriteStatus();
     
-    // Escuchar cuando el usuario inicia sesión
     window.addEventListener('userLoggedIn', () => {
       this.checkLoginStatus();
       this.updateFavoriteStatus();
     });
     
-    // Escuchar cambios en favoritos
     window.addEventListener('favoritesChanged', () => {
       this.updateFavoriteStatus();
     });
@@ -104,24 +102,19 @@ export class MenuItemComponent implements OnInit, OnChanges, OnDestroy {
 
     console.log('Iniciando toggle de favorito para dishId:', this.dishId);
 
-    // Obtener el estado actual y luego hacer el toggle
     this.userService.isFavorite(this.dishId).pipe(
       takeUntil(this.destroy$),
       switchMap((wasFavorite: boolean) => {
         console.log(`Estado actual del favorito para ${this.dishId}:`, wasFavorite);
-        // Usar el nuevo método que devuelve Observable
         return this.userService.toggleFavorite(this.dishId).pipe(
-          map(() => wasFavorite) // Pasar el estado anterior
+          map(() => wasFavorite)
         );
       })
     ).subscribe({
       next: (wasFavorite: boolean) => {
         console.log(`✅ Favorito ${wasFavorite ? 'eliminado' : 'agregado'} correctamente`);
-        // Actualizar el estado del favorito
         this.updateFavoriteStatus();
-        
-        // Emitir el evento con la acción correcta (invertida porque ya se cambió)
-        this.favoriteClick.emit({
+                this.favoriteClick.emit({
           dishId: this.dishId,
           action: wasFavorite ? 'remove' : 'add'
         });
@@ -134,7 +127,6 @@ export class MenuItemComponent implements OnInit, OnChanges, OnDestroy {
           error: error?.error,
           url: error?.url
         });
-        // Actualizar el estado para reflejar el cambio visual
         this.updateFavoriteStatus();
       }
     });

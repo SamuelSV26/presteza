@@ -5,14 +5,12 @@
   </div>
 
   <div *ngIf="!loading && product" class="container py-5">
-    <!-- Botón Volver -->
     <button class="btn-back" (click)="goBack()">
       <i class="bi bi-arrow-left"></i>
       <span>Volver</span>
     </button>
 
     <div class="product-detail-content">
-      <!-- Columna Izquierda: Imagen -->
       <div class="product-image-section">
         <div class="product-image-wrapper">
           <img
@@ -26,14 +24,11 @@
         </div>
       </div>
 
-      <!-- Columna Derecha: Información -->
       <div class="product-info-section">
-        <!-- Header -->
         <div class="product-header">
           <h1 class="product-title">{{ product.name }}</h1>
           <p class="product-description">{{ product.description }}</p>
           
-          <!-- Stock Status Badge -->
           <div class="stock-status-badges" *ngIf="product.stockStatus">
             <span *ngIf="product.stockStatus === 'out_of_stock' || !product.available" class="badge bg-danger">
               <i class="bi bi-x-circle me-1"></i>
@@ -45,7 +40,6 @@
             </span>
           </div>
 
-          <!-- Rating -->
           <div class="rating-section">
             <div class="stars">
               <i *ngFor="let star of getStars()"
@@ -59,16 +53,13 @@
           </div>
         </div>
 
-        <!-- Opciones de Personalización -->
         <div class="customization-section">
-          <!-- Mensaje cuando no hay opciones -->
           <div *ngIf="removals.length === 0 && extras.length === 0 && addons.length === 0 && sizes.length === 0"
                class="no-options-message">
             <i class="bi bi-info-circle"></i>
             <p>Este producto no tiene opciones de personalización disponibles</p>
           </div>
 
-          <!-- Opciones de Eliminación (mostrar primero) -->
           <div *ngIf="removals.length > 0" class="option-group removal-group">
             <h3 class="option-group-title removal-title">
               <i class="bi bi-x-circle"></i>
@@ -90,7 +81,6 @@
             </div>
           </div>
 
-          <!-- Adicionales -->
           <div *ngIf="extras.length > 0" class="option-group extras-group">
             <h3 class="option-group-title">
               <i class="bi bi-plus-circle"></i>
@@ -111,7 +101,6 @@
             </div>
           </div>
 
-          <!-- Adicionar -->
           <div *ngIf="addons.length > 0" class="option-group addons-group">
             <h3 class="option-group-title">
               <i class="bi bi-plus-lg"></i>
@@ -135,7 +124,6 @@
             </div>
           </div>
 
-          <!-- Tamaños -->
           <div *ngIf="sizes.length > 0" class="option-group sizes-group">
             <h3 class="option-group-title">
               <i class="bi bi-arrows-angle-expand"></i>
@@ -158,7 +146,6 @@
           </div>
         </div>
 
-        <!-- Cantidad y Precio Total -->
         <div class="quantity-price-section">
           <div class="quantity-control">
             <label class="quantity-label">Cantidad:</label>
@@ -195,7 +182,6 @@
           </div>
         </div>
 
-        <!-- Botón Agregar al Carrito -->
         <div class="action-section">
           <button class="btn-add-to-cart" (click)="addToCart()" [disabled]="!product.available">
             <i class="bi bi-cart-plus"></i>

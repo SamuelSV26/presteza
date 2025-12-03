@@ -1,5 +1,4 @@
 <section class="contacto-page">
-  <!-- Hero Section -->
   <div class="hero-section">
     <div class="hero-overlay"></div>
     <div class="hero-content">
@@ -8,11 +7,8 @@
     </div>
   </div>
 
-  <!-- Contenido Principal -->
   <div class="container py-5">
-    <!-- Formulario e Información de Contacto -->
     <div class="row g-5 mb-5">
-      <!-- Formulario de Contacto -->
       <div class="col-lg-7">
         <div class="form-card">
           <div class="form-header">
@@ -24,13 +20,11 @@
           </div>
 
           <form [formGroup]="contactForm" (ngSubmit)="onSubmit()" class="contact-form">
-            <!-- Mensaje de éxito -->
             <div *ngIf="formSuccess" class="alert alert-success alert-dismissible fade show" role="alert">
               <i class="bi bi-check-circle-fill me-2"></i>
               ¡Mensaje enviado exitosamente! Nos pondremos en contacto contigo pronto.
             </div>
 
-            <!-- Nombre -->
             <div class="form-group mb-4">
               <label for="name" class="form-label">
                 <i class="bi bi-person-fill me-2"></i>Nombre Completo
@@ -49,7 +43,6 @@
               </div>
             </div>
 
-            <!-- Email -->
             <div class="form-group mb-4">
               <label for="email" class="form-label">
                 <i class="bi bi-envelope-fill me-2"></i>Correo Electrónico
@@ -68,7 +61,6 @@
               </div>
             </div>
 
-            <!-- Teléfono -->
             <div class="form-group mb-4">
               <label for="phone" class="form-label">
                 <i class="bi bi-telephone-fill me-2"></i>Teléfono
@@ -87,7 +79,6 @@
               </div>
             </div>
 
-            <!-- Asunto -->
             <div class="form-group mb-4">
               <label for="subject" class="form-label">
                 <i class="bi bi-tag-fill me-2"></i>Asunto
@@ -106,7 +97,6 @@
               </div>
             </div>
 
-            <!-- Mensaje -->
             <div class="form-group mb-4">
               <label for="message" class="form-label">
                 <i class="bi bi-chat-dots-fill me-2"></i>Mensaje
@@ -125,7 +115,6 @@
               </div>
             </div>
 
-            <!-- Botón de Envío -->
             <div class="form-actions">
               <button type="submit" class="submit-btn">
                 <i class="bi bi-send-fill me-2"></i>
@@ -136,10 +125,8 @@
         </div>
       </div>
 
-      <!-- Información de Contacto -->
       <div class="col-lg-5">
         <div class="info-section">
-          <!-- Información de Contacto -->
           <div class="info-card contact-info-card">
             <div class="contact-info-grid">
               <div class="contact-info-item">
@@ -172,7 +159,6 @@
             <p class="info-text">{{ contactInfo.address }}</p>
           </div>
 
-          <!-- Horarios -->
           <div class="schedule-card">
             <div class="schedule-header">
               <i class="bi bi-clock-history schedule-icon"></i>
@@ -190,7 +176,6 @@
             </div>
           </div>
 
-          <!-- WhatsApp -->
           <div class="whatsapp-section">
             <div class="whatsapp-header">
               <i class="bi bi-whatsapp whatsapp-header-icon"></i>

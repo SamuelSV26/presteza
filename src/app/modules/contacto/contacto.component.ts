@@ -24,7 +24,7 @@ export class ContactoComponent {
     address: 'Carrera 23 # 70B - 57, Milan, Manizales, Caldas',
     schedule: {
       weekdays: 'Lunes a Viernes: 11:00 AM - 10:00 PM',
-      weekends: 'Sábados y Domingos: 12:00 PM - 11:00 PM'
+      weekends: 'Sábados: 12:00 PM - 11:00 PM'
     }
   };
 

@@ -6,16 +6,10 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { CartService } from '../../../../core/services/cart.service';
 import { Observable, Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
 import { MenuItem, ProductOption } from '../../../../core/models/MenuItem';
 import { MenuService } from '../../../../core/services/menu.service';
 import { AddsService, Add } from '../../../../core/services/adds.service';
 import { Meta, Title } from '@angular/platform-browser';
-
-interface SelectedOption {
-  option: ProductOption;
-  checked: boolean;
-}
 
 @Component({
   selector: 'app-product-detail',
@@ -42,7 +36,6 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
   isFavorite$: Observable<boolean> = new Observable();
   isLoggedIn = false;
   private addsUpdatedHandler = () => {
-    // Actualizar cuando se modifiquen los adicionales en el backend
     setTimeout(() => {
       if (this.product && this.categoryId) {
         this.loadAddsFromBackend();
@@ -95,7 +88,6 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
               this.categoryId = item.categoryId;
             }
             this.organizeOptions();
-            // Cargar adicionales desde el backend después de organizar opciones
             if (this.categoryId) {
               this.loadAddsFromBackend();
             }
@@ -133,96 +125,7 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
     this.extras = [];
     this.sizes = [];
     this.removals = [];
-    const description = (this.product?.description || '').toLowerCase();
-    const ingredientMap: { [key: string]: string[] } = {
-      'cebolla': ['cebolla', 'cebollas'],
-      'tomate': ['tomate', 'tomates'],
-      'lechuga': ['lechuga'],
-      'queso': ['queso', 'quesos', 'cheddar'],
-      'salsa': ['salsa', 'salsas'],
-      'mayonesa': ['mayonesa'],
-      'mostaza': ['mostaza'],
-      'pepinillos': ['pepinillos', 'pepinillo'],
-      'aguacate': ['aguacate', 'palta'],
-      'huevo': ['huevo', 'huevos'],
-      'tocino': ['tocino', 'tocineta', 'bacon'],
-      'carne': ['carne', 'carne asada', 'carne molida'],
-      'pollo': ['pollo'],
-      'pescado': ['pescado', 'salmón'],
-      'mariscos': ['mariscos', 'camarones'],
-      'frijoles': ['frijoles', 'fríjoles', 'frijol'],
-      'arroz': ['arroz'],
-      'papa': ['papa', 'papas', 'papas a la francesa'],
-      'plátano': ['plátano', 'plátanos', 'plátano maduro'],
-      'arepa': ['arepa', 'arepas']
-    };
 
-    const foundIngredients: string[] = [];
-    Object.keys(ingredientMap).forEach(ingredient => {
-      const variations = ingredientMap[ingredient];
-      const found = variations.some(variation => description.includes(variation));
-      if (found) {
-        foundIngredients.push(ingredient);
-      }
-    });
-
-    foundIngredients.forEach(ingredient => {
-      const removalOption: ProductOption = {
-        id: `removal-${ingredient}`,
-        name: `Sin ${ingredient}`,
-        price: 0,
-        type: 'extra'
-      };
-      this.removals.push(removalOption);
-      this.selectedOptions.set(removalOption.id, false);
-    });
-
-    const addonNames: { [key: string]: string } = {
-      'queso': 'Queso extra',
-      'tocino': 'Tocino extra',
-      'huevo': 'Huevo extra',
-      'aguacate': 'Aguacate extra',
-      'papa': 'Papas extra',
-      'carne': 'Carne extra',
-      'pollo': 'Pollo extra',
-      'cebolla': 'Cebolla extra',
-      'tomate': 'Tomate extra',
-      'lechuga': 'Lechuga extra',
-      'salsa': 'Salsa extra',
-      'mayonesa': 'Mayonesa extra',
-      'mostaza': 'Mostaza extra',
-      'pepinillos': 'Pepinillos extra',
-      'pescado': 'Pescado extra',
-      'mariscos': 'Mariscos extra',
-      'frijoles': 'Frijoles extra',
-      'arroz': 'Arroz extra',
-      'plátano': 'Plátano extra'
-    };
-
-    const addonPrices: { [key: string]: number } = {
-      'queso': 2000,
-      'tocino': 3000,
-      'huevo': 1500,
-      'aguacate': 2000,
-      'papa': 3000,
-      'carne': 5000,
-      'pollo': 4000,
-      'cebolla': 1000,
-      'tomate': 1000,
-      'lechuga': 1000,
-      'salsa': 1500,
-      'mayonesa': 1000,
-      'mostaza': 1000,
-      'pepinillos': 1500,
-      'pescado': 6000,
-      'mariscos': 7000,
-      'frijoles': 2000,
-      'arroz': 2000,
-      'plátano': 2000
-    };
-
-    // NO generar adicionales localmente - SOLO usar el backend
-    // Los adicionales se cargarán desde el backend en loadAddsFromBackend()
     if (this.product?.options && Array.isArray(this.product.options)) {
       this.product.options.forEach(option => {
         if (!option || !option.id || !option.name) {
@@ -330,27 +233,22 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
         let option: ProductOption | undefined;
         let optionType: 'addon' | 'size' | 'extra' | 'removal' | undefined;
 
-        // Buscar en removals primero
         option = this.removals.find(opt => String(opt.id) === String(optionId));
         if (option) {
           optionType = 'removal';
         } else {
-          // Buscar en addons
           option = this.addons.find(opt => String(opt.id) === String(optionId));
           if (option) {
             optionType = 'addon';
           } else {
-            // Buscar en extras
             option = this.extras.find(opt => String(opt.id) === String(optionId));
             if (option) {
               optionType = 'extra';
             } else {
-              // Buscar en sizes
               option = this.sizes.find(opt => String(opt.id) === String(optionId));
               if (option) {
                 optionType = 'size';
               } else {
-                // Buscar en las opciones del producto
                 option = this.product?.options?.find(opt => String(opt.id) === String(optionId));
                 if (option) {
                   optionType = option.type || 'extra';
@@ -412,20 +310,16 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Guardar el ID en una variable local para evitar problemas con null
     const productId = this.product.id;
 
-    // Usar el nuevo método que devuelve Observable
     this.userService.toggleFavorite(productId).subscribe({
       next: () => {
-        // Actualizar el estado del favorito
         if (this.product) {
           this.isFavorite$ = this.userService.isFavorite(productId);
         }
       },
       error: (error) => {
         console.error('Error al alternar favorito:', error);
-        // Aún así actualizar el estado para reflejar el cambio visual
         if (this.product) {
           this.isFavorite$ = this.userService.isFavorite(productId);
         }
@@ -468,7 +362,6 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
             return;
           }
 
-          // Evitar duplicados
           if (addedIds.has(addId)) {
             return;
           }
@@ -485,15 +378,12 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
           this.selectedOptions.set(addonOption.id, false);
         });
 
-        // Reemplazar los adicionales con los del backend
         this.addons = backendAddons;
 
-        // Recalcular el total después de cargar los adicionales
         this.calculateTotal();
       },
       error: (error) => {
         console.error('Error al cargar adicionales desde el backend:', error);
-        // Si hay error, mantener los adicionales vacíos
         this.addons = [];
       }
     });

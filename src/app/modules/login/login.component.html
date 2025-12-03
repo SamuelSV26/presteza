@@ -1,5 +1,4 @@
 <section class="login-page">
-  <!-- Hero Section -->
   <div class="hero-section">
     <div class="hero-overlay"></div>
     <div class="hero-content">
@@ -8,7 +7,6 @@
     </div>
   </div>
 
-  <!-- Formulario de Login -->
   <div class="container py-5">
     <div class="row justify-content-center">
       <div class="col-lg-6 col-md-8">
@@ -22,14 +20,12 @@
           </div>
 
           <form (ngSubmit)="onLoginSubmit()" class="login-form">
-            <!-- Mensaje de error -->
             <div *ngIf="loginError" class="alert alert-danger alert-dismissible fade show" role="alert">
               <i class="bi bi-exclamation-triangle-fill me-2"></i>
               {{ loginError }}
               <button type="button" class="btn-close" (click)="loginError = null" aria-label="Close"></button>
             </div>
 
-            <!-- Email -->
             <div class="form-group mb-4">
               <label for="email" class="form-label">
                 <i class="bi bi-envelope-fill me-2"></i>Correo Electrónico
@@ -46,7 +42,6 @@
               />
             </div>
 
-            <!-- Contraseña -->
             <div class="form-group mb-4">
               <label for="password" class="form-label">
                 <i class="bi bi-lock-fill me-2"></i>Contraseña
@@ -63,12 +58,10 @@
               />
             </div>
 
-            <!-- Opciones -->
             <div class="login-options mb-4">
               <button type="button" class="forgot-password-btn" (click)="onForgotPassword($event)">¿Olvidaste tu contraseña?</button>
             </div>
 
-            <!-- Botón de Login -->
             <div class="form-actions">
               <button type="submit" class="submit-btn" [disabled]="isLoading">
                 <i class="bi bi-person-check-fill me-2"></i>
@@ -81,78 +74,11 @@
               </button>
             </div>
 
-            <!-- Enlace a Registro -->
             <div class="login-footer">
               <p>¿No tienes una cuenta? <a href="javascript:void(0)" class="register-link" (click)="navigateToRegistro(); $event.preventDefault()">Regístrate aquí</a></p>
             </div>
           </form>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal de Recuperación de Contraseña -->
-  <div *ngIf="showForgotPasswordModal" class="forgot-password-modal-overlay" (click)="closeForgotPasswordModal()">
-    <div class="forgot-password-modal" (click)="$event.stopPropagation()">
-      <div class="forgot-password-modal-header">
-        <div class="forgot-password-icon-wrapper">
-          <i class="bi bi-key-fill"></i>
-        </div>
-        <h3 class="forgot-password-title">Recuperar Contraseña</h3>
-        <button class="forgot-password-close" (click)="closeForgotPasswordModal()">
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
-      
-      <div class="forgot-password-modal-body">
-        <p class="forgot-password-description">
-          Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
-        </p>
-        
-        <!-- Mensaje de error -->
-        <div *ngIf="forgotPasswordError" class="alert alert-danger alert-dismissible fade show" role="alert">
-          <i class="bi bi-exclamation-triangle-fill me-2"></i>
-          {{ forgotPasswordError }}
-          <button type="button" class="btn-close" (click)="forgotPasswordError = null" aria-label="Close"></button>
-        </div>
-
-        <!-- Campo de Email -->
-        <div class="form-group mb-4">
-          <label for="forgotPasswordEmail" class="form-label">
-            <i class="bi bi-envelope-fill me-2"></i>Correo Electrónico
-          </label>
-          <input
-            type="email"
-            id="forgotPasswordEmail"
-            class="form-control"
-            [(ngModel)]="forgotPasswordEmail"
-            placeholder="tu@email.com"
-            [disabled]="isSendingReset"
-            autofocus
-          />
-        </div>
-      </div>
-
-      <div class="forgot-password-modal-footer">
-        <button 
-          type="button" 
-          class="btn btn-secondary forgot-password-cancel-btn" 
-          (click)="closeForgotPasswordModal()"
-          [disabled]="isSendingReset">
-          Cancelar
-        </button>
-        <button 
-          type="button" 
-          class="btn btn-primary forgot-password-submit-btn" 
-          (click)="onSubmitForgotPassword()"
-          [disabled]="isSendingReset">
-          <span *ngIf="!isSendingReset">
-            <i class="bi bi-send-fill me-2"></i>Enviar Enlace
-          </span>
-          <span *ngIf="isSendingReset">
-            <i class="bi bi-hourglass-split me-2"></i>Enviando...
-          </span>
-        </button>
       </div>
     </div>
   </div>
