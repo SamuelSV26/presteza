@@ -28,4 +28,6 @@ export interface Order {
   subtotal?: number;
   additionalFees?: number;
   userName?: string; // Nombre del usuario que hizo el pedido
+  statusChangedByAdmin?: boolean; // Indica si el estado fue cambiado por el admin (para completar la barra de progreso)
+  lastStatusChangeTime?: Date; // Fecha del último cambio de estado
 }

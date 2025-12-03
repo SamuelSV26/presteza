@@ -62,6 +62,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private progressIntervals: Map<string, any> = new Map();
+  private ordersRefreshInterval: any = null;
 
   constructor(
     private userService: UserService,
@@ -139,14 +140,9 @@ export class PerfilComponent implements OnInit, OnDestroy {
     this.loadUserProfile();
     this.loadOrders();
     this.loadReservations();
-    setInterval(() => {
-      if (this.activeTab === 'orders') {
-        this.loadOrders();
-      }
-      if (this.activeTab === 'reservations') {
-        this.loadReservations();
-      }
-    }, 10000);
+    
+    // Actualizar pedidos periódicamente solo si hay pedidos activos
+    this.startOrdersRefresh();
     this.authService.userInfo$.pipe(takeUntil(this.destroy$)).subscribe(userInfo => {
       if (userInfo) {
         this.loadUserProfile();
@@ -186,6 +182,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.progressIntervals.forEach(interval => clearInterval(interval));
     this.progressIntervals.clear();
+    
+    if (this.ordersRefreshInterval) {
+      clearInterval(this.ordersRefreshInterval);
+      this.ordersRefreshInterval = null;
+    }
 
     this.destroy$.next();
     this.destroy$.complete();
@@ -508,6 +509,11 @@ private loadUserProfile() {
     }
     if (tab === 'reservations') {
       this.loadReservations();
+    } else if (tab === 'orders') {
+      // Actualizar pedidos inmediatamente cuando el usuario cambia a la pestaña
+      this.loadOrders();
+      // Reiniciar el intervalo de actualización
+      this.startOrdersRefresh();
     }
   }
 
@@ -584,6 +590,156 @@ private loadUserProfile() {
       }
     });
     this.loadRecommendedDishes();
+    // Reiniciar el intervalo de actualización cuando se cargan nuevos pedidos
+    this.startOrdersRefresh();
+  }
+
+  /**
+   * Inicia un intervalo para actualizar automáticamente los pedidos activos
+   * Solo actualiza pedidos que no están entregados o cancelados
+   */
+  private startOrdersRefresh(): void {
+    // Limpiar intervalo anterior si existe
+    if (this.ordersRefreshInterval) {
+      clearInterval(this.ordersRefreshInterval);
+    }
+
+    // Actualizar cada 15 segundos solo si hay pedidos activos y estamos en la pestaña de pedidos
+    this.ordersRefreshInterval = setInterval(() => {
+      if (this.activeTab === 'orders') {
+        const hasActiveOrders = this.orders.some(order => 
+          order.status !== 'cancelled' && order.status !== 'delivered'
+        );
+        
+        if (hasActiveOrders) {
+          this.refreshActiveOrders();
+        }
+      }
+    }, 15000); // Actualizar cada 15 segundos
+  }
+
+  /**
+   * Actualiza solo los pedidos activos desde el backend
+   * Compara los estados y actualiza solo los que han cambiado
+   */
+  private refreshActiveOrders(): void {
+    const userInfo = this.authService.getUserInfo();
+    if (!userInfo || !userInfo.userId) {
+      return;
+    }
+
+    // Obtener solo los IDs de pedidos activos
+    const activeOrderIds = this.orders
+      .filter(order => order.status !== 'cancelled' && order.status !== 'delivered')
+      .map(order => order.id);
+
+    if (activeOrderIds.length === 0) {
+      return;
+    }
+
+    // Obtener pedidos actualizados del backend
+    this.orderService.findByUser(userInfo.userId).pipe(
+      takeUntil(this.destroy$),
+      catchError(() => of(null))
+    ).subscribe(response => {
+      if (!response) return;
+
+      let backendOrders: OrderFromBackend[] = [];
+      if (response && 'orders' in response) {
+        backendOrders = response.orders;
+      } else if (Array.isArray(response)) {
+        backendOrders = response;
+      }
+
+      // Crear un mapa de pedidos del backend por ID
+      const backendOrdersMap = new Map<string, OrderFromBackend>();
+      backendOrders.forEach(backendOrder => {
+        const orderId = backendOrder._id || backendOrder.id || '';
+        backendOrdersMap.set(orderId, backendOrder);
+      });
+
+      // Actualizar solo los pedidos activos que han cambiado
+      let hasChanges = false;
+      this.orders.forEach((order, index) => {
+        if (activeOrderIds.includes(order.id)) {
+          const backendOrder = backendOrdersMap.get(order.id);
+          if (backendOrder) {
+            const newStatus = this.mapBackendStatusToFrontend(backendOrder.status);
+            
+            // Si el estado cambió, actualizar el pedido
+            if (order.status !== newStatus) {
+              console.log(`🔄 Estado del pedido ${order.id} cambió de ${order.status} a ${newStatus}`);
+              
+              // Mapear el pedido completo desde el backend
+              const updatedOrder = this.mapBackendOrderToFrontend(backendOrder);
+              
+              // Preservar información local que no viene del backend
+              updatedOrder.trackingCode = order.trackingCode || updatedOrder.trackingCode;
+              updatedOrder.estimatedPrepTime = order.estimatedPrepTime || updatedOrder.estimatedPrepTime;
+              updatedOrder.estimatedDeliveryTime = order.estimatedDeliveryTime || updatedOrder.estimatedDeliveryTime;
+              
+              // Marcar que el estado fue cambiado por el admin (para completar la barra de progreso)
+              updatedOrder.statusChangedByAdmin = true;
+              updatedOrder.lastStatusChangeTime = new Date();
+              
+              // Actualizar el pedido en el array
+              this.orders[index] = updatedOrder;
+              hasChanges = true;
+
+              // Mostrar notificación si el estado cambió a uno importante
+              if (newStatus === 'ready') {
+                this.notificationService.showSuccess('¡Tu pedido está listo!', 'Pedido Listo');
+              } else if (newStatus === 'delivered') {
+                this.notificationService.showSuccess('¡Tu pedido ha sido entregado!', 'Pedido Entregado');
+              } else if (newStatus === 'preparing') {
+                this.notificationService.showInfo('Tu pedido está en preparación', 'En Preparación');
+              }
+
+              // Reiniciar el progreso automático si es necesario
+              // Nota: No reiniciamos el progreso automático cuando el estado fue cambiado por admin
+              // porque queremos que la barra se complete al 100%
+              // Solo reiniciamos si el pedido sigue activo y no fue cambiado por admin
+              if (newStatus !== 'cancelled' && newStatus !== 'delivered' && !updatedOrder.statusChangedByAdmin) {
+                this.startAutoProgress(updatedOrder);
+              }
+            }
+          }
+        }
+      });
+
+      // Si hubo cambios, reordenar y actualizar la vista
+      if (hasChanges) {
+        this.orders.sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          if (dateB !== dateA) {
+            return dateB - dateA;
+          }
+          return String(b.id).localeCompare(String(a.id));
+        });
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /**
+   * Mapea el estado del backend al estado del frontend
+   */
+  private mapBackendStatusToFrontend(backendStatus: string): Order['status'] {
+    const statusMap: Record<string, Order['status']> = {
+      'pendiente': 'pending',
+      'Preparando': 'preparing',
+      'preparando': 'preparing', // Por si viene en minúsculas
+      'en_proceso': 'preparing', // Compatibilidad con formato anterior
+      'listo': 'ready',
+      'Listo': 'ready', // Por si viene con mayúscula
+      'completado': 'ready', // Compatibilidad con formato anterior
+      'entregado': 'delivered',
+      'Entregado': 'delivered', // Por si viene con mayúscula
+      'cancelado': 'cancelled',
+      'Cancelado': 'cancelled' // Por si viene con mayúscula
+    };
+    return statusMap[backendStatus] || 'pending';
   }
 
   private mapBackendOrderToFrontend(backendOrder: OrderFromBackend): Order {
@@ -752,19 +908,48 @@ private loadUserProfile() {
       return 0;
     }
 
+    const statusOrder = ['pending', 'preparing', 'ready', 'delivered'];
+    const currentStatusIndex = statusOrder.indexOf(order.status);
+    if (currentStatusIndex === -1) return 0;
+
+    // Si el estado fue cambiado por el admin, completar la barra al 100% del estado actual
+    if (order.statusChangedByAdmin && order.lastStatusChangeTime) {
+      const now = new Date();
+      const statusChangeTime = new Date(order.lastStatusChangeTime);
+      const timeSinceStatusChange = (now.getTime() - statusChangeTime.getTime()) / 1000;
+      
+      // Si pasaron más de 5 segundos desde el cambio de estado, completar al 100%
+      if (timeSinceStatusChange > 5) {
+        // Calcular el progreso base del estado actual (100% del estado)
+        const baseProgress = (currentStatusIndex + 1) * 25; // 25% por estado
+        return Math.min(baseProgress, 100);
+      } else {
+        // Animación suave durante los primeros 5 segundos
+        const animationProgress = (timeSinceStatusChange / 5) * 25; // Animación de 0% a 25% adicional
+        const baseProgress = (currentStatusIndex + 1) * 25;
+        return Math.min(baseProgress + animationProgress, 100);
+      }
+    }
+
+    // Progreso automático: solo llega al 50% entre estados
     const now = new Date();
     const orderDate = new Date(order.date);
     const timeElapsed = now.getTime() - orderDate.getTime();
     const secondsElapsed = timeElapsed / 1000;
     const secondsPerState = 120;
-    const statusOrder = ['pending', 'preparing', 'ready', 'delivered'];
-    const currentStatusIndex = statusOrder.indexOf(order.status);
-    if (currentStatusIndex === -1) return 0;
     const totalSeconds = secondsPerState * 3;
+    
+    // Calcular progreso basado en tiempo
     let totalProgress = (secondsElapsed / totalSeconds) * 100;
-    const maxProgressForState = (currentStatusIndex + 1) * 33.33;
+    
+    // Limitar el progreso al 50% entre estados (no completa el estado actual)
+    // Cada estado tiene 25% de progreso total, pero solo llegamos al 50% del siguiente
+    const stateProgress = 25; // 25% por estado
+    const maxProgressForState = (currentStatusIndex * stateProgress) + (stateProgress * 0.5); // 50% del siguiente estado
     totalProgress = Math.min(totalProgress, maxProgressForState);
-    const minProgressForState = currentStatusIndex * 33.33;
+    
+    // Mínimo: inicio del estado actual
+    const minProgressForState = currentStatusIndex * stateProgress;
     totalProgress = Math.max(totalProgress, minProgressForState);
 
     return Math.min(Math.max(totalProgress, 0), 100);
@@ -1395,6 +1580,62 @@ private loadUserProfile() {
             this.loadOrders();
           } else {
             this.notificationService.showError('No se pudo cancelar el pedido. El tiempo límite ha expirado o el pedido ya está en preparación.');
+          }
+        });
+      }
+    });
+  }
+
+  confirmReception(order: Order): void {
+    if (order.status !== 'ready') {
+      this.notificationService.showError('Solo puedes confirmar la recepción de pedidos que están listos');
+      return;
+    }
+
+    this.notificationService.confirm(
+      'Confirmar Recepción',
+      `¿Confirmas que recibiste el pedido #${order.id.slice(-8)}?`,
+      'Confirmar',
+      'Cancelar'
+    ).then(confirmed => {
+      if (confirmed) {
+        // Usar el nuevo endpoint específico para actualizar el estado a "entregado"
+        const statusForEndpoint = this.orderService.mapFrontendStatusToStatusEndpoint('delivered');
+        this.orderService.updateStatus(order.id, statusForEndpoint).pipe(
+          takeUntil(this.destroy$),
+          catchError((error: HttpErrorResponse) => {
+            const errorMessage = error?.error?.message || error?.message || 'Error al confirmar la recepción del pedido';
+            this.notificationService.showError(errorMessage);
+            return of(null);
+          })
+        ).subscribe(response => {
+          if (response) {
+            // Actualizar el estado local del pedido
+            const orderIndex = this.orders.findIndex(o => o.id === order.id);
+            if (orderIndex !== -1) {
+              this.orders[orderIndex].status = 'delivered';
+              this.orders[orderIndex].statusChangedByAdmin = true;
+              this.orders[orderIndex].lastStatusChangeTime = new Date();
+              
+              // Agregar al historial de estados
+              if (!this.orders[orderIndex].statusHistory) {
+                this.orders[orderIndex].statusHistory = [];
+              }
+              this.orders[orderIndex].statusHistory!.push({
+                status: 'delivered',
+                timestamp: new Date(),
+                message: 'Recepción confirmada por el usuario'
+              });
+              
+              // Detener el progreso automático
+              if (this.progressIntervals.has(order.id)) {
+                clearInterval(this.progressIntervals.get(order.id));
+                this.progressIntervals.delete(order.id);
+              }
+            }
+            
+            this.notificationService.showSuccess('¡Recepción confirmada! Gracias por tu compra.', 'Pedido Recibido');
+            this.cdr.detectChanges();
           }
         });
       }

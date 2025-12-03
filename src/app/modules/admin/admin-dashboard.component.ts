@@ -732,16 +732,24 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   updateOrderStatus(order: Order, newStatus: Order['status']): void {
-    const backendStatus = this.mapFrontendStatusToBackend(newStatus);
-    this.orderService.update(order.id, { status: backendStatus }).subscribe({
-      next: () => {
+    // Usar el nuevo endpoint específico para actualizar el estado
+    const statusForEndpoint = this.orderService.mapFrontendStatusToStatusEndpoint(newStatus);
+    
+    this.orderService.updateStatus(order.id, statusForEndpoint).subscribe({
+      next: (response) => {
+        // Actualizar el estado local del pedido
         order.status = newStatus;
+        
+        // Marcar que el estado fue cambiado por el admin (para la barra de progreso)
+        order.statusChangedByAdmin = true;
+        order.lastStatusChangeTime = new Date();
+        
         if (newStatus === 'delivered') {
           this.userService.saveOrder(order);
         }
 
         this.calculateStats();
-        this.notificationService.showSuccess('Estado del pedido actualizado');
+        this.notificationService.showSuccess('Estado del pedido actualizado exitosamente');
       },
       error: (error) => {
         let errorMessage = 'Error al actualizar el estado del pedido';
@@ -751,6 +759,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           errorMessage = `Error: ${error.message}`;
         }
         this.notificationService.showError(errorMessage);
+        console.error('Error al actualizar estado del pedido:', error);
       }
     });
   }
